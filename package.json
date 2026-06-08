@@ -1,0 +1,22 @@
+{
+  "name": "aisdr",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "lint": "turbo lint",
+    "typecheck": "turbo typecheck",
+    "test": "turbo test",
+    "db:push": "cd packages/db && drizzle-kit push",
+    "db:studio": "cd packages/db && drizzle-kit studio"
+  },
+  "devDependencies": {
+    "turbo": "^1.13.0",
+    "typescript": "^5.4.5"
+  }
+}
