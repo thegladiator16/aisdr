@@ -1,0 +1,7 @@
+allowBuilds:
+  '@clerk/shared': false
+  '@sentry/cli': false
+  core-js: false
+  esbuild: false
+  msgpackr-extract: false
+  unrs-resolver: false
