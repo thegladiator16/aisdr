@@ -1,9 +1,7 @@
 import { google } from "googleapis";
 
 export class GmailClient {
-  private oauth2Client: ReturnType<typeof google.auth.OAuth2.prototype.constructor> & {
-    setCredentials: (creds: { access_token: string; refresh_token: string }) => void;
-  };
+  private oauth2Client: InstanceType<typeof google.auth.OAuth2>;
 
   constructor(accessToken: string, refreshToken: string) {
     this.oauth2Client = new google.auth.OAuth2(

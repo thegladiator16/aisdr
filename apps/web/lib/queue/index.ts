@@ -15,10 +15,12 @@ export const QUEUES = {
   SEQUENCE_ADVANCE: "sequence-advance",
 } as const;
 
-export const leadResearchQueue = new Queue(QUEUES.LEAD_RESEARCH, { connection });
-export const outreachQueue = new Queue(QUEUES.OUTREACH, { connection });
-export const replySyncQueue = new Queue(QUEUES.REPLY_SYNC, { connection });
-export const sequenceAdvanceQueue = new Queue(QUEUES.SEQUENCE_ADVANCE, { connection });
+const queueConnection = connection as never;
+
+export const leadResearchQueue = new Queue(QUEUES.LEAD_RESEARCH, { connection: queueConnection });
+export const outreachQueue = new Queue(QUEUES.OUTREACH, { connection: queueConnection });
+export const replySyncQueue = new Queue(QUEUES.REPLY_SYNC, { connection: queueConnection });
+export const sequenceAdvanceQueue = new Queue(QUEUES.SEQUENCE_ADVANCE, { connection: queueConnection });
 
 export type LeadResearchJob = {
   leadId: string;

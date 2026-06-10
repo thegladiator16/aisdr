@@ -113,7 +113,7 @@ export default async function LeadsPage({
                       href={`/leads/${lead.id}`}
                       className="font-medium text-foreground hover:text-primary transition-colors"
                     >
-                      {lead.fullName ?? `${lead.firstName ?? ""} ${lead.lastName ?? ""}`.trim() || "—"}
+                      {lead.fullName ?? (`${lead.firstName ?? ""} ${lead.lastName ?? ""}`.trim() || "—")}
                     </Link>
                     <p className="text-xs text-muted-foreground">
                       {lead.country ?? lead.location}

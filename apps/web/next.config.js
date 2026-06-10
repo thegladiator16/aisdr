@@ -1,8 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  typescript: { ignoreBuildErrors: true },
-  eslint: { ignoreDuringBuilds: true },
-  serverExternalPackages: ['postgres', 'ioredis'],
+  experimental: {
+    serverComponentsExternalPackages: ['postgres', 'ioredis'],
+  },
   images: {
     remotePatterns: [{ protocol: 'https', hostname: '**' }],
   },

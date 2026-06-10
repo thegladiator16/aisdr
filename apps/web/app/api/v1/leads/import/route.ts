@@ -13,8 +13,7 @@ function mapCsvRow(row: CsvRow, userId: string) {
     row.full_name ??
     row.fullName ??
     row["Full Name"] ??
-    [firstName, lastName].filter(Boolean).join(" ") ||
-    undefined;
+    ([firstName, lastName].filter(Boolean).join(" ") || undefined);
 
   const email = row.email ?? row.Email ?? undefined;
   if (!email && !fullName) return null;

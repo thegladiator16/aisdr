@@ -6,20 +6,6 @@ import { eq, desc } from "drizzle-orm";
 import { SENTIMENT_EMOJI, INTENT_LABEL, truncate } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 
-const URGENCY_COLOR: Record<string, string> = {
-  immediate: "text-red-400",
-  today: "text-yellow-400",
-  this_week: "text-blue-400",
-  low: "text-zinc-500",
-};
-
-const URGENCY_DOT: Record<string, string> = {
-  immediate: "bg-red-400",
-  today: "bg-yellow-400",
-  this_week: "bg-blue-400",
-  low: "bg-zinc-500",
-};
-
 export default async function InboxPage() {
   const user = await requireUser();
 
@@ -69,19 +55,6 @@ export default async function InboxPage() {
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            {reply.urgency && (
-              <span className="flex items-center gap-1 text-xs">
-                <span
-                  className={cn(
-                    "h-1.5 w-1.5 rounded-full",
-                    URGENCY_DOT[reply.urgency]
-                  )}
-                />
-                <span className={URGENCY_COLOR[reply.urgency]}>
-                  {reply.urgency.replace("_", " ")}
-                </span>
-              </span>
-            )}
             {reply.intent && (
               <span className="rounded-full border border-border px-2 py-0.5 text-xs text-muted-foreground">
                 {INTENT_LABEL[reply.intent] ?? reply.intent}

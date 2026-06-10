@@ -78,8 +78,7 @@ export async function POST(req: NextRequest) {
 
     const fullName =
       parsed.fullName ??
-      [parsed.firstName, parsed.lastName].filter(Boolean).join(" ") ||
-      undefined;
+      ([parsed.firstName, parsed.lastName].filter(Boolean).join(" ") || undefined);
 
     const result = await db
       .insert(leads)
