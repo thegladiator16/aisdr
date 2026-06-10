@@ -11,6 +11,7 @@ import {
   index,
 } from "drizzle-orm/pg-core";
 import { users } from "./users";
+import { campaigns } from "./campaigns";
 
 export const leads = pgTable(
   "leads",
@@ -19,6 +20,9 @@ export const leads = pgTable(
     userId: uuid("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
+    campaignId: uuid("campaign_id").references(() => campaigns.id, {
+      onDelete: "set null",
+    }),
 
     firstName: varchar("first_name", { length: 255 }),
     lastName: varchar("last_name", { length: 255 }),
@@ -72,6 +76,7 @@ export const leads = pgTable(
     statusIdx: index("idx_leads_status").on(table.userId, table.status),
     emailIdx: index("idx_leads_email").on(table.email),
     companyIdx: index("idx_leads_company").on(table.companyName),
+    campaignIdx: index("idx_leads_campaign").on(table.campaignId),
   })
 );
 

@@ -22,6 +22,10 @@ export const campaigns = pgTable(
     name: varchar("name", { length: 500 }).notNull(),
     description: text("description"),
 
+    subject: varchar("subject", { length: 1000 }),
+    body: text("body"),
+    fromEmail: varchar("from_email", { length: 255 }),
+
     targetIndustries: jsonb("target_industries").$type<string[]>().default([]),
     targetJobTitles: jsonb("target_job_titles").$type<string[]>().default([]),
     targetCompanySize: jsonb("target_company_size").$type<string[]>().default([]),
