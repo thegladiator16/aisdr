@@ -138,7 +138,7 @@ export default function LandingPage() {
             Start Free (50 leads)
           </Link>
           <Link
-            href="/demo"
+            href="#how-it-works"
             className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/20 px-8 py-4 text-base font-semibold hover:bg-white/5 transition-colors"
           >
             See Demo
@@ -199,7 +199,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section className="mx-auto max-w-6xl px-6 py-20">
+      <section id="how-it-works" className="mx-auto max-w-6xl px-6 py-20">
         <div className="text-center mb-12">
           <h2 className="text-3xl font-bold">How it works</h2>
         </div>
