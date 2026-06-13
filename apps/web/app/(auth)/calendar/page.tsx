@@ -1,14 +1,12 @@
-import { requireUser } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { meetings, leads } from "@aisdr/db/schema";
-import { eq, gte, desc } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { Calendar, Video } from "lucide-react";
 import { format } from "date-fns";
 
-export default async function CalendarPage() {
-  const user = await requireUser();
-
-  const upcomingMeetings = await db
+async function fetchMeetings(userId: string) {
+  return db
     .select({
       meeting: meetings,
       lead: {
@@ -19,9 +17,24 @@ export default async function CalendarPage() {
     })
     .from(meetings)
     .leftJoin(leads, eq(meetings.leadId, leads.id))
-    .where(eq(meetings.userId, user.id))
+    .where(eq(meetings.userId, userId))
     .orderBy(meetings.scheduledAt)
     .limit(20);
+}
+
+type MeetingRow = Awaited<ReturnType<typeof fetchMeetings>>[0];
+
+export default async function CalendarPage() {
+  let upcomingMeetings: MeetingRow[] = [];
+
+  try {
+    const user = await getCurrentUser();
+    if (user) {
+      upcomingMeetings = await fetchMeetings(user.id);
+    }
+  } catch {
+    upcomingMeetings = [];
+  }
 
   return (
     <div className="space-y-6">
@@ -37,7 +50,7 @@ export default async function CalendarPage() {
           <Calendar className="h-12 w-12 text-muted-foreground mb-4" />
           <h2 className="text-lg font-semibold text-foreground">No meetings yet</h2>
           <p className="text-sm text-muted-foreground mt-2 max-w-sm">
-            When leads book meetings through your outreach, they'll appear here.
+            When leads book meetings through your outreach, they&apos;ll appear here.
           </p>
         </div>
       ) : (

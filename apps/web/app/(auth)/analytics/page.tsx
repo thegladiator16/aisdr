@@ -1,11 +1,24 @@
-import { requireUser } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/auth";
 import { getDashboardStats } from "@/lib/db/queries";
 import { StatCard } from "@/components/dashboard/stat-card";
 import { BarChart2, TrendingUp, Mail, CalendarCheck } from "lucide-react";
 
 export default async function AnalyticsPage() {
-  const user = await requireUser();
-  const stats = await getDashboardStats(user.id);
+  let stats = {
+    emailsSentToday: 0,
+    openRatePercent: 0,
+    replyRatePercent: 0,
+    meetingsThisMonth: 0,
+  };
+
+  try {
+    const user = await getCurrentUser();
+    if (user) {
+      stats = await getDashboardStats(user.id);
+    }
+  } catch {
+    // render with zero stats
+  }
 
   return (
     <div className="space-y-6">

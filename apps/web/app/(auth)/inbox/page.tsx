@@ -1,15 +1,12 @@
-import { requireUser } from "@/lib/auth";
-import { getUnreadReplies } from "@/lib/db/queries";
+import { getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { replies, leads } from "@aisdr/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { SENTIMENT_EMOJI, INTENT_LABEL, truncate } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 
-export default async function InboxPage() {
-  const user = await requireUser();
-
-  const allReplies = await db
+async function fetchReplies(userId: string) {
+  return db
     .select({
       reply: replies,
       lead: {
@@ -22,74 +19,89 @@ export default async function InboxPage() {
     })
     .from(replies)
     .leftJoin(leads, eq(replies.leadId, leads.id))
-    .where(eq(replies.userId, user.id))
+    .where(eq(replies.userId, userId))
     .orderBy(desc(replies.receivedAt))
     .limit(100);
+}
+
+type ReplyRow = Awaited<ReturnType<typeof fetchReplies>>[0];
+
+function ReplyCard({ item }: { item: ReplyRow }) {
+  const { reply, lead } = item;
+  return (
+    <div
+      className={cn(
+        "rounded-xl border p-4 space-y-3 transition-colors",
+        !reply.isRead
+          ? "border-primary/30 bg-primary/5"
+          : "border-border bg-card"
+      )}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <span className="text-xl">
+            {SENTIMENT_EMOJI[reply.sentiment ?? "neutral"] ?? "📩"}
+          </span>
+          <div>
+            <p className="font-medium text-foreground text-sm">
+              {lead?.fullName ?? "Unknown"}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {lead?.companyName} · {lead?.jobTitle}
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          {reply.intent && (
+            <span className="rounded-full border border-border px-2 py-0.5 text-xs text-muted-foreground">
+              {INTENT_LABEL[reply.intent] ?? reply.intent}
+            </span>
+          )}
+        </div>
+      </div>
+
+      <p className="text-sm text-muted-foreground bg-muted/30 rounded-lg p-3 italic">
+        &ldquo;{truncate(reply.body, 200)}&rdquo;
+      </p>
+
+      {reply.aiSuggestedReply && (
+        <div className="space-y-1">
+          <p className="text-xs font-medium text-primary">AI Suggested Reply:</p>
+          <p className="text-xs text-muted-foreground bg-primary/5 border border-primary/20 rounded-lg p-3">
+            {reply.aiSuggestedReply}
+          </p>
+        </div>
+      )}
+
+      <div className="flex items-center gap-2 pt-1">
+        <button className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-white hover:bg-primary/90 transition-colors">
+          Reply
+        </button>
+        <button className="rounded-md border border-border px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
+          Mark read
+        </button>
+        <button className="rounded-md border border-border px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
+          Remove from sequence
+        </button>
+      </div>
+    </div>
+  );
+}
+
+export default async function InboxPage() {
+  let allReplies: ReplyRow[] = [];
+
+  try {
+    const user = await getCurrentUser();
+    if (user) {
+      allReplies = await fetchReplies(user.id);
+    }
+  } catch {
+    allReplies = [];
+  }
 
   const unread = allReplies.filter((r) => !r.reply.isRead);
   const read = allReplies.filter((r) => r.reply.isRead);
-
-  function ReplyCard({ item }: { item: (typeof allReplies)[0] }) {
-    const { reply, lead } = item;
-    return (
-      <div
-        className={cn(
-          "rounded-xl border p-4 space-y-3 transition-colors",
-          !reply.isRead
-            ? "border-primary/30 bg-primary/5"
-            : "border-border bg-card"
-        )}
-      >
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <span className="text-xl">
-              {SENTIMENT_EMOJI[reply.sentiment ?? "neutral"] ?? "📩"}
-            </span>
-            <div>
-              <p className="font-medium text-foreground text-sm">
-                {lead?.fullName ?? "Unknown"}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {lead?.companyName} · {lead?.jobTitle}
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            {reply.intent && (
-              <span className="rounded-full border border-border px-2 py-0.5 text-xs text-muted-foreground">
-                {INTENT_LABEL[reply.intent] ?? reply.intent}
-              </span>
-            )}
-          </div>
-        </div>
-
-        <p className="text-sm text-muted-foreground bg-muted/30 rounded-lg p-3 italic">
-          &ldquo;{truncate(reply.body, 200)}&rdquo;
-        </p>
-
-        {reply.aiSuggestedReply && (
-          <div className="space-y-1">
-            <p className="text-xs font-medium text-primary">AI Suggested Reply:</p>
-            <p className="text-xs text-muted-foreground bg-primary/5 border border-primary/20 rounded-lg p-3">
-              {reply.aiSuggestedReply}
-            </p>
-          </div>
-        )}
-
-        <div className="flex items-center gap-2 pt-1">
-          <button className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-white hover:bg-primary/90 transition-colors">
-            Reply
-          </button>
-          <button className="rounded-md border border-border px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
-            Mark read
-          </button>
-          <button className="rounded-md border border-border px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
-            Remove from sequence
-          </button>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-6">

@@ -1,14 +1,21 @@
-import { requireUser } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/auth";
 import { DashboardClient } from "@/components/dashboard/dashboard-client";
 
 export default async function DashboardPage() {
-  const user = await requireUser();
+  let firstName = "";
+
+  try {
+    const user = await getCurrentUser();
+    firstName = user?.fullName?.split(" ")[0] ?? "";
+  } catch {
+    // render without name
+  }
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-foreground">
-          Good morning{user.fullName ? `, ${user.fullName.split(" ")[0]}` : ""} 👋
+          Good morning{firstName ? `, ${firstName}` : ""} 👋
         </h1>
         <p className="text-sm text-muted-foreground mt-1">
           Here&apos;s what&apos;s happening with your outreach today.
