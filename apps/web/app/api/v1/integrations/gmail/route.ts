@@ -1,21 +1,40 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireUser } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/auth";
 import { GmailClient } from "@/lib/integrations/gmail";
 import { db } from "@/lib/db";
 import { integrations } from "@aisdr/db/schema";
 import { eq, and } from "drizzle-orm";
 
+const APP_URL =
+  process.env.NEXT_PUBLIC_APP_URL ?? "https://aisdr-web.vercel.app";
+
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const code = searchParams.get("code");
 
+  if (!GmailClient.isConfigured()) {
+    return NextResponse.redirect(
+      `${APP_URL}/integrations?error=google_not_configured`
+    );
+  }
+
   if (!code) {
-    const authUrl = GmailClient.getAuthUrl();
-    return NextResponse.redirect(authUrl);
+    try {
+      const authUrl = GmailClient.getAuthUrl();
+      return NextResponse.redirect(authUrl);
+    } catch {
+      return NextResponse.redirect(
+        `${APP_URL}/integrations?error=google_not_configured`
+      );
+    }
   }
 
   try {
-    const user = await requireUser();
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.redirect(`${APP_URL}/sign-in`);
+    }
+
     const tokens = await GmailClient.exchangeCode(code);
 
     const existing = await db
@@ -52,10 +71,8 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
-    return NextResponse.redirect(`${appUrl}/integrations?connected=gmail`);
+    return NextResponse.redirect(`${APP_URL}/integrations?connected=Gmail`);
   } catch {
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
-    return NextResponse.redirect(`${appUrl}/integrations?error=gmail_failed`);
+    return NextResponse.redirect(`${APP_URL}/integrations?error=gmail_failed`);
   }
 }
