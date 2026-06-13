@@ -55,6 +55,12 @@ export const campaigns = pgTable(
     bounces: integer("bounces").default(0),
     unsubscribes: integer("unsubscribes").default(0),
 
+    sequenceSteps: jsonb("sequence_steps")
+      .$type<Array<{ day: number; channel: string; template: string }>>()
+      .default([]),
+    whatsappEnabled: smallint("whatsapp_enabled").default(0),
+    totalMeetingsBooked: integer("total_meetings_booked").default(0),
+
     status: varchar("status", { length: 50 }).default("draft"),
 
     startedAt: timestamp("started_at", { withTimezone: true }),

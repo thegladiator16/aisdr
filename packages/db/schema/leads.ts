@@ -57,6 +57,12 @@ export const leads = pgTable(
 
     lastContactedAt: timestamp("last_contacted_at", { withTimezone: true }),
     nextFollowUpAt: timestamp("next_follow_up_at", { withTimezone: true }),
+    intentScore: integer("intent_score").default(0),
+    intentSignals: jsonb("intent_signals")
+      .$type<Array<{ type: string; description: string; date: string; source: string; score: number }>>()
+      .default([]),
+    lastActivityAt: timestamp("last_activity_at", { withTimezone: true }),
+
     tags: jsonb("tags").$type<string[]>().default([]),
     notes: text("notes"),
 
