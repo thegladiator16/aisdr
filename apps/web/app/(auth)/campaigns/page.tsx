@@ -1,26 +1,25 @@
 "use client";
 
-import { useEffect, useState, useCallback, type FormEvent } from "react";
-import Link from "next/link";
+import { useEffect, useState, useCallback, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
   Plus,
-  Mail,
-  Trash2,
-  Play,
-  Pause,
   X,
-  Eye,
   ChevronRight,
-  ChevronLeft,
-  Calendar,
   Users,
   Send,
   MessageSquare,
   Target,
-  Clock,
+  Box,
+  Flame,
+  TrendingUp,
+  Globe,
+  MoreHorizontal,
+  Copy,
+  Archive,
 } from "lucide-react";
-import { cn, STATUS_COLOR } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import { Spinner } from "@/components/ui/spinner";
 
 /* ---------- types ---------- */
@@ -28,57 +27,70 @@ import { Spinner } from "@/components/ui/spinner";
 type Campaign = {
   id: string;
   name: string;
-  description: string | null;
+  type?: string | null;
   status: string | null;
   totalLeads: number | null;
   emailsSent: number | null;
   totalReplies: number | null;
   meetingsBooked: number | null;
-  channels: string[] | null;
   createdAt?: string | null;
 };
 
-type SequenceStep = {
-  day: number;
-  channel: "Email" | "LinkedIn" | "WhatsApp";
-  template: string;
-};
+type ModalState = "closed" | "step1" | "step2";
 
-type WizardData = {
-  /* step 1 */
-  name: string;
+type CampaignOption = {
+  id: string;
+  icon: typeof Box;
+  iconBg: string;
+  iconColor: string;
+  title: string;
   description: string;
-  goal: string;
-  /* step 2 */
-  industries: string;
-  jobTitles: string;
-  companySize: string;
-  locations: string;
-  /* step 3 */
-  steps: SequenceStep[];
-  /* step 4 */
-  fromEmail: string;
-  dailyLimit: number;
-  sendStart: string;
-  sendEnd: string;
+  badge?: string;
 };
 
-const INITIAL_WIZARD: WizardData = {
-  name: "",
-  description: "",
-  goal: "Book Meeting",
-  industries: "",
-  jobTitles: "",
-  companySize: "",
-  locations: "",
-  steps: [{ day: 1, channel: "Email", template: "" }],
-  fromEmail: "",
-  dailyLimit: 50,
-  sendStart: "09:00",
-  sendEnd: "17:00",
-};
-
-const WIZARD_TITLES = ["Basics", "Lead Targeting", "Sequence Builder", "Sender Setup", "Review"];
+const CAMPAIGN_OPTIONS: CampaignOption[] = [
+  {
+    id: "cold-outbound",
+    icon: Box,
+    iconBg: "bg-violet-50",
+    iconColor: "text-violet-600",
+    title: "Cold outbound campaign",
+    description: "Reaching out to net new cold leads",
+    badge: "Popular",
+  },
+  {
+    id: "warm-outbound",
+    icon: Flame,
+    iconBg: "bg-orange-50",
+    iconColor: "text-orange-600",
+    title: "Warm outbound campaign",
+    description: "Reaching out to leads within your CRM",
+  },
+  {
+    id: "cross-sell",
+    icon: TrendingUp,
+    iconBg: "bg-blue-50",
+    iconColor: "text-blue-600",
+    title: "Cross-sell/upsell campaign",
+    description: "Cross-sell or upsell your existing customer base",
+  },
+  {
+    id: "website-visitor",
+    icon: Globe,
+    iconBg: "bg-green-50",
+    iconColor: "text-green-600",
+    title: "Website visitor campaign",
+    description: "De-anonymize and sequence your website visitors",
+  },
+  {
+    id: "intent-signals",
+    icon: Target,
+    iconBg: "bg-pink-50",
+    iconColor: "text-pink-600",
+    title: "Intent signals campaign",
+    description: "Find timely net new prospects with intent signals",
+  },
+];
 
 const STATUS_BADGE: Record<string, string> = {
   draft: "bg-gray-100 text-gray-600",
@@ -87,38 +99,27 @@ const STATUS_BADGE: Record<string, string> = {
   completed: "bg-blue-50 text-blue-700 ring-1 ring-blue-200",
 };
 
-/* ---------- helpers ---------- */
-
-function formatDate(d: string | null | undefined) {
-  if (!d) return "—";
-  return new Date(d).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-}
-
 /* ---------- page ---------- */
 
 export default function CampaignsPage() {
+  const router = useRouter();
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
-  /* wizard state */
-  const [showWizard, setShowWizard] = useState(false);
-  const [wizardStep, setWizardStep] = useState(0);
-  const [wizard, setWizard] = useState<WizardData>({ ...INITIAL_WIZARD });
+  /* modal state */
+  const [modalState, setModalState] = useState<ModalState>("closed");
+  const [selectedType, setSelectedType] = useState<CampaignOption | null>(null);
+  const [campaignName, setCampaignName] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  /* delete confirmation */
-  const [deleteId, setDeleteId] = useState<string | null>(null);
+  /* three-dot menu */
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
 
   /* ---- data fetching ---- */
 
   const loadCampaigns = useCallback(async () => {
     setLoading(true);
-    setError(null);
     try {
       const res = await fetch("/api/campaigns");
       if (!res.ok) throw new Error("Failed to load campaigns");
@@ -127,7 +128,6 @@ export default function CampaignsPage() {
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "Failed to load campaigns";
-      setError(message);
       toast.error(message);
     } finally {
       setLoading(false);
@@ -138,93 +138,39 @@ export default function CampaignsPage() {
     loadCampaigns();
   }, [loadCampaigns]);
 
-  /* ---- campaign actions ---- */
-
-  async function handleToggleStatus(c: Campaign) {
-    const newStatus = c.status === "active" ? "paused" : "active";
-    try {
-      const res = await fetch(`/api/campaigns/${c.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: newStatus }),
-      });
-      if (!res.ok) throw new Error("Failed to update campaign");
-      const json = await res.json();
-      setCampaigns((prev) =>
-        prev.map((x) => (x.id === c.id ? json.data : x))
-      );
-      toast.success(
-        `Campaign ${newStatus === "active" ? "resumed" : "paused"}`
-      );
-    } catch (err) {
-      toast.error(
-        err instanceof Error ? err.message : "Failed to update campaign"
-      );
+  /* close menu on outside click */
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setOpenMenuId(null);
+      }
     }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  /* ---- modal helpers ---- */
+
+  function openModal() {
+    setModalState("step1");
+    setSelectedType(null);
+    setCampaignName("");
   }
 
-  async function handleDelete(id: string) {
-    try {
-      const res = await fetch(`/api/campaigns/${id}`, { method: "DELETE" });
-      if (!res.ok) throw new Error("Failed to delete campaign");
-      setCampaigns((prev) => prev.filter((c) => c.id !== id));
-      toast.success("Campaign deleted");
-    } catch (err) {
-      toast.error(
-        err instanceof Error ? err.message : "Failed to delete campaign"
-      );
-    } finally {
-      setDeleteId(null);
-    }
+  function closeModal() {
+    setModalState("closed");
+    setSelectedType(null);
+    setCampaignName("");
   }
 
-  /* ---- wizard helpers ---- */
-
-  function openWizard() {
-    setWizard({ ...INITIAL_WIZARD });
-    setWizardStep(0);
-    setShowWizard(true);
+  function handleSelectType(option: CampaignOption) {
+    setSelectedType(option);
+    setCampaignName(`${option.title} 1`);
+    setModalState("step2");
   }
 
-  function closeWizard() {
-    setShowWizard(false);
-    setWizardStep(0);
-  }
-
-  function updateWizard<K extends keyof WizardData>(key: K, val: WizardData[K]) {
-    setWizard((prev) => ({ ...prev, [key]: val }));
-  }
-
-  function addStep() {
-    const last = wizard.steps[wizard.steps.length - 1];
-    updateWizard("steps", [
-      ...wizard.steps,
-      { day: (last?.day ?? 0) + 2, channel: "Email", template: "" },
-    ]);
-  }
-
-  function removeStep(idx: number) {
-    if (wizard.steps.length <= 1) return;
-    updateWizard(
-      "steps",
-      wizard.steps.filter((_, i) => i !== idx)
-    );
-  }
-
-  function updateStep(idx: number, field: keyof SequenceStep, val: string | number) {
-    const updated = wizard.steps.map((s, i) =>
-      i === idx ? { ...s, [field]: val } : s
-    );
-    updateWizard("steps", updated);
-  }
-
-  function canProceed(): boolean {
-    if (wizardStep === 0) return wizard.name.trim().length > 0;
-    return true;
-  }
-
-  async function handleLaunch() {
-    if (!wizard.name.trim()) {
+  async function handleCreate() {
+    if (!campaignName.trim()) {
       toast.error("Campaign name is required");
       return;
     }
@@ -233,26 +179,13 @@ export default function CampaignsPage() {
       const res = await fetch("/api/campaigns", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: wizard.name,
-          description: wizard.description || undefined,
-          goal: wizard.goal,
-          industries: wizard.industries || undefined,
-          jobTitles: wizard.jobTitles || undefined,
-          companySize: wizard.companySize || undefined,
-          locations: wizard.locations || undefined,
-          steps: wizard.steps,
-          fromEmail: wizard.fromEmail || undefined,
-          dailyLimit: wizard.dailyLimit,
-          sendStart: wizard.sendStart,
-          sendEnd: wizard.sendEnd,
-        }),
+        body: JSON.stringify({ name: campaignName.trim() }),
       });
       if (!res.ok) throw new Error("Failed to create campaign");
-      const json = await res.json();
-      setCampaigns((prev) => [json.data, ...prev]);
       toast.success("Campaign created");
-      closeWizard();
+      closeModal();
+      router.push("/campaigns");
+      loadCampaigns();
     } catch (err) {
       toast.error(
         err instanceof Error ? err.message : "Failed to create campaign"
@@ -262,81 +195,173 @@ export default function CampaignsPage() {
     }
   }
 
-  /* ---------- shared input classes ---------- */
+  /* ---- campaign actions ---- */
 
-  const inputCls =
-    "w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#6C47FF]/40 focus:border-[#6C47FF] transition";
-  const labelCls = "block text-xs font-semibold text-gray-500 mb-1";
+  async function handleDuplicate(c: Campaign) {
+    setOpenMenuId(null);
+    try {
+      const res = await fetch("/api/campaigns", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: `${c.name} (copy)` }),
+      });
+      if (!res.ok) throw new Error("Failed to duplicate campaign");
+      const json = await res.json();
+      setCampaigns((prev) => [json.data, ...prev]);
+      toast.success("Campaign duplicated");
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Failed to duplicate campaign"
+      );
+    }
+  }
+
+  async function handleArchive(id: string) {
+    setOpenMenuId(null);
+    try {
+      const res = await fetch(`/api/campaigns/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "completed" }),
+      });
+      if (!res.ok) throw new Error("Failed to archive campaign");
+      const json = await res.json();
+      setCampaigns((prev) =>
+        prev.map((x) => (x.id === id ? json.data : x))
+      );
+      toast.success("Campaign archived");
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Failed to archive campaign"
+      );
+    }
+  }
 
   /* ---------- render ---------- */
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Spinner />
+      </div>
+    );
+  }
+
   return (
     <>
-      <div className="space-y-6">
-        {/* header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Campaigns</h1>
-            <p className="text-sm text-gray-500 mt-1">
-              {campaigns.length} campaign{campaigns.length !== 1 ? "s" : ""}
-            </p>
+      {campaigns.length === 0 ? (
+        /* ========== EMPTY STATE ========== */
+        <div className="relative flex items-center justify-center min-h-[70vh] overflow-hidden">
+          {/* blurred background pattern */}
+          <div className="absolute inset-0" style={{ filter: "blur(8px)" }}>
+            {/* circles */}
+            <div className="absolute top-[15%] left-[10%] w-16 h-16 rounded-full bg-violet-200 opacity-20" />
+            <div className="absolute top-[25%] left-[30%] w-10 h-10 rounded-full bg-gray-300 opacity-20" />
+            <div className="absolute top-[10%] right-[20%] w-14 h-14 rounded-full bg-violet-300 opacity-20" />
+            <div className="absolute top-[50%] left-[20%] w-12 h-12 rounded-full bg-violet-200 opacity-20" />
+            <div className="absolute top-[40%] right-[15%] w-10 h-10 rounded-full bg-gray-200 opacity-20" />
+            <div className="absolute bottom-[20%] left-[40%] w-16 h-16 rounded-full bg-violet-100 opacity-20" />
+            <div className="absolute bottom-[30%] right-[30%] w-8 h-8 rounded-full bg-violet-300 opacity-20" />
+            <div className="absolute top-[60%] right-[40%] w-12 h-12 rounded-full bg-gray-300 opacity-20" />
+            {/* connecting lines */}
+            <div className="absolute top-[20%] left-[15%] w-[200px] h-[1px] bg-violet-200 opacity-20 rotate-[30deg]" />
+            <div className="absolute top-[30%] left-[35%] w-[180px] h-[1px] bg-gray-300 opacity-20 -rotate-[20deg]" />
+            <div className="absolute top-[45%] right-[25%] w-[150px] h-[1px] bg-violet-200 opacity-20 rotate-[15deg]" />
+            <div className="absolute bottom-[35%] left-[25%] w-[220px] h-[1px] bg-violet-300 opacity-20 -rotate-[10deg]" />
+            <div className="absolute top-[55%] left-[45%] w-[160px] h-[1px] bg-gray-200 opacity-20 rotate-[40deg]" />
           </div>
-          <button
-            onClick={openWizard}
-            className="inline-flex items-center gap-2 rounded-lg bg-[#6C47FF] px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#5a39dd] transition-colors"
-          >
-            <Plus className="h-4 w-4" />
-            New Campaign
-          </button>
-        </div>
 
-        {/* content */}
-        {loading ? (
-          <Spinner />
-        ) : error ? (
-          <div className="rounded-xl border border-gray-200 bg-white py-16 text-center text-sm text-gray-500">
-            {error}
-          </div>
-        ) : campaigns.length === 0 ? (
-          <div className="flex flex-col items-center justify-center rounded-xl border border-gray-200 bg-white py-20 text-center">
-            <div className="rounded-full bg-[#6C47FF]/10 p-4 mb-4">
-              <Mail className="h-8 w-8 text-[#6C47FF]" />
-            </div>
-            <h2 className="text-lg font-semibold text-gray-900">
-              No campaigns yet
+          {/* center content */}
+          <div className="relative z-10 flex flex-col items-center text-center px-4">
+            <h2 className="text-xl font-bold text-gray-900">
+              Get started with campaigns!
             </h2>
-            <p className="text-sm text-gray-500 mt-2 max-w-sm">
-              Create your first campaign to start reaching out to leads
-              automatically.
+            <p className="text-sm text-gray-500 mt-2 max-w-md">
+              Create your first campaign to automate outreach and connect with
+              your leads.
             </p>
             <button
-              onClick={openWizard}
-              className="mt-6 inline-flex items-center gap-2 rounded-lg bg-[#6C47FF] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#5a39dd] transition-colors"
+              onClick={openModal}
+              className="mt-6 inline-flex items-center gap-2 rounded-lg bg-[#6C47FF] px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#5a39dd] transition-colors"
             >
               <Plus className="h-4 w-4" />
-              Create Campaign
+              Create campaign
             </button>
           </div>
-        ) : (
-          /* ---- campaign grid ---- */
+        </div>
+      ) : (
+        /* ========== CAMPAIGNS LIST ========== */
+        <div className="space-y-6">
+          {/* header */}
+          <div className="flex items-center justify-between">
+            <h1 className="text-2xl font-bold text-gray-900">Campaigns</h1>
+            <button
+              onClick={openModal}
+              className="inline-flex items-center gap-2 rounded-lg bg-[#6C47FF] px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#5a39dd] transition-colors"
+            >
+              <Plus className="h-4 w-4" />
+              New campaign
+            </button>
+          </div>
+
+          {/* campaign cards */}
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
             {campaigns.map((c) => {
               const totalLeads = c.totalLeads ?? 0;
               const sent = c.emailsSent ?? 0;
               const replies = c.totalReplies ?? 0;
               const meetings = c.meetingsBooked ?? 0;
-              const progress =
-                totalLeads > 0
-                  ? Math.min(100, Math.round((sent / totalLeads) * 100))
-                  : 0;
 
               return (
                 <div
                   key={c.id}
-                  className="rounded-xl border border-gray-200 bg-white p-5 hover:shadow-md hover:border-[#6C47FF]/30 transition-all group"
+                  className="relative rounded-xl border border-gray-200 bg-white p-5 hover:shadow-md transition-all"
                 >
-                  {/* status + name */}
+                  {/* top row: name + menu */}
                   <div className="flex items-start justify-between mb-3">
+                    <h3 className="font-semibold text-gray-900 text-base leading-tight line-clamp-1">
+                      {c.name}
+                    </h3>
+
+                    {/* three-dot menu */}
+                    <div className="relative" ref={openMenuId === c.id ? menuRef : undefined}>
+                      <button
+                        onClick={() =>
+                          setOpenMenuId(openMenuId === c.id ? null : c.id)
+                        }
+                        className="rounded-md p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                      >
+                        <MoreHorizontal className="h-4 w-4" />
+                      </button>
+
+                      {openMenuId === c.id && (
+                        <div className="absolute right-0 top-8 z-20 w-40 rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
+                          <button
+                            onClick={() => handleDuplicate(c)}
+                            className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                          >
+                            <Copy className="h-3.5 w-3.5" />
+                            Duplicate
+                          </button>
+                          <button
+                            onClick={() => handleArchive(c.id)}
+                            className="flex w-full items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                          >
+                            <Archive className="h-3.5 w-3.5" />
+                            Archive
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* badges row */}
+                  <div className="flex items-center gap-2 mb-4">
+                    {c.type && (
+                      <span className="inline-flex items-center rounded-full bg-violet-50 px-2.5 py-0.5 text-[11px] font-medium text-violet-700">
+                        {c.type}
+                      </span>
+                    )}
                     <span
                       className={cn(
                         "inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold capitalize",
@@ -348,17 +373,8 @@ export default function CampaignsPage() {
                     </span>
                   </div>
 
-                  <h3 className="font-semibold text-gray-900 text-base leading-tight line-clamp-1 mb-1">
-                    {c.name}
-                  </h3>
-
-                  <p className="text-xs text-gray-400 mb-4 flex items-center gap-1">
-                    <Calendar className="h-3 w-3" />
-                    {formatDate(c.createdAt)}
-                  </p>
-
-                  {/* metrics row */}
-                  <div className="grid grid-cols-4 gap-1 mb-4">
+                  {/* stats row */}
+                  <div className="grid grid-cols-4 gap-1 pt-3 border-t border-gray-100">
                     {[
                       { label: "Leads", value: totalLeads, icon: Users },
                       { label: "Sent", value: sent, icon: Send },
@@ -374,507 +390,121 @@ export default function CampaignsPage() {
                       </div>
                     ))}
                   </div>
-
-                  {/* progress bar */}
-                  <div className="mb-4">
-                    <div className="flex items-center justify-between text-[10px] text-gray-400 mb-1">
-                      <span>
-                        {sent} / {totalLeads} sent
-                      </span>
-                      <span>{progress}%</span>
-                    </div>
-                    <div className="h-1.5 w-full rounded-full bg-gray-100 overflow-hidden">
-                      <div
-                        className="h-full rounded-full bg-[#6C47FF] transition-all duration-500"
-                        style={{ width: `${progress}%` }}
-                      />
-                    </div>
-                  </div>
-
-                  {/* action buttons */}
-                  <div className="flex items-center gap-2 pt-2 border-t border-gray-100">
-                    <Link
-                      href={`/campaigns/${c.id}`}
-                      className="inline-flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 transition-colors"
-                    >
-                      <Eye className="h-3 w-3" />
-                      View
-                    </Link>
-
-                    {c.status !== "completed" && (
-                      <button
-                        onClick={() => handleToggleStatus(c)}
-                        className={cn(
-                          "inline-flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors",
-                          c.status === "active"
-                            ? "text-yellow-700 hover:bg-yellow-50"
-                            : "text-[#6C47FF] hover:bg-[#6C47FF]/5"
-                        )}
-                      >
-                        {c.status === "active" ? (
-                          <>
-                            <Pause className="h-3 w-3" />
-                            Pause
-                          </>
-                        ) : (
-                          <>
-                            <Play className="h-3 w-3" />
-                            Resume
-                          </>
-                        )}
-                      </button>
-                    )}
-
-                    <button
-                      onClick={() => setDeleteId(c.id)}
-                      className="ml-auto inline-flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </button>
-                  </div>
                 </div>
               );
             })}
           </div>
-        )}
-      </div>
-
-      {/* ========== delete confirmation dialog ========== */}
-      {deleteId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="w-full max-w-sm rounded-xl bg-white p-6 shadow-2xl mx-4">
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">
-              Delete campaign?
-            </h3>
-            <p className="text-sm text-gray-500 mb-6">
-              This action cannot be undone. All associated data will be
-              permanently removed.
-            </p>
-            <div className="flex items-center gap-3 justify-end">
-              <button
-                onClick={() => setDeleteId(null)}
-                className="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => handleDelete(deleteId)}
-                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 transition-colors"
-              >
-                Delete
-              </button>
-            </div>
-          </div>
         </div>
       )}
 
-      {/* ========== new campaign wizard modal ========== */}
-      {showWizard && (
+      {/* ========== NEW CAMPAIGN MODAL ========== */}
+      {modalState !== "closed" && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="w-full max-w-2xl max-h-[90vh] rounded-2xl bg-white shadow-2xl mx-4 flex flex-col overflow-hidden">
-            {/* wizard header */}
+          <div className="w-full max-w-lg rounded-2xl bg-white shadow-xl mx-4">
+            {/* modal header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-              <div>
-                <h2 className="text-lg font-bold text-gray-900">
-                  New Campaign
-                </h2>
-                <p className="text-xs text-gray-400 mt-0.5">
-                  Step {wizardStep + 1} of {WIZARD_TITLES.length} &mdash;{" "}
-                  {WIZARD_TITLES[wizardStep]}
-                </p>
-              </div>
+              <h2 className="text-lg font-bold text-gray-900">New campaign</h2>
               <button
-                onClick={closeWizard}
+                onClick={closeModal}
                 className="rounded-lg p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
 
-            {/* stepper bar */}
-            <div className="flex gap-1 px-6 pt-4">
-              {WIZARD_TITLES.map((t, i) => (
-                <div key={t} className="flex-1">
-                  <div
-                    className={cn(
-                      "h-1 rounded-full transition-colors",
-                      i <= wizardStep ? "bg-[#6C47FF]" : "bg-gray-200"
-                    )}
-                  />
-                </div>
-              ))}
-            </div>
-
-            {/* wizard body */}
-            <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
-              {/* Step 0: Basics */}
-              {wizardStep === 0 && (
-                <>
-                  <div>
-                    <label className={labelCls}>Campaign Name *</label>
-                    <input
-                      value={wizard.name}
-                      onChange={(e) => updateWizard("name", e.target.value)}
-                      className={inputCls}
-                      placeholder="Q1 Outbound - SaaS Founders"
-                    />
-                  </div>
-                  <div>
-                    <label className={labelCls}>Description</label>
-                    <textarea
-                      value={wizard.description}
-                      onChange={(e) =>
-                        updateWizard("description", e.target.value)
-                      }
-                      rows={3}
-                      className={inputCls}
-                      placeholder="Brief description of campaign goals and audience"
-                    />
-                  </div>
-                  <div>
-                    <label className={labelCls}>Goal</label>
-                    <select
-                      value={wizard.goal}
-                      onChange={(e) => updateWizard("goal", e.target.value)}
-                      className={inputCls}
-                    >
-                      <option value="Book Meeting">Book Meeting</option>
-                      <option value="Drive Traffic">Drive Traffic</option>
-                      <option value="Brand Awareness">Brand Awareness</option>
-                    </select>
-                  </div>
-                </>
-              )}
-
-              {/* Step 1: Lead Targeting */}
-              {wizardStep === 1 && (
-                <>
-                  <div>
-                    <label className={labelCls}>Industries</label>
-                    <input
-                      value={wizard.industries}
-                      onChange={(e) =>
-                        updateWizard("industries", e.target.value)
-                      }
-                      className={inputCls}
-                      placeholder="SaaS, FinTech, HealthTech (comma-separated)"
-                    />
-                  </div>
-                  <div>
-                    <label className={labelCls}>Job Titles</label>
-                    <input
-                      value={wizard.jobTitles}
-                      onChange={(e) =>
-                        updateWizard("jobTitles", e.target.value)
-                      }
-                      className={inputCls}
-                      placeholder="CEO, CTO, VP Sales (comma-separated)"
-                    />
-                  </div>
-                  <div>
-                    <label className={labelCls}>Company Size</label>
-                    <select
-                      value={wizard.companySize}
-                      onChange={(e) =>
-                        updateWizard("companySize", e.target.value)
-                      }
-                      className={inputCls}
-                    >
-                      <option value="">Any size</option>
-                      <option value="1-10">1-10 employees</option>
-                      <option value="11-50">11-50 employees</option>
-                      <option value="51-200">51-200 employees</option>
-                      <option value="201-1000">201-1,000 employees</option>
-                      <option value="1001+">1,001+ employees</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className={labelCls}>Locations</label>
-                    <input
-                      value={wizard.locations}
-                      onChange={(e) =>
-                        updateWizard("locations", e.target.value)
-                      }
-                      className={inputCls}
-                      placeholder="US, UK, India (comma-separated)"
-                    />
-                  </div>
-                </>
-              )}
-
-              {/* Step 2: Sequence Builder */}
-              {wizardStep === 2 && (
-                <>
-                  <div className="space-y-3">
-                    {wizard.steps.map((step, idx) => (
-                      <div
-                        key={idx}
-                        className="rounded-lg border border-gray-200 bg-gray-50 p-4 space-y-3"
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-semibold text-[#6C47FF]">
-                            Step {idx + 1}
-                          </span>
-                          {wizard.steps.length > 1 && (
-                            <button
-                              onClick={() => removeStep(idx)}
-                              className="text-xs text-gray-400 hover:text-red-500 transition-colors"
-                            >
-                              <X className="h-3.5 w-3.5" />
-                            </button>
-                          )}
-                        </div>
-                        <div className="grid grid-cols-2 gap-3">
-                          <div>
-                            <label className={labelCls}>Day</label>
-                            <input
-                              type="number"
-                              min={1}
-                              value={step.day}
-                              onChange={(e) =>
-                                updateStep(
-                                  idx,
-                                  "day",
-                                  parseInt(e.target.value) || 1
-                                )
-                              }
-                              className={inputCls}
-                            />
-                          </div>
-                          <div>
-                            <label className={labelCls}>Channel</label>
-                            <select
-                              value={step.channel}
-                              onChange={(e) =>
-                                updateStep(idx, "channel", e.target.value)
-                              }
-                              className={inputCls}
-                            >
-                              <option value="Email">Email</option>
-                              <option value="LinkedIn">LinkedIn</option>
-                              <option value="WhatsApp">WhatsApp</option>
-                            </select>
-                          </div>
-                        </div>
-                        <div>
-                          <label className={labelCls}>Template</label>
-                          <textarea
-                            value={step.template}
-                            onChange={(e) =>
-                              updateStep(idx, "template", e.target.value)
-                            }
-                            rows={3}
-                            className={inputCls}
-                            placeholder={`Hi {{firstName}}, ...`}
-                          />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+            {/* STEP 1: campaign type selection */}
+            {modalState === "step1" && (
+              <div>
+                {CAMPAIGN_OPTIONS.map((option, idx) => (
                   <button
-                    onClick={addStep}
-                    className="inline-flex items-center gap-1.5 text-sm font-medium text-[#6C47FF] hover:text-[#5a39dd] transition-colors"
-                  >
-                    <Plus className="h-4 w-4" />
-                    Add Step
-                  </button>
-                </>
-              )}
-
-              {/* Step 3: Sender Setup */}
-              {wizardStep === 3 && (
-                <>
-                  <div>
-                    <label className={labelCls}>From Email</label>
-                    <input
-                      value={wizard.fromEmail}
-                      onChange={(e) =>
-                        updateWizard("fromEmail", e.target.value)
-                      }
-                      className={inputCls}
-                      placeholder="you@company.com"
-                    />
-                  </div>
-                  <div>
-                    <label className={labelCls}>
-                      Daily Send Limit: {wizard.dailyLimit}
-                    </label>
-                    <input
-                      type="range"
-                      min={10}
-                      max={100}
-                      step={5}
-                      value={wizard.dailyLimit}
-                      onChange={(e) =>
-                        updateWizard("dailyLimit", parseInt(e.target.value))
-                      }
-                      className="w-full accent-[#6C47FF] h-2 rounded-lg cursor-pointer"
-                    />
-                    <div className="flex justify-between text-[10px] text-gray-400 mt-1">
-                      <span>10</span>
-                      <span>100</span>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className={labelCls}>Send Window Start</label>
-                      <select
-                        value={wizard.sendStart}
-                        onChange={(e) =>
-                          updateWizard("sendStart", e.target.value)
-                        }
-                        className={inputCls}
-                      >
-                        {Array.from({ length: 24 }, (_, i) => {
-                          const t = `${String(i).padStart(2, "0")}:00`;
-                          return (
-                            <option key={t} value={t}>
-                              {t}
-                            </option>
-                          );
-                        })}
-                      </select>
-                    </div>
-                    <div>
-                      <label className={labelCls}>Send Window End</label>
-                      <select
-                        value={wizard.sendEnd}
-                        onChange={(e) =>
-                          updateWizard("sendEnd", e.target.value)
-                        }
-                        className={inputCls}
-                      >
-                        {Array.from({ length: 24 }, (_, i) => {
-                          const t = `${String(i).padStart(2, "0")}:00`;
-                          return (
-                            <option key={t} value={t}>
-                              {t}
-                            </option>
-                          );
-                        })}
-                      </select>
-                    </div>
-                  </div>
-                </>
-              )}
-
-              {/* Step 4: Review */}
-              {wizardStep === 4 && (
-                <div className="space-y-4">
-                  {/* basics */}
-                  <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
-                    <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
-                      Campaign Basics
-                    </h4>
-                    <p className="text-sm font-semibold text-gray-900">
-                      {wizard.name}
-                    </p>
-                    {wizard.description && (
-                      <p className="text-xs text-gray-500 mt-1">
-                        {wizard.description}
-                      </p>
+                    key={option.id}
+                    onClick={() => handleSelectType(option)}
+                    className={cn(
+                      "flex w-full items-center gap-4 px-6 py-4 hover:bg-gray-50 cursor-pointer transition-colors",
+                      idx < CAMPAIGN_OPTIONS.length - 1 &&
+                        "border-b border-gray-100"
                     )}
-                    <p className="text-xs text-gray-500 mt-1">
-                      Goal: {wizard.goal}
-                    </p>
-                  </div>
-
-                  {/* targeting */}
-                  <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
-                    <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
-                      Lead Targeting
-                    </h4>
-                    <div className="grid grid-cols-2 gap-2 text-xs text-gray-600">
-                      <div>
-                        <span className="text-gray-400">Industries:</span>{" "}
-                        {wizard.industries || "Any"}
-                      </div>
-                      <div>
-                        <span className="text-gray-400">Titles:</span>{" "}
-                        {wizard.jobTitles || "Any"}
-                      </div>
-                      <div>
-                        <span className="text-gray-400">Size:</span>{" "}
-                        {wizard.companySize || "Any"}
-                      </div>
-                      <div>
-                        <span className="text-gray-400">Locations:</span>{" "}
-                        {wizard.locations || "Any"}
-                      </div>
+                  >
+                    {/* icon */}
+                    <div
+                      className={cn(
+                        "flex-shrink-0 p-2 rounded-lg",
+                        option.iconBg
+                      )}
+                    >
+                      <option.icon
+                        className={cn("h-5 w-5", option.iconColor)}
+                      />
                     </div>
-                  </div>
 
-                  {/* sequence */}
-                  <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
-                    <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
-                      Sequence ({wizard.steps.length} step
-                      {wizard.steps.length !== 1 ? "s" : ""})
-                    </h4>
-                    <div className="space-y-1">
-                      {wizard.steps.map((s, i) => (
-                        <p key={i} className="text-xs text-gray-600">
-                          Day {s.day} &mdash; {s.channel}
-                          {s.template
-                            ? `: "${s.template.slice(0, 60)}${s.template.length > 60 ? "..." : ""}"`
-                            : ""}
-                        </p>
-                      ))}
+                    {/* text */}
+                    <div className="flex-1 text-left">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-bold text-gray-900">
+                          {option.title}
+                        </span>
+                        {option.badge && (
+                          <span className="inline-flex items-center rounded-full bg-violet-100 text-violet-700 text-xs px-2 py-0.5">
+                            {option.badge}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-sm text-gray-500 mt-0.5">
+                        {option.description}
+                      </p>
                     </div>
-                  </div>
 
-                  {/* sender */}
-                  <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
-                    <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
-                      Sender Setup
-                    </h4>
-                    <div className="grid grid-cols-2 gap-2 text-xs text-gray-600">
-                      <div>
-                        <span className="text-gray-400">From:</span>{" "}
-                        {wizard.fromEmail || "Not set"}
-                      </div>
-                      <div>
-                        <span className="text-gray-400">Daily limit:</span>{" "}
-                        {wizard.dailyLimit}
-                      </div>
-                      <div className="col-span-2">
-                        <span className="text-gray-400">Send window:</span>{" "}
-                        {wizard.sendStart} &ndash; {wizard.sendEnd}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
+                    {/* chevron */}
+                    <ChevronRight className="h-4 w-4 flex-shrink-0 text-gray-400" />
+                  </button>
+                ))}
+              </div>
+            )}
 
-            {/* wizard footer */}
-            <div className="flex items-center justify-between px-6 py-4 border-t border-gray-100 bg-gray-50/50">
-              <button
-                onClick={wizardStep === 0 ? closeWizard : () => setWizardStep((s) => s - 1)}
-                className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 transition-colors"
-              >
-                <ChevronLeft className="h-4 w-4" />
-                {wizardStep === 0 ? "Cancel" : "Back"}
-              </button>
+            {/* STEP 2: name input */}
+            {modalState === "step2" && (
+              <div className="px-6 py-5">
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Name
+                </label>
+                <input
+                  type="text"
+                  value={campaignName}
+                  onChange={(e) => setCampaignName(e.target.value)}
+                  className="w-full rounded-lg border border-gray-200 h-11 px-4 text-sm text-gray-900 placeholder:text-gray-400 focus:border-[#6C47FF] focus:ring-1 focus:ring-[#6C47FF] focus:outline-none transition"
+                  placeholder="Campaign name"
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !submitting) handleCreate();
+                  }}
+                />
+              </div>
+            )}
 
-              {wizardStep < WIZARD_TITLES.length - 1 ? (
+            {/* STEP 2 footer */}
+            {modalState === "step2" && (
+              <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-gray-100">
                 <button
-                  onClick={() => setWizardStep((s) => s + 1)}
-                  disabled={!canProceed()}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-[#6C47FF] px-5 py-2 text-sm font-semibold text-white hover:bg-[#5a39dd] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  onClick={closeModal}
+                  className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
                 >
-                  Next
-                  <ChevronRight className="h-4 w-4" />
+                  Cancel
                 </button>
-              ) : (
                 <button
-                  onClick={handleLaunch}
-                  disabled={submitting}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-[#6C47FF] px-5 py-2 text-sm font-semibold text-white hover:bg-[#5a39dd] transition-colors disabled:opacity-50"
+                  onClick={() => setModalState("step1")}
+                  className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
                 >
-                  {submitting ? "Launching..." : "Launch Campaign"}
+                  Back
                 </button>
-              )}
-            </div>
+                <button
+                  onClick={handleCreate}
+                  disabled={submitting || !campaignName.trim()}
+                  className="rounded-lg bg-[#6C47FF] px-4 py-2 text-sm font-semibold text-white hover:bg-[#5a39dd] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {submitting ? "Creating..." : "Create"}
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}

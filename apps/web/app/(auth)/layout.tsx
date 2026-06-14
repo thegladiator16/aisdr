@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import { auth } from "@clerk/nextjs/server";
-import { Sidebar } from "@/components/layout/sidebar";
-import { AryaChatWidget } from "@/components/arya/AryaChatWidget";
+import { AuthShell } from "@/components/layout/AuthShell";
 
 export default function AuthLayout({
   children,
@@ -11,13 +10,5 @@ export default function AuthLayout({
   const { userId } = auth();
   if (!userId) redirect("/sign-in");
 
-  return (
-    <div className="flex h-screen overflow-hidden bg-[#F8F9FA]">
-      <Sidebar />
-      <main className="flex-1 overflow-y-auto">
-        <div className="mx-auto max-w-7xl p-6">{children}</div>
-      </main>
-      <AryaChatWidget />
-    </div>
-  );
+  return <AuthShell>{children}</AuthShell>;
 }
