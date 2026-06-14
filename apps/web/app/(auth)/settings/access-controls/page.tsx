@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Plus } from "lucide-react";
+import { toast } from "sonner";
+import { Plus, X } from "lucide-react";
 
 type FeatureKey =
   | "campaigns"
@@ -47,6 +48,9 @@ const defaultToggles: Record<string, Record<FeatureKey, boolean>> = {
   },
 };
 
+/* ------------------------------------------------------------------ */
+/*  Toggle                                                             */
+/* ------------------------------------------------------------------ */
 function Toggle({
   enabled,
   onToggle,
@@ -58,20 +62,101 @@ function Toggle({
     <button
       onClick={onToggle}
       className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
-        enabled ? "bg-[#6C47FF]" : "bg-gray-300"
+        enabled ? "bg-violet-600" : "bg-gray-200"
       }`}
     >
       <span
         className={`inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform ${
-          enabled ? "translate-x-[18px]" : "translate-x-[3px]"
+          enabled ? "translate-x-5" : "translate-x-[3px]"
         }`}
       />
     </button>
   );
 }
 
+/* ------------------------------------------------------------------ */
+/*  New Role Modal                                                     */
+/* ------------------------------------------------------------------ */
+function NewRoleModal({ onClose }: { onClose: () => void }) {
+  const [roleName, setRoleName] = useState("");
+  const [checked, setChecked] = useState<Record<FeatureKey, boolean>>(
+    Object.fromEntries(features.map((f) => [f.key, false])) as Record<FeatureKey, boolean>
+  );
+
+  const handleCreate = () => {
+    if (!roleName.trim()) {
+      toast.error("Please enter a role name");
+      return;
+    }
+    toast.success("Role created");
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+      <div className="w-full max-w-md rounded-2xl bg-white shadow-xl mx-4">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+          <h2 className="text-lg font-bold text-gray-900">Create new role</h2>
+          <button onClick={onClose} className="p-1 text-gray-400 hover:text-gray-600 rounded">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <div className="p-6 space-y-5">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Role name</label>
+            <input
+              autoFocus
+              type="text"
+              value={roleName}
+              onChange={(e) => setRoleName(e.target.value)}
+              placeholder="e.g. Manager"
+              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+            />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-700 mb-3">Feature permissions</p>
+            <div className="space-y-2">
+              {features.map((f) => (
+                <label key={f.key} className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={checked[f.key]}
+                    onChange={() =>
+                      setChecked((prev) => ({ ...prev, [f.key]: !prev[f.key] }))
+                    }
+                    className="h-4 w-4 rounded border-gray-300 text-violet-600 focus:ring-violet-500"
+                  />
+                  <span className="text-sm text-gray-700">{f.label}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+          <div className="flex justify-end gap-3 pt-2">
+            <button
+              onClick={onClose}
+              className="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleCreate}
+              className="px-4 py-2 bg-[#6C47FF] text-white text-sm font-medium rounded-lg hover:bg-[#5a3ad4] transition-colors"
+            >
+              Create
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Access Controls Page                                               */
+/* ------------------------------------------------------------------ */
 export default function AccessControlsPage() {
   const [toggles, setToggles] = useState(defaultToggles);
+  const [showNewRoleModal, setShowNewRoleModal] = useState(false);
 
   const handleToggle = (role: string, feature: FeatureKey) => {
     setToggles((prev) => ({
@@ -81,6 +166,7 @@ export default function AccessControlsPage() {
         [feature]: !prev[role][feature],
       },
     }));
+    toast.success("Permissions updated");
   };
 
   return (
@@ -108,7 +194,10 @@ export default function AccessControlsPage() {
                 Member
               </th>
               <th className="text-center px-6 py-3">
-                <button className="flex items-center gap-1 text-xs font-medium text-violet-600 hover:text-violet-700 mx-auto">
+                <button
+                  onClick={() => setShowNewRoleModal(true)}
+                  className="flex items-center gap-1 text-xs font-medium text-violet-600 hover:text-violet-700 mx-auto"
+                >
                   <Plus className="h-3.5 w-3.5" />
                   New role
                 </button>
@@ -144,6 +233,9 @@ export default function AccessControlsPage() {
           </tbody>
         </table>
       </div>
+
+      {/* New Role Modal */}
+      {showNewRoleModal && <NewRoleModal onClose={() => setShowNewRoleModal(false)} />}
     </div>
   );
 }

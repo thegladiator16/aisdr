@@ -12,6 +12,7 @@ import {
   Webhook,
   Users,
   Rocket,
+  X,
 } from "lucide-react";
 
 type FilterTab = "All" | "Hiring" | "Funding" | "Other";
@@ -151,13 +152,37 @@ const signals: Signal[] = [
 
 const filterTabs: FilterTab[] = ["All", "Hiring", "Funding", "Other"];
 
+const campaignOptions = [
+  "Q2 Fintech Outreach",
+  "SaaS Founders - April Batch",
+];
+
 export default function SignalsPage() {
   const [activeFilter, setActiveFilter] = useState<FilterTab>("All");
+  const [signalModalOpen, setSignalModalOpen] = useState(false);
+  const [selectedSignal, setSelectedSignal] = useState<Signal | null>(null);
+  const [selectedCampaign, setSelectedCampaign] = useState("");
+  const [toast, setToast] = useState<string | null>(null);
 
   const filteredSignals =
     activeFilter === "All"
       ? signals
       : signals.filter((s) => s.categories.includes(activeFilter));
+
+  const handleSignalClick = (signal: Signal) => {
+    if (signal.comingSoon) return;
+    setSelectedSignal(signal);
+    setSelectedCampaign("");
+    setSignalModalOpen(true);
+  };
+
+  const handleSetupSignal = () => {
+    setSignalModalOpen(false);
+    setSelectedSignal(null);
+    setSelectedCampaign("");
+    setToast("Signal configured!");
+    setTimeout(() => setToast(null), 2500);
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-violet-50 to-white">
@@ -190,9 +215,11 @@ export default function SignalsPage() {
             return (
               <div
                 key={signal.id}
+                onClick={() => handleSignalClick(signal)}
+                title={signal.comingSoon ? "Coming soon — join waitlist" : undefined}
                 className={`relative rounded-xl border border-gray-200 bg-white p-5 transition ${
                   signal.comingSoon
-                    ? "opacity-60"
+                    ? "opacity-60 cursor-default"
                     : "hover:shadow-md cursor-pointer"
                 }`}
               >
@@ -218,6 +245,79 @@ export default function SignalsPage() {
           })}
         </div>
       </div>
+
+      {/* Signal Setup Modal */}
+      {signalModalOpen && selectedSignal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-full max-w-md rounded-xl bg-white shadow-2xl">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+              <h2 className="text-lg font-bold text-gray-900">
+                Set up {selectedSignal.title}
+              </h2>
+              <button
+                onClick={() => {
+                  setSignalModalOpen(false);
+                  setSelectedSignal(null);
+                }}
+                className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="px-6 py-5 space-y-4">
+              <p className="text-sm text-gray-600">{selectedSignal.description}</p>
+
+              <div>
+                <label className="text-sm font-medium text-gray-700">
+                  Campaign to enroll leads
+                </label>
+                <select
+                  value={selectedCampaign}
+                  onChange={(e) => setSelectedCampaign(e.target.value)}
+                  className="mt-1.5 w-full rounded-lg border border-gray-300 bg-white py-2.5 px-3 text-sm outline-none focus:border-[#6C47FF] transition"
+                >
+                  <option value="">Select a campaign...</option>
+                  {campaignOptions.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                  <option value="__new">+ Create new campaign</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center justify-end gap-3 border-t border-gray-200 px-6 py-4">
+              <button
+                onClick={() => {
+                  setSignalModalOpen(false);
+                  setSelectedSignal(null);
+                }}
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSetupSignal}
+                className="rounded-lg bg-[#6C47FF] px-5 py-2 text-sm font-medium text-white hover:bg-[#5a38e0] transition"
+              >
+                Set up signal
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Toast */}
+      {toast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 rounded-lg bg-gray-900 px-5 py-3 text-sm text-white shadow-lg">
+          {toast}
+        </div>
+      )}
     </div>
   );
 }

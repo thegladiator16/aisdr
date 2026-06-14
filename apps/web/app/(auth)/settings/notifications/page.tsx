@@ -1,80 +1,168 @@
 "use client";
 
-import { Bell } from "lucide-react";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 type NotificationRow = {
+  id: string;
   label: string;
   timing: string;
   timingStyle: "violet" | "gray";
   description?: string;
-  dropdown?: string[];
+  hasDropdown?: boolean;
+  dropdownOptions?: string[];
+  defaultRecipient?: string;
   comingSoon?: boolean;
-  emailEnabled?: boolean;
+  defaultEmailEnabled?: boolean;
 };
 
 const notifications: NotificationRow[] = [
   {
+    id: "urgent",
     label: "Urgent alerts",
     timing: "Real-time",
     timingStyle: "violet",
-    description:
-      "Get notified when something critical needs your attention",
-    emailEnabled: true,
+    description: "Get notified when something critical needs your attention",
+    hasDropdown: true,
+    dropdownOptions: ["All members", "Admins only", "Billing admin", "Custom"],
+    defaultRecipient: "All members",
+    defaultEmailEnabled: true,
   },
   {
+    id: "billing",
     label: "Billing and access",
     timing: "Real-time",
     timingStyle: "violet",
-    dropdown: ["Billing admin", "All members", "Owner only"],
-    emailEnabled: true,
+    hasDropdown: true,
+    dropdownOptions: ["All members", "Admins only", "Billing admin", "Custom"],
+    defaultRecipient: "Billing admin",
+    defaultEmailEnabled: true,
   },
   {
+    id: "replies",
     label: "Message reply alerts",
     timing: "Real-time",
     timingStyle: "violet",
-    dropdown: ["All members", "Assigned member", "Owner only"],
-    emailEnabled: true,
+    hasDropdown: true,
+    dropdownOptions: ["All members", "Admins only", "Billing admin", "Custom"],
+    defaultRecipient: "All members",
+    defaultEmailEnabled: true,
   },
   {
+    id: "escalated",
     label: "Escalated replies",
     timing: "Real-time",
     timingStyle: "violet",
-    dropdown: ["All members", "Assigned member", "Owner only"],
-    emailEnabled: true,
+    hasDropdown: true,
+    dropdownOptions: ["All members", "Admins only", "Billing admin", "Custom"],
+    defaultRecipient: "All members",
+    defaultEmailEnabled: true,
   },
   {
+    id: "meetings",
     label: "Meeting booked alerts",
     timing: "Real-time",
     timingStyle: "violet",
     comingSoon: true,
+    defaultEmailEnabled: false,
   },
   {
+    id: "visitors",
     label: "Website visitor alerts",
     timing: "Every visitor",
     timingStyle: "violet",
     comingSoon: true,
+    defaultEmailEnabled: false,
   },
   {
+    id: "overdue",
     label: "Overdue tasks",
     timing: "Coming soon",
     timingStyle: "gray",
     comingSoon: true,
+    defaultEmailEnabled: false,
   },
   {
+    id: "performance",
     label: "Performance reports",
     timing: "Coming soon",
     timingStyle: "gray",
     comingSoon: true,
+    defaultEmailEnabled: false,
   },
   {
+    id: "product",
     label: "Product updates",
     timing: "Occasional",
     timingStyle: "gray",
     comingSoon: true,
+    defaultEmailEnabled: false,
   },
 ];
 
+/* ------------------------------------------------------------------ */
+/*  Toggle                                                             */
+/* ------------------------------------------------------------------ */
+function Toggle({
+  enabled,
+  onToggle,
+  disabled,
+}: {
+  enabled: boolean;
+  onToggle: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      onClick={disabled ? undefined : onToggle}
+      className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+        disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"
+      } ${enabled ? "bg-[#6C47FF]" : "bg-gray-200"}`}
+    >
+      <span
+        className={`inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform ${
+          enabled ? "translate-x-5" : "translate-x-[3px]"
+        }`}
+      />
+    </button>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Notifications Page                                                 */
+/* ------------------------------------------------------------------ */
 export default function NotificationsPage() {
+  const router = useRouter();
+
+  // State for recipient dropdowns
+  const [recipients, setRecipients] = useState<Record<string, string>>(() => {
+    const initial: Record<string, string> = {};
+    notifications.forEach((n) => {
+      if (n.defaultRecipient) initial[n.id] = n.defaultRecipient;
+    });
+    return initial;
+  });
+
+  // State for email toggles
+  const [emailEnabled, setEmailEnabled] = useState<Record<string, boolean>>(() => {
+    const initial: Record<string, boolean> = {};
+    notifications.forEach((n) => {
+      initial[n.id] = n.defaultEmailEnabled ?? false;
+    });
+    return initial;
+  });
+
+  const handleRecipientChange = (id: string, value: string) => {
+    setRecipients((prev) => ({ ...prev, [id]: value }));
+    toast.success("Notification preference updated");
+  };
+
+  const handleToggleEmail = (id: string) => {
+    setEmailEnabled((prev) => ({ ...prev, [id]: !prev[id] }));
+    toast.success("Notification preference updated");
+  };
+
   return (
     <div className="max-w-3xl space-y-6">
       {/* Header */}
@@ -95,29 +183,27 @@ export default function NotificationsPage() {
             <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">
               Email
             </span>
-            <a
-              href="#"
+            <button
+              onClick={() => router.push("/settings/integrations")}
               className="text-xs font-medium text-violet-600 hover:text-violet-700"
             >
               Integrate Slack
-            </a>
+            </button>
           </div>
         </div>
 
         {/* Rows */}
         {notifications.map((row, idx) => (
           <div
-            key={row.label}
+            key={row.id}
             className={`flex items-center justify-between px-6 py-4 ${
               idx < notifications.length - 1 ? "border-b border-gray-100" : ""
-            }`}
+            } ${row.comingSoon ? "opacity-60" : ""}`}
           >
             <div className="flex items-center gap-3 flex-1">
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-gray-700">
-                    {row.label}
-                  </span>
+                  <span className="text-sm font-medium text-gray-700">{row.label}</span>
                   <span
                     className={`px-2 py-0.5 text-xs font-medium rounded-full ${
                       row.timingStyle === "violet"
@@ -134,30 +220,31 @@ export default function NotificationsPage() {
                   )}
                 </div>
                 {row.description && (
-                  <p className="text-xs text-gray-500 mt-0.5">
-                    {row.description}
-                  </p>
+                  <p className="text-xs text-gray-500 mt-0.5">{row.description}</p>
                 )}
               </div>
             </div>
 
             <div className="flex items-center gap-4">
-              {row.dropdown && (
-                <select className="text-xs text-gray-600 border border-gray-200 rounded-md px-2 py-1 bg-white">
-                  {row.dropdown.map((opt) => (
-                    <option key={opt}>{opt}</option>
+              {row.hasDropdown && row.dropdownOptions && (
+                <select
+                  value={recipients[row.id] || row.dropdownOptions[0]}
+                  onChange={(e) => handleRecipientChange(row.id, e.target.value)}
+                  disabled={row.comingSoon}
+                  className="text-xs text-gray-600 border border-gray-200 rounded-md px-2 py-1 bg-white focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {row.dropdownOptions.map((opt) => (
+                    <option key={opt} value={opt}>
+                      {opt}
+                    </option>
                   ))}
                 </select>
               )}
-              {row.emailEnabled ? (
-                <div className="h-5 w-9 bg-[#6C47FF] rounded-full flex items-center justify-end px-[3px]">
-                  <span className="h-3.5 w-3.5 bg-white rounded-full" />
-                </div>
-              ) : (
-                <div className="h-5 w-9 bg-gray-200 rounded-full flex items-center px-[3px]">
-                  <span className="h-3.5 w-3.5 bg-white rounded-full" />
-                </div>
-              )}
+              <Toggle
+                enabled={emailEnabled[row.id] ?? false}
+                onToggle={() => handleToggleEmail(row.id)}
+                disabled={row.comingSoon}
+              />
             </div>
           </div>
         ))}

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { Briefcase, User, Database, Sparkles, SlidersHorizontal } from "lucide-react";
 
 const professionalSuggestions = [
@@ -26,12 +27,32 @@ const tabConfig = [
 type TabId = "professionals" | "local" | "crm";
 
 export default function FindLeadsPage() {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabId>("professionals");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [toast, setToast] = useState<string | null>(null);
 
   const suggestions =
     activeTab === "professionals" ? professionalSuggestions : businessSuggestions;
   const placeholder =
-    activeTab === "professionals" ? "Jeff Bezos" : "Le Jolie MedSpa";
+    activeTab === "professionals"
+      ? "Search professionals, e.g. Jeff Bezos"
+      : "Search local businesses, e.g. Le Jolie MedSpa";
+
+  const showToast = useCallback((message: string) => {
+    setToast(message);
+    setTimeout(() => setToast(null), 2500);
+  }, []);
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" && searchQuery.trim()) {
+      showToast(`Searching for '${searchQuery.trim()}'...`);
+    }
+  };
+
+  const handleSuggestionClick = (suggestion: string) => {
+    setSearchQuery(suggestion);
+  };
 
   return (
     <div className="flex flex-col items-center px-6 py-12">
@@ -48,9 +69,10 @@ export default function FindLeadsPage() {
             <button
               key={tab.id}
               onClick={() => tab.enabled && setActiveTab(tab.id)}
+              disabled={!tab.enabled}
               className={`flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition ${
                 !tab.enabled
-                  ? "border border-gray-200 text-gray-400 cursor-not-allowed"
+                  ? "border border-gray-200 text-gray-400 cursor-not-allowed opacity-50"
                   : isActive
                   ? "bg-violet-50 text-violet-700 border border-violet-200"
                   : "border border-gray-200 text-gray-600 hover:bg-gray-50"
@@ -71,6 +93,9 @@ export default function FindLeadsPage() {
       {/* Search Input */}
       <input
         type="text"
+        value={searchQuery}
+        onChange={(e) => setSearchQuery(e.target.value)}
+        onKeyDown={handleKeyDown}
         placeholder={placeholder}
         className="mt-8 w-full max-w-2xl rounded-xl border-2 border-gray-200 h-14 px-5 text-base outline-none focus:border-violet-500 transition"
       />
@@ -80,6 +105,7 @@ export default function FindLeadsPage() {
         {suggestions.map((suggestion) => (
           <button
             key={suggestion}
+            onClick={() => handleSuggestionClick(suggestion)}
             className="flex w-full items-center gap-3 rounded-lg border border-gray-200 px-4 py-3 text-left hover:bg-violet-50 cursor-pointer transition"
           >
             <div className="flex h-6 w-6 items-center justify-center rounded-full bg-violet-100">
@@ -91,10 +117,20 @@ export default function FindLeadsPage() {
       </div>
 
       {/* Search with filters button */}
-      <button className="mt-4 flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition">
+      <button
+        onClick={() => router.push("/find-leads/results")}
+        className="mt-4 flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition"
+      >
         <SlidersHorizontal className="h-4 w-4" />
         Search with filters
       </button>
+
+      {/* Toast */}
+      {toast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 rounded-lg bg-gray-900 px-5 py-3 text-sm text-white shadow-lg animate-[fadeIn_0.2s_ease-out]">
+          {toast}
+        </div>
+      )}
     </div>
   );
 }

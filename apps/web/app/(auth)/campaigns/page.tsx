@@ -18,6 +18,8 @@ import {
   MoreHorizontal,
   Copy,
   Archive,
+  AlertTriangle,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Spinner } from "@/components/ui/spinner";
@@ -111,10 +113,15 @@ export default function CampaignsPage() {
   const [selectedType, setSelectedType] = useState<CampaignOption | null>(null);
   const [campaignName, setCampaignName] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [createError, setCreateError] = useState("");
 
   /* three-dot menu */
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
+
+  /* archive confirmation modal */
+  const [archiveTarget, setArchiveTarget] = useState<Campaign | null>(null);
+  const [archiving, setArchiving] = useState(false);
 
   /* ---- data fetching ---- */
 
@@ -155,39 +162,42 @@ export default function CampaignsPage() {
     setModalState("step1");
     setSelectedType(null);
     setCampaignName("");
+    setCreateError("");
   }
 
   function closeModal() {
     setModalState("closed");
     setSelectedType(null);
     setCampaignName("");
+    setCreateError("");
   }
 
   function handleSelectType(option: CampaignOption) {
     setSelectedType(option);
     setCampaignName(`${option.title} 1`);
     setModalState("step2");
+    setCreateError("");
   }
 
   async function handleCreate() {
     if (!campaignName.trim()) {
-      toast.error("Campaign name is required");
+      setCreateError("Campaign name is required");
       return;
     }
     setSubmitting(true);
+    setCreateError("");
     try {
       const res = await fetch("/api/campaigns", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: campaignName.trim() }),
+        body: JSON.stringify({ name: campaignName.trim(), status: "draft" }),
       });
       if (!res.ok) throw new Error("Failed to create campaign");
       toast.success("Campaign created");
       closeModal();
-      router.push("/campaigns");
       loadCampaigns();
     } catch (err) {
-      toast.error(
+      setCreateError(
         err instanceof Error ? err.message : "Failed to create campaign"
       );
     } finally {
@@ -203,12 +213,14 @@ export default function CampaignsPage() {
       const res = await fetch("/api/campaigns", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: `${c.name} (copy)` }),
+        body: JSON.stringify({
+          name: `${c.name} (copy)`,
+          status: "draft",
+        }),
       });
       if (!res.ok) throw new Error("Failed to duplicate campaign");
-      const json = await res.json();
-      setCampaigns((prev) => [json.data, ...prev]);
       toast.success("Campaign duplicated");
+      loadCampaigns();
     } catch (err) {
       toast.error(
         err instanceof Error ? err.message : "Failed to duplicate campaign"
@@ -216,24 +228,30 @@ export default function CampaignsPage() {
     }
   }
 
-  async function handleArchive(id: string) {
+  function openArchiveConfirm(c: Campaign) {
     setOpenMenuId(null);
+    setArchiveTarget(c);
+  }
+
+  async function confirmArchive() {
+    if (!archiveTarget) return;
+    setArchiving(true);
     try {
-      const res = await fetch(`/api/campaigns/${id}`, {
-        method: "PUT",
+      const res = await fetch(`/api/campaigns/${archiveTarget.id}`, {
+        method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "completed" }),
+        body: JSON.stringify({ status: "archived" }),
       });
       if (!res.ok) throw new Error("Failed to archive campaign");
-      const json = await res.json();
-      setCampaigns((prev) =>
-        prev.map((x) => (x.id === id ? json.data : x))
-      );
+      setCampaigns((prev) => prev.filter((x) => x.id !== archiveTarget.id));
       toast.success("Campaign archived");
+      setArchiveTarget(null);
     } catch (err) {
       toast.error(
         err instanceof Error ? err.message : "Failed to archive campaign"
       );
+    } finally {
+      setArchiving(false);
     }
   }
 
@@ -324,7 +342,10 @@ export default function CampaignsPage() {
                     </h3>
 
                     {/* three-dot menu */}
-                    <div className="relative" ref={openMenuId === c.id ? menuRef : undefined}>
+                    <div
+                      className="relative"
+                      ref={openMenuId === c.id ? menuRef : undefined}
+                    >
                       <button
                         onClick={() =>
                           setOpenMenuId(openMenuId === c.id ? null : c.id)
@@ -344,7 +365,7 @@ export default function CampaignsPage() {
                             Duplicate
                           </button>
                           <button
-                            onClick={() => handleArchive(c.id)}
+                            onClick={() => openArchiveConfirm(c)}
                             className="flex w-full items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
                           >
                             <Archive className="h-3.5 w-3.5" />
@@ -393,6 +414,42 @@ export default function CampaignsPage() {
                 </div>
               );
             })}
+          </div>
+        </div>
+      )}
+
+      {/* ========== ARCHIVE CONFIRMATION MODAL ========== */}
+      {archiveTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-2xl bg-white shadow-xl mx-4 p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-50">
+                <AlertTriangle className="h-5 w-5 text-red-600" />
+              </div>
+              <h3 className="text-lg font-bold text-gray-900">
+                Archive campaign?
+              </h3>
+            </div>
+            <p className="text-sm text-gray-500 mb-6">
+              This campaign will be moved to archives.
+            </p>
+            <div className="flex items-center justify-end gap-2">
+              <button
+                onClick={() => setArchiveTarget(null)}
+                disabled={archiving}
+                className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmArchive}
+                disabled={archiving}
+                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 transition-colors disabled:opacity-50 inline-flex items-center gap-2"
+              >
+                {archiving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                Archive
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -470,14 +527,23 @@ export default function CampaignsPage() {
                 <input
                   type="text"
                   value={campaignName}
-                  onChange={(e) => setCampaignName(e.target.value)}
-                  className="w-full rounded-lg border border-gray-200 h-11 px-4 text-sm text-gray-900 placeholder:text-gray-400 focus:border-[#6C47FF] focus:ring-1 focus:ring-[#6C47FF] focus:outline-none transition"
+                  onChange={(e) => {
+                    setCampaignName(e.target.value);
+                    setCreateError("");
+                  }}
+                  className={cn(
+                    "w-full rounded-lg border h-11 px-4 text-sm text-gray-900 placeholder:text-gray-400 focus:border-[#6C47FF] focus:ring-1 focus:ring-[#6C47FF] focus:outline-none transition",
+                    createError ? "border-red-300" : "border-gray-200"
+                  )}
                   placeholder="Campaign name"
                   autoFocus
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && !submitting) handleCreate();
                   }}
                 />
+                {createError && (
+                  <p className="mt-1.5 text-xs text-red-600">{createError}</p>
+                )}
               </div>
             )}
 
@@ -499,8 +565,9 @@ export default function CampaignsPage() {
                 <button
                   onClick={handleCreate}
                   disabled={submitting || !campaignName.trim()}
-                  className="rounded-lg bg-[#6C47FF] px-4 py-2 text-sm font-semibold text-white hover:bg-[#5a39dd] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="rounded-lg bg-[#6C47FF] px-4 py-2 text-sm font-semibold text-white hover:bg-[#5a39dd] transition-colors disabled:opacity-40 disabled:cursor-not-allowed inline-flex items-center gap-2"
                 >
+                  {submitting && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
                   {submitting ? "Creating..." : "Create"}
                 </button>
               </div>

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 import { Toaster } from "sonner";
+import { Toaster as HotToaster } from "react-hot-toast";
 import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -64,6 +65,7 @@ export default function RootLayout({
         <body className={inter.className}>
           {children}
           <Toaster richColors position="top-right" />
+          <HotToaster position="top-right" toastOptions={{ duration: 3000, style: { background: '#333', color: '#fff', fontSize: '14px' } }} />
         </body>
       </html>
     </ClerkProvider>

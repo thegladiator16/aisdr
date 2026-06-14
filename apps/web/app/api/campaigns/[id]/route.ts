@@ -82,6 +82,33 @@ export async function PUT(
   }
 }
 
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const user = await requireUser();
+    const body = (await req.json()) as unknown;
+    const parsed = updateCampaignSchema.parse(body);
+
+    await db
+      .update(campaigns)
+      .set({
+        ...parsed,
+        fromEmail: parsed.fromEmail || undefined,
+        updatedAt: new Date(),
+      })
+      .where(and(eq(campaigns.id, params.id), eq(campaigns.userId, user.id)));
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json({ error: error.errors }, { status: 400 });
+    }
+    return NextResponse.json({ error: "Failed to update" }, { status: 500 });
+  }
+}
+
 export async function DELETE(
   _req: NextRequest,
   { params }: { params: { id: string } }
