@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { CheckCircle2, ArrowRight, Mail, MessageCircle, Calendar, Star, Zap, BarChart2, Shield, Users, Target, Sparkles } from "lucide-react";
 import { AryaAvatar } from "@/components/arya/AryaAvatar";
+import { Navbar } from "@/components/layout/Navbar";
 
 const STEPS = [
   {
@@ -122,33 +123,7 @@ export default function LandingPage() {
       </div>
 
       {/* Section 2: Navbar */}
-      <nav className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-200">
-        <div className="mx-auto max-w-6xl flex items-center justify-between px-6 py-3">
-          <div className="flex items-center gap-2.5">
-            <AryaAvatar size="sm" />
-            <span className="font-bold text-gray-900 text-lg">AI SDR</span>
-          </div>
-          <div className="hidden md:flex items-center gap-6">
-            <Link href="#how" className="text-sm text-gray-600 hover:text-gray-900">Product</Link>
-            <Link href="#testimonials" className="text-sm text-gray-600 hover:text-gray-900">Solutions</Link>
-            <Link href="/pricing" className="text-sm text-gray-600 hover:text-gray-900">Pricing</Link>
-          </div>
-          <div className="flex items-center gap-3">
-            <Link href="/contact" className="hidden sm:inline-flex text-sm text-gray-600 hover:text-gray-900 px-3 py-2">
-              Get a demo
-            </Link>
-            <Link href="/sign-in" className="text-sm text-gray-600 hover:text-gray-900 px-3 py-2">
-              Sign in
-            </Link>
-            <Link
-              href="/sign-up"
-              className="rounded-lg bg-[#6C47FF] px-4 py-2 text-sm font-medium text-white hover:bg-[#5A38E0] transition-colors"
-            >
-              Start free trial <ArrowRight className="inline h-3 w-3 ml-1" />
-            </Link>
-          </div>
-        </div>
-      </nav>
+      <Navbar />
 
       {/* Section 3: Hero */}
       <section className="mx-auto max-w-6xl px-6 pt-16 pb-20">
