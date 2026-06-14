@@ -391,8 +391,8 @@ export default function LandingPage() {
         <div className="mx-auto max-w-3xl px-6 text-center">
           <h2 className="text-3xl font-bold mb-10">A fraction of the cost of a human SDR</h2>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
-            <div className="rounded-2xl bg-white border border-gray-200 p-8 flex-1 max-w-xs shadow-sm">
-              <p className="text-sm text-gray-500 mb-2">A human SDR</p>
+            <div className="rounded-2xl bg-white border-2 border-red-400 p-8 flex-1 max-w-xs shadow-lg">
+              <p className="text-sm text-red-400 mb-2 font-medium">A human SDR</p>
               <p className="text-4xl font-bold text-red-500">{"₹"}80,000</p>
               <p className="text-sm text-gray-400 mt-1">/month</p>
             </div>
