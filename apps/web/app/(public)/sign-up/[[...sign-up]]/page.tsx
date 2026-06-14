@@ -31,12 +31,37 @@ export default function SignUpPage() {
             appearance={{
               elements: {
                 rootBox: "w-full",
-                card: "shadow-none p-0 w-full",
+                card: "shadow-none p-0 w-full bg-white",
                 headerTitle: "hidden",
                 headerSubtitle: "hidden",
-                socialButtonsBlockButton: "border border-gray-300 hover:bg-gray-50",
-                formButtonPrimary: "bg-[#6C47FF] hover:bg-[#5A38E0]",
-                footerActionLink: "text-[#6C47FF] hover:text-[#5A38E0]",
+                socialButtonsBlockButton:
+                  "border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors",
+                socialButtonsBlockButtonText: "text-sm font-medium text-gray-700",
+                dividerLine: "bg-gray-200",
+                dividerText: "text-gray-400 text-xs",
+                formFieldRow: "mb-4",
+                formFieldLabel: "text-sm font-medium text-gray-700 mb-1.5",
+                formFieldInput:
+                  "rounded-xl border border-gray-300 px-4 py-3 text-sm text-gray-900 placeholder:text-gray-400 focus:border-[#6C47FF] focus:ring-2 focus:ring-[#6C47FF]/20 focus:outline-none transition-colors w-full",
+                formButtonPrimary:
+                  "bg-[#6C47FF] hover:bg-[#5A38E0] rounded-xl py-3 text-sm font-semibold transition-colors shadow-none",
+                formFieldAction: "text-[#6C47FF] text-sm font-medium hover:text-[#5A38E0]",
+                footerAction: "mt-6",
+                footerActionLink:
+                  "text-[#6C47FF] font-medium hover:text-[#5A38E0]",
+                footer:
+                  "[&>.cl-internal-b3fm6y]:hidden [&>div:last-child]:hidden",
+                badge: "hidden",
+                identityPreview: "rounded-xl border border-gray-200 bg-gray-50 px-4 py-3",
+                identityPreviewText: "text-sm text-gray-700",
+                identityPreviewEditButton: "text-[#6C47FF] hover:text-[#5A38E0]",
+                alert: "rounded-xl border border-red-200 bg-red-50 text-red-700 text-sm",
+                otpCodeFieldInput:
+                  "rounded-lg border border-gray-300 focus:border-[#6C47FF] focus:ring-2 focus:ring-[#6C47FF]/20",
+              },
+              layout: {
+                socialButtonsPlacement: "bottom",
+                showOptionalFields: false,
               },
             }}
           />
