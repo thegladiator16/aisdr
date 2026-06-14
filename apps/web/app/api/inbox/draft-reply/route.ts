@@ -22,9 +22,9 @@ export async function POST(req: NextRequest) {
       professional:
         "Thank you for your interest. I'd be happy to schedule a call at your earliest convenience to walk you through our platform and discuss how we can help your team achieve its goals. Please let me know what times work best for you.",
       friendly:
-        "Hey, thanks so much for getting back to me! I'd love to hop on a quick call and show you what we've been building. Super flexible on timing — just let me know what works for you and I'll get something on the calendar!",
+        "Hey, thanks so much for getting back to me! I'd love to hop on a quick call and show you what we've been building. Super flexible on timing, just let me know what works for you and I'll get something on the calendar!",
       bold:
-        "Let's cut to the chase — your team is leaving revenue on the table every day without this. I've blocked 30 minutes on my calendar this week for a no-fluff demo. Pick a slot and I'll show you exactly how we 3x your pipeline.",
+        "Let's cut to the chase: your team is leaving revenue on the table every day without this. I've blocked 30 minutes on my calendar this week for a no-fluff demo. Pick a slot and I'll show you exactly how we 3x your pipeline.",
     };
 
     const reply = replies[tone] ?? replies.professional;

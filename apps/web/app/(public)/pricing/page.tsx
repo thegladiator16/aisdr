@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import Link from "next/link";
 import { CheckCircle2, ArrowRight } from "lucide-react";
 import { AryaAvatar } from "@/components/arya/AryaAvatar";
@@ -5,6 +8,7 @@ import { CreditEstimator } from "@/components/pricing/CreditEstimator";
 
 const PLANS = [
   {
+    key: "free",
     name: "Free",
     price: "₹0",
     period: "/month",
@@ -17,9 +21,10 @@ const PLANS = [
     ],
     cta: "Start free",
     href: "/sign-up",
-    highlighted: false,
+    recommended: false,
   },
   {
+    key: "starter",
     name: "Starter",
     price: "₹15,000",
     period: "/month",
@@ -35,9 +40,10 @@ const PLANS = [
     ],
     cta: "Start 14-day trial",
     href: "/sign-up?plan=starter",
-    highlighted: false,
+    recommended: false,
   },
   {
+    key: "growth",
     name: "Growth",
     price: "₹30,000",
     period: "/month",
@@ -52,9 +58,10 @@ const PLANS = [
     ],
     cta: "Start 14-day trial",
     href: "/sign-up?plan=growth",
-    highlighted: true,
+    recommended: true,
   },
   {
+    key: "enterprise",
     name: "Enterprise",
     price: "Custom",
     period: "",
@@ -68,13 +75,13 @@ const PLANS = [
     ],
     cta: "Book a demo",
     href: "/contact",
-    highlighted: false,
+    recommended: false,
   },
 ];
 
 const FAQ = [
   { q: "Can I try before buying?", a: "Yes! The free plan includes 50 leads and 100 emails per month, forever. No credit card needed." },
-  { q: "How does billing work?", a: "Monthly billing via Razorpay. Cancel anytime — no contracts. Enterprise plans have annual options." },
+  { q: "How does billing work?", a: "Monthly billing via Razorpay. Cancel anytime, no contracts. Enterprise plans have annual options." },
   { q: "Can I switch plans?", a: "Yes. Upgrade or downgrade at any time. Changes take effect on your next billing cycle." },
   { q: "What payment methods do you accept?", a: "UPI, credit cards, debit cards, net banking, and wallets via Razorpay. Enterprise can pay via invoice." },
   { q: "Is there a refund policy?", a: "We offer a 14-day money-back guarantee on all paid plans. No questions asked." },
@@ -82,6 +89,8 @@ const FAQ = [
 ];
 
 export default function PricingPage() {
+  const [selectedPlan, setSelectedPlan] = useState<string>("growth");
+
   return (
     <div className="min-h-screen bg-[#FAFAFA] text-[#0A0A0A]">
       {/* Navbar */}
@@ -136,16 +145,17 @@ export default function PricingPage() {
       {/* Plans */}
       <section className="mx-auto max-w-6xl px-6 pb-20">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
-          {PLANS.map(({ name, price, period, desc, features, cta, href, highlighted }) => (
+          {PLANS.map(({ key, name, price, period, desc, features, cta, href, recommended }) => (
             <div
-              key={name}
-              className={`rounded-2xl border p-6 flex flex-col ${
-                highlighted
-                  ? "border-[#6C47FF] ring-2 ring-[#6C47FF]/20 bg-white shadow-lg relative"
-                  : "border-gray-200 bg-white"
+              key={key}
+              onClick={() => setSelectedPlan(key)}
+              className={`relative rounded-2xl border-2 p-6 flex flex-col cursor-pointer transition-all duration-200 bg-white shadow-sm ${
+                selectedPlan === key
+                  ? "border-[#6C47FF] ring-2 ring-[#6C47FF] ring-offset-2 bg-[#F5F3FF]"
+                  : "border-gray-200 hover:border-gray-300"
               }`}
             >
-              {highlighted && (
+              {recommended && (
                 <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-[#6C47FF] px-3 py-0.5 text-xs font-semibold text-white">
                   Recommended
                 </span>
@@ -167,9 +177,9 @@ export default function PricingPage() {
               <Link
                 href={href}
                 className={`rounded-lg px-4 py-2.5 text-sm font-semibold text-center transition-colors ${
-                  highlighted
-                    ? "bg-[#6C47FF] text-white hover:bg-[#5A38E0]"
-                    : "border border-gray-300 text-gray-700 hover:bg-gray-50"
+                  selectedPlan === key
+                    ? "bg-[#6C47FF] text-white hover:bg-[#5538DD]"
+                    : "bg-white text-[#6C47FF] border border-[#6C47FF] hover:bg-[#F5F3FF]"
                 }`}
               >
                 {cta} <ArrowRight className="inline h-3 w-3 ml-1" />

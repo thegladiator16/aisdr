@@ -60,7 +60,7 @@ export default function WhatsAppSetupPage() {
         <h2 className="font-semibold text-foreground">Why WhatsApp for Indian outreach?</h2>
         <ul className="space-y-2 text-sm text-muted-foreground">
           {[
-            "WhatsApp has 500M+ active users in India — highest open rates of any channel",
+            "WhatsApp has 500M+ active users in India with the highest open rates of any channel",
             "Business messages get 3–5× more replies than cold email",
             "Template messages allow personalised, compliant outreach at scale",
             "Replies sync directly to your inbox for quick follow-up",

@@ -7,9 +7,9 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "AI SDR — Autonomous B2B Sales Outreach",
+  title: "AI SDR - Autonomous B2B Sales Outreach",
   description:
-    "AI that finds your ideal customers, writes personalized outreach, and books meetings — automatically.",
+    "AI that finds your ideal customers, writes personalized outreach, and books meetings automatically.",
   keywords: ["B2B sales", "SDR", "AI outreach", "lead generation", "India"],
 };
 

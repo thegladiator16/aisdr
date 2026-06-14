@@ -18,7 +18,7 @@ const STEPS = [
   {
     num: "03",
     title: "She sends across Email AND WhatsApp",
-    desc: "Unlike global tools, Arya supports WhatsApp Business API — the channel where Indian founders actually respond. Multi-step sequences across both channels.",
+    desc: "Unlike global tools, Arya supports WhatsApp Business API, the channel where Indian founders actually respond. Multi-step sequences across both channels.",
     checks: ["Gmail integration", "WhatsApp Business API", "Multi-step sequences", "Smart scheduling"],
   },
   {
@@ -103,7 +103,7 @@ const PRESS = ["YourStory", "Inc42", "Economic Times", "Entrackr", "StartupStori
 
 const FAQ = [
   { q: "How does the free plan work?", a: "Sign up and get 50 leads and 100 emails per month, forever. No credit card needed. Upgrade when you're ready." },
-  { q: "Can Arya send WhatsApp messages?", a: "Yes! Arya supports WhatsApp Business API — a channel where Indian prospects actually respond. This is unavailable in most global tools." },
+  { q: "Can Arya send WhatsApp messages?", a: "Yes! Arya supports WhatsApp Business API, a channel where Indian prospects actually respond. This is unavailable in most global tools." },
   { q: "Is this compliant with GDPR and India DPDPA?", a: "Absolutely. All data handling is GDPR and India DPDPA compliant. We provide opt-out links and honor unsubscribe requests automatically." },
   { q: "How is this different from Apollo or Instantly?", a: "Arya is built for India-first B2B. WhatsApp outreach, Hindi/Hinglish support, INR pricing 5x cheaper, Indian company database, and Razorpay payments." },
   { q: "Can I use my own email domain?", a: "Yes. Connect your Gmail or Google Workspace account. Arya sends from your real email for maximum deliverability." },
@@ -115,7 +115,7 @@ export default function LandingPage() {
     <div className="min-h-screen bg-[#FAFAFA] text-[#0A0A0A]">
       {/* Section 1: Announcement Bar */}
       <div className="bg-[#6C47FF] text-white text-sm py-2.5 text-center">
-        Start free — 50 leads included. No credit card required.
+        Start free, 50 leads included. No credit card required.
         <Link href="/sign-up" className="underline ml-2 font-medium">
           Get started <ArrowRight className="inline h-3 w-3" />
         </Link>
@@ -163,14 +163,14 @@ export default function LandingPage() {
             </h1>
             <p className="text-lg text-gray-500 mt-6 max-w-lg leading-relaxed">
               She finds leads, writes personalized outreach, handles replies,
-              and books meetings — at a fraction of the cost of a human SDR.
+              and books meetings, at a fraction of the cost of a human SDR.
             </p>
             <div className="flex flex-col sm:flex-row gap-3 mt-8">
               <Link
                 href="/sign-up"
                 className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#6C47FF] px-6 py-3.5 text-base font-semibold text-white hover:bg-[#5A38E0] transition-colors"
               >
-                Start free — 50 leads included <ArrowRight className="h-4 w-4" />
+                Start free. 50 leads included <ArrowRight className="h-4 w-4" />
               </Link>
               <Link
                 href="/contact"

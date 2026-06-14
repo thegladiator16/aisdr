@@ -15,7 +15,7 @@ export function AnnouncementBar() {
 
   return (
     <div className="bg-[#6C47FF] text-white text-sm py-2.5 px-6 text-center relative">
-      Start free — 50 leads included. No credit card required.
+      Start free, 50 leads included. No credit card required.
       <Link href="/sign-up" className="underline ml-2 font-medium">
         Get started <ArrowRight className="inline h-3 w-3" />
       </Link>

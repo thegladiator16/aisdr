@@ -55,7 +55,7 @@ const CHAT_MESSAGES: Record<number, { from: "arya" | "user"; text: string }[]> =
       },
       {
         from: "arya",
-        text: "Hang tight -- I'm pulling info from the web right now...",
+        text: "Hang tight, I'm pulling info from the web right now...",
       },
     ],
     1: [

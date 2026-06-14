@@ -61,7 +61,7 @@ export default async function DashboardPage() {
           {[
             { time: "2m ago", text: "Found 3 new leads matching your ICP", color: "bg-violet-500" },
             { time: "15m ago", text: "Sent follow-up to Rahul at TechCorp", color: "bg-blue-500" },
-            { time: "1h ago", text: "Reply detected from Priya Mehta — positive intent", color: "bg-emerald-500" },
+            { time: "1h ago", text: "Reply detected from Priya Mehta, positive intent", color: "bg-emerald-500" },
             { time: "3h ago", text: "Meeting booked: Finova <> Demo Call, Tomorrow 3pm", color: "bg-amber-500" },
           ].map((item) => (
             <div key={item.text} className="flex items-start gap-3 text-sm">
