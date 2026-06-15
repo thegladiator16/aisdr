@@ -26,7 +26,7 @@ import {
   PanelLeftOpen,
   Building2,
   Coins,
-  Zap,
+
 } from "lucide-react";
 import { useUser, useClerk } from "@clerk/nextjs";
 import { AryaAvatar } from "@/components/arya/AryaAvatar";
@@ -212,22 +212,18 @@ export function Sidebar({ onChatOpen }: SidebarProps) {
 
         {/* Credits */}
         {!collapsed && (
-          <>
-            <button
-              onClick={() => setShowPlanModal(true)}
-              className="w-full flex items-center gap-2 px-3 py-2 mb-1 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-sm font-medium transition-colors"
-            >
-              <Zap className="h-4 w-4 shrink-0" />
-              Upgrade plan
-            </button>
-            <button
-              onClick={() => setShowPlanModal(true)}
-              className="flex w-full items-center gap-3 px-3 py-2 text-sm text-gray-700 rounded-lg hover:bg-violet-50 cursor-pointer transition-colors"
-            >
-              <Coins className="h-4 w-4 text-amber-500 shrink-0" />
-              <span className="font-medium">10,000</span>
-            </button>
-          </>
+          <button
+            onClick={() => setShowPlanModal(true)}
+            className="w-full rounded-lg px-3 py-2 hover:bg-violet-50 cursor-pointer transition-colors"
+          >
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-gray-500">Credits</span>
+              <span className="font-semibold text-gray-900">10,000</span>
+            </div>
+            <div className="mt-1.5 w-full h-1 bg-gray-200 rounded-full overflow-hidden">
+              <div className="h-full w-full bg-[#6C47FF] rounded-full" />
+            </div>
+          </button>
         )}
 
         {/* Support */}

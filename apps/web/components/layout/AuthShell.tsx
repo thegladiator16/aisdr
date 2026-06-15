@@ -13,11 +13,11 @@ function UpgradeBanner({ onDismiss, onChoosePlan }: { onDismiss: () => void; onC
     <div
       className="w-full py-2.5 px-4 text-sm text-white text-center flex items-center justify-center gap-4"
       style={{
-        background: "linear-gradient(to right, #FBC2EB, #A18CD1)",
+        background: "linear-gradient(90deg, #7C3AED, #A855F7, #EC4899, #F97316)",
       }}
     >
       <span>
-        Your trial ends in 30 days. You can reach 1,000s more people if you
+        Your trial ends in 29 days.&nbsp; You can reach 1,000s of more people if you
         upgrade today
       </span>
       <div className="flex items-center gap-2">
@@ -29,7 +29,7 @@ function UpgradeBanner({ onDismiss, onChoosePlan }: { onDismiss: () => void; onC
         </button>
         <button
           onClick={onDismiss}
-          className="text-xs hover:underline opacity-80"
+          className="rounded-full border border-white px-3 py-1 text-xs font-medium hover:bg-white/20 transition-colors"
         >
           Remind me later
         </button>
