@@ -20,6 +20,8 @@ import {
   Archive,
   AlertTriangle,
   Loader2,
+  Search,
+  SlidersHorizontal,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Spinner } from "@/components/ui/spinner";
@@ -122,6 +124,20 @@ export default function CampaignsPage() {
   /* archive confirmation modal */
   const [archiveTarget, setArchiveTarget] = useState<Campaign | null>(null);
   const [archiving, setArchiving] = useState(false);
+
+  /* search */
+  const [searchQuery, setSearchQuery] = useState("");
+
+  /* filters panel */
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [filterStatuses, setFilterStatuses] = useState<Set<string>>(new Set(["all"]));
+  const [filterTypes, setFilterTypes] = useState<Set<string>>(new Set());
+  const [filterDateRange, setFilterDateRange] = useState("last-30");
+  const [filterMinReplies, setFilterMinReplies] = useState("");
+  const [filterMaxReplies, setFilterMaxReplies] = useState("");
+  const [filterMinMeetings, setFilterMinMeetings] = useState("");
+  const [filterMaxMeetings, setFilterMaxMeetings] = useState("");
+  const [appliedFilterCount, setAppliedFilterCount] = useState(0);
 
   /* ---- data fetching ---- */
 
@@ -255,6 +271,58 @@ export default function CampaignsPage() {
     }
   }
 
+  /* ---- filtering ---- */
+  const filteredCampaigns = campaigns.filter((c) => {
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      if (!c.name.toLowerCase().includes(q)) return false;
+    }
+    return true;
+  });
+
+  function applyFilters() {
+    let count = 0;
+    if (!filterStatuses.has("all")) count += filterStatuses.size;
+    if (filterTypes.size > 0) count += filterTypes.size;
+    if (filterDateRange !== "last-30") count += 1;
+    if (filterMinReplies || filterMaxReplies) count += 1;
+    if (filterMinMeetings || filterMaxMeetings) count += 1;
+    setAppliedFilterCount(count);
+    setFiltersOpen(false);
+  }
+
+  function clearFilters() {
+    setFilterStatuses(new Set(["all"]));
+    setFilterTypes(new Set());
+    setFilterDateRange("last-30");
+    setFilterMinReplies("");
+    setFilterMaxReplies("");
+    setFilterMinMeetings("");
+    setFilterMaxMeetings("");
+    setAppliedFilterCount(0);
+  }
+
+  function toggleFilterStatus(id: string) {
+    setFilterStatuses((prev) => {
+      const next = new Set(prev);
+      if (id === "all") return new Set(["all"]);
+      next.delete("all");
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      if (next.size === 0) return new Set(["all"]);
+      return next;
+    });
+  }
+
+  function toggleFilterType(id: string) {
+    setFilterTypes((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
   /* ---------- render ---------- */
 
   if (loading) {
@@ -312,19 +380,55 @@ export default function CampaignsPage() {
         <div className="space-y-6">
           {/* header */}
           <div className="flex items-center justify-between">
-            <h1 className="text-2xl font-bold text-gray-900">Campaigns</h1>
-            <button
-              onClick={openModal}
-              className="inline-flex items-center gap-2 rounded-lg bg-[#6C47FF] px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#5a39dd] transition-colors"
-            >
-              <Plus className="h-4 w-4" />
-              New campaign
-            </button>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">Campaigns</h1>
+              {searchQuery && (
+                <p className="text-sm text-gray-500 mt-1">
+                  Showing {filteredCampaigns.length} of {campaigns.length} campaigns
+                </p>
+              )}
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search campaigns..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-56 rounded-lg border border-gray-200 pl-9 pr-3 py-2 text-sm text-gray-700 placeholder:text-gray-400 focus:border-[#6C47FF] focus:outline-none focus:ring-1 focus:ring-[#6C47FF]"
+                />
+              </div>
+              <button
+                onClick={() => setFiltersOpen(true)}
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-medium transition-colors",
+                  appliedFilterCount > 0
+                    ? "border-violet-300 bg-violet-50 text-violet-700"
+                    : "border-gray-200 text-gray-700 hover:bg-gray-50"
+                )}
+              >
+                <SlidersHorizontal className="h-4 w-4" />
+                Filters
+                {appliedFilterCount > 0 && (
+                  <span className="ml-1 inline-flex h-5 w-5 items-center justify-center rounded-full bg-violet-600 text-[10px] font-bold text-white">
+                    {appliedFilterCount}
+                  </span>
+                )}
+              </button>
+              <button
+                onClick={openModal}
+                className="inline-flex items-center gap-2 rounded-lg bg-[#6C47FF] px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#5a39dd] transition-colors"
+              >
+                <Plus className="h-4 w-4" />
+                New campaign
+              </button>
+            </div>
           </div>
 
           {/* campaign cards */}
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {campaigns.map((c) => {
+            {filteredCampaigns.map((c) => {
               const totalLeads = c.totalLeads ?? 0;
               const sent = c.emailsSent ?? 0;
               const replies = c.totalReplies ?? 0;
@@ -574,6 +678,167 @@ export default function CampaignsPage() {
             )}
           </div>
         </div>
+      )}
+
+      {/* ========== FILTERS SLIDE-IN PANEL ========== */}
+      {filtersOpen && (
+        <>
+          <div
+            className="fixed inset-0 z-40 bg-black/20"
+            onClick={() => setFiltersOpen(false)}
+          />
+          <div className="fixed right-0 top-0 z-50 h-full w-[380px] bg-white shadow-xl flex flex-col">
+            {/* header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+              <h2 className="text-lg font-bold text-gray-900">Filters</h2>
+              <button
+                onClick={() => setFiltersOpen(false)}
+                className="p-1 text-gray-400 hover:text-gray-600 rounded"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* body */}
+            <div className="flex-1 overflow-y-auto px-6 py-4 space-y-6">
+              {/* Status */}
+              <div>
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Status</p>
+                <div className="space-y-2">
+                  {[
+                    { id: "all", label: "All", dot: null },
+                    { id: "active", label: "Active", dot: "bg-green-500" },
+                    { id: "paused", label: "Paused", dot: "bg-yellow-500" },
+                    { id: "draft", label: "Draft", dot: "bg-gray-400" },
+                    { id: "archived", label: "Archived", dot: "bg-red-500" },
+                  ].map((opt) => (
+                    <label key={opt.id} className="flex items-center gap-2.5 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={filterStatuses.has(opt.id)}
+                        onChange={() => toggleFilterStatus(opt.id)}
+                        className="h-4 w-4 rounded border-gray-300 text-[#6C47FF] focus:ring-[#6C47FF]"
+                      />
+                      {opt.dot && <span className={`h-2 w-2 rounded-full ${opt.dot}`} />}
+                      <span className="text-sm text-gray-700">{opt.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Campaign type */}
+              <div>
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Campaign type</p>
+                <div className="space-y-2">
+                  {[
+                    { id: "cold-outbound", label: "Cold outbound" },
+                    { id: "warm-outbound", label: "Warm outbound" },
+                    { id: "cross-sell", label: "Cross-sell/upsell" },
+                    { id: "website-visitor", label: "Website visitor" },
+                    { id: "intent-signals", label: "Intent signals" },
+                  ].map((opt) => (
+                    <label key={opt.id} className="flex items-center gap-2.5 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={filterTypes.has(opt.id)}
+                        onChange={() => toggleFilterType(opt.id)}
+                        className="h-4 w-4 rounded border-gray-300 text-[#6C47FF] focus:ring-[#6C47FF]"
+                      />
+                      <span className="text-sm text-gray-700">{opt.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Date created */}
+              <div>
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Date created</p>
+                <div className="space-y-2">
+                  {[
+                    { id: "last-7", label: "Last 7 days" },
+                    { id: "last-30", label: "Last 30 days" },
+                    { id: "last-90", label: "Last 3 months" },
+                    { id: "all-time", label: "All time" },
+                  ].map((opt) => (
+                    <label key={opt.id} className="flex items-center gap-2.5 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="date-range"
+                        checked={filterDateRange === opt.id}
+                        onChange={() => setFilterDateRange(opt.id)}
+                        className="h-4 w-4 border-gray-300 text-[#6C47FF] focus:ring-[#6C47FF]"
+                      />
+                      <span className="text-sm text-gray-700">{opt.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Performance */}
+              <div>
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Performance</p>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1.5">Positive replies</label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        placeholder="Min"
+                        value={filterMinReplies}
+                        onChange={(e) => setFilterMinReplies(e.target.value)}
+                        className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-[#6C47FF] focus:outline-none focus:ring-1 focus:ring-[#6C47FF]"
+                      />
+                      <span className="text-gray-400 text-sm">–</span>
+                      <input
+                        type="number"
+                        placeholder="Max"
+                        value={filterMaxReplies}
+                        onChange={(e) => setFilterMaxReplies(e.target.value)}
+                        className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-[#6C47FF] focus:outline-none focus:ring-1 focus:ring-[#6C47FF]"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1.5">Meetings booked</label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        placeholder="Min"
+                        value={filterMinMeetings}
+                        onChange={(e) => setFilterMinMeetings(e.target.value)}
+                        className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-[#6C47FF] focus:outline-none focus:ring-1 focus:ring-[#6C47FF]"
+                      />
+                      <span className="text-gray-400 text-sm">–</span>
+                      <input
+                        type="number"
+                        placeholder="Max"
+                        value={filterMaxMeetings}
+                        onChange={(e) => setFilterMaxMeetings(e.target.value)}
+                        className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-[#6C47FF] focus:outline-none focus:ring-1 focus:ring-[#6C47FF]"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* footer */}
+            <div className="border-t border-gray-200 px-6 py-4 flex items-center justify-between">
+              <button
+                onClick={clearFilters}
+                className="text-sm text-gray-500 hover:text-gray-700 transition-colors"
+              >
+                Clear all
+              </button>
+              <button
+                onClick={applyFilters}
+                className="flex-1 ml-4 rounded-lg bg-[#6C47FF] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#5a39dd] transition-colors"
+              >
+                Apply filters
+              </button>
+            </div>
+          </div>
+        </>
       )}
     </>
   );

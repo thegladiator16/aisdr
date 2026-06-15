@@ -20,6 +20,7 @@ import {
   SlidersHorizontal,
   Download,
 } from "lucide-react";
+import { ChangePlanModal } from "@/components/billing/ChangePlanModal";
 
 type Tab = "overview" | "messaging" | "deliverability" | "dialer" | "credits";
 
@@ -746,9 +747,28 @@ function DialerTab() {
 /* ------------------------------------------------------------------ */
 function CreditsTab({ onToast }: { onToast: (msg: string) => void }) {
   const [breakdownView, setBreakdownView] = useState<"campaign" | "action">("campaign");
+  const [showPlanModal, setShowPlanModal] = useState(false);
+  const [showBuyCredits, setShowBuyCredits] = useState(false);
 
   return (
     <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-bold text-gray-900">Credits</h2>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => onToast("Opening credits purchase...")}
+            className="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            Buy extra credits
+          </button>
+          <button
+            onClick={() => setShowPlanModal(true)}
+            className="px-4 py-2 bg-[#6C47FF] text-white text-sm font-medium rounded-lg hover:bg-[#5a3ad4] transition-colors"
+          >
+            Upgrade plan
+          </button>
+        </div>
+      </div>
       <div className="grid grid-cols-2 gap-4">
         <StatCard
           icon={BarChart2}
@@ -842,6 +862,7 @@ function CreditsTab({ onToast }: { onToast: (msg: string) => void }) {
           <p className="text-sm text-gray-500">No transactions yet</p>
         </div>
       </div>
+      {showPlanModal && <ChangePlanModal onClose={() => setShowPlanModal(false)} />}
     </div>
   );
 }

@@ -26,9 +26,11 @@ import {
   PanelLeftOpen,
   Building2,
   Coins,
+  Zap,
 } from "lucide-react";
 import { useUser, useClerk } from "@clerk/nextjs";
 import { AryaAvatar } from "@/components/arya/AryaAvatar";
+import { ChangePlanModal } from "@/components/billing/ChangePlanModal";
 
 const MANAGE_ITEMS = [
   { href: "/dashboard/manage", label: "Manage Arya", icon: Sparkles },
@@ -65,6 +67,7 @@ export function Sidebar({ onChatOpen }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [supportMenuOpen, setSupportMenuOpen] = useState(false);
+  const [showPlanModal, setShowPlanModal] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
   const supportMenuRef = useRef<HTMLDivElement>(null);
 
@@ -209,10 +212,22 @@ export function Sidebar({ onChatOpen }: SidebarProps) {
 
         {/* Credits */}
         {!collapsed && (
-          <div className="flex items-center gap-3 px-3 py-2 text-sm text-gray-700">
-            <Coins className="h-4 w-4 text-amber-500 shrink-0" />
-            <span className="font-medium">10,000</span>
-          </div>
+          <>
+            <button
+              onClick={() => setShowPlanModal(true)}
+              className="w-full flex items-center gap-2 px-3 py-2 mb-1 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-sm font-medium transition-colors"
+            >
+              <Zap className="h-4 w-4 shrink-0" />
+              Upgrade plan
+            </button>
+            <button
+              onClick={() => setShowPlanModal(true)}
+              className="flex w-full items-center gap-3 px-3 py-2 text-sm text-gray-700 rounded-lg hover:bg-violet-50 cursor-pointer transition-colors"
+            >
+              <Coins className="h-4 w-4 text-amber-500 shrink-0" />
+              <span className="font-medium">10,000</span>
+            </button>
+          </>
         )}
 
         {/* Support */}
@@ -295,6 +310,7 @@ export function Sidebar({ onChatOpen }: SidebarProps) {
           )}
         </div>
       </div>
+      {showPlanModal && <ChangePlanModal onClose={() => setShowPlanModal(false)} />}
     </aside>
   );
 }

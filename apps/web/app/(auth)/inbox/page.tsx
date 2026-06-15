@@ -286,7 +286,7 @@ export default function InboxPage() {
 
             {/* Filters dropdown panel */}
             {filtersOpen && (
-              <div className="absolute left-0 top-10 z-30 w-72 rounded-xl border border-gray-200 bg-white p-4 shadow-xl">
+              <div className="absolute left-0 top-10 z-30 w-[280px] overflow-hidden rounded-xl border border-gray-200 bg-white p-4 shadow-xl">
                 {/* Status checkboxes */}
                 <div className="mb-4">
                   <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
@@ -336,21 +336,15 @@ export default function InboxPage() {
                   <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
                     Date range
                   </p>
-                  <div className="flex gap-2">
-                    <input
-                      type="date"
-                      value={filterDateStart}
-                      onChange={(e) => setFilterDateStart(e.target.value)}
-                      className="flex-1 rounded-lg border border-gray-200 px-2 py-1.5 text-sm text-gray-700 focus:border-[#6C47FF] focus:outline-none focus:ring-1 focus:ring-[#6C47FF]"
-                      placeholder="Start"
-                    />
-                    <input
-                      type="date"
-                      value={filterDateEnd}
-                      onChange={(e) => setFilterDateEnd(e.target.value)}
-                      className="flex-1 rounded-lg border border-gray-200 px-2 py-1.5 text-sm text-gray-700 focus:border-[#6C47FF] focus:outline-none focus:ring-1 focus:ring-[#6C47FF]"
-                      placeholder="End"
-                    />
+                  <div className="flex flex-col gap-2">
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Start date</label>
+                      <input type="date" value={filterDateStart} onChange={(e) => setFilterDateStart(e.target.value)} className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 focus:border-[#6C47FF] focus:outline-none focus:ring-1 focus:ring-[#6C47FF]" />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">End date</label>
+                      <input type="date" value={filterDateEnd} onChange={(e) => setFilterDateEnd(e.target.value)} className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 focus:border-[#6C47FF] focus:outline-none focus:ring-1 focus:ring-[#6C47FF]" />
+                    </div>
                   </div>
                 </div>
 
