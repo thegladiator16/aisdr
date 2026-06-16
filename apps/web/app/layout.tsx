@@ -55,10 +55,7 @@ export const metadata: Metadata = {
     index: true,
     follow: true,
   },
-  icons: {
-    icon: "/favicon.ico",
-    shortcut: "/favicon.ico",
-  },
+  // icons auto-generated from app/icon.tsx + app/apple-icon.tsx
 };
 
 export default function RootLayout({

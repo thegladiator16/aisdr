@@ -14,6 +14,14 @@ const isPublicRoute = createRouteMatcher([
   "/solutions(.*)",
   "/api/v1/health",
   "/api/v1/billing/webhook(.*)",
+  // System / SEO / icon routes — must be reachable to logged-out crawlers
+  "/robots.txt",
+  "/sitemap.xml",
+  "/icon(.*)",
+  "/apple-icon(.*)",
+  "/og-image(.*)",
+  "/favicon.ico",
+  "/manifest.webmanifest",
 ]);
 
 const isAuthPage = createRouteMatcher(["/sign-in(.*)", "/sign-up(.*)"]);
