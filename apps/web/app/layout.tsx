@@ -7,10 +7,18 @@ import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"] });
 
+const SITE_URL = "https://aryasdr.in";
+const DEFAULT_TITLE = "AryaSDR — AI Sales Development Rep for Indian B2B";
+const DEFAULT_DESC =
+  "Arya finds leads, writes personalized outreach, handles replies, and books meetings — at a fraction of the cost of a human SDR. Built for Indian B2B founders.";
+
 export const metadata: Metadata = {
-  title: "AI SDR Agent — Meet Arya, Your AI Sales Development Rep",
-  description:
-    "Arya finds leads, writes personalized outreach, handles replies, and books meetings — at a fraction of the cost of a human SDR. Built for Indian B2B founders.",
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default: DEFAULT_TITLE,
+    template: "%s — AryaSDR",
+  },
+  description: DEFAULT_DESC,
   keywords: [
     "AI SDR",
     "sales development representative",
@@ -19,30 +27,29 @@ export const metadata: Metadata = {
     "India",
     "WhatsApp outreach",
     "lead generation",
+    "AryaSDR",
   ],
-  authors: [{ name: "AI SDR Agent" }],
+  authors: [{ name: "AryaSDR" }],
   openGraph: {
     type: "website",
-    url: "https://aisdr-web.vercel.app",
-    title: "AI SDR Agent — Meet Arya, Your AI Sales Development Rep",
-    description:
-      "Arya finds leads, writes personalized outreach, handles replies, and books meetings — at a fraction of the cost of a human SDR. Built for Indian B2B founders.",
-    siteName: "AI SDR Agent",
+    url: SITE_URL,
+    title: DEFAULT_TITLE,
+    description: DEFAULT_DESC,
+    siteName: "AryaSDR",
     images: [
       {
-        url: "https://aisdr-web.vercel.app/og-image.png",
+        url: "/og-image.png",
         width: 1200,
         height: 630,
-        alt: "AI SDR Agent — Meet Arya",
+        alt: "AryaSDR — AI Sales Development Rep",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "AI SDR Agent — Meet Arya, Your AI Sales Development Rep",
-    description:
-      "Arya finds leads, writes personalized outreach, handles replies, and books meetings at a fraction of the cost of a human SDR.",
-    images: ["https://aisdr-web.vercel.app/og-image.png"],
+    title: DEFAULT_TITLE,
+    description: DEFAULT_DESC,
+    images: ["/og-image.png"],
   },
   robots: {
     index: true,

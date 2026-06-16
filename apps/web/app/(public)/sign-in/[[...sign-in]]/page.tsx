@@ -1,5 +1,11 @@
+import type { Metadata } from "next";
 import { SignIn } from "@clerk/nextjs";
 import { AryaAvatar } from "@/components/arya/AryaAvatar";
+
+export const metadata: Metadata = {
+  title: "Sign In",
+  description: "Sign in to your AryaSDR account.",
+};
 
 const COMPANIES = ["Zepto", "CRED", "Groww", "PhonePe", "Razorpay", "Meesho"];
 

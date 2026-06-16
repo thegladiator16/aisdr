@@ -1,6 +1,12 @@
+import type { Metadata } from "next";
 import Link from 'next/link'
 import { ArrowLeft, Building2 } from 'lucide-react'
 import { AryaAvatar } from '@/components/arya/AryaAvatar'
+
+export const metadata: Metadata = {
+  title: "SMB — AI SDR for Growing Companies",
+  description: "AryaSDR for SMBs. Scale outbound without hiring more SDRs. Built for Indian B2B founders.",
+};
 
 export default function SMBPage() {
   return (

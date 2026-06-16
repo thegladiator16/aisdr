@@ -1,6 +1,12 @@
+import type { Metadata } from "next";
 import Link from 'next/link'
 import { ArrowLeft, Zap, Users, Mail, Calendar } from 'lucide-react'
 import { AryaAvatar } from '@/components/arya/AryaAvatar'
+
+export const metadata: Metadata = {
+  title: "Features",
+  description: "Everything AryaSDR does — lead discovery, personalized outreach, multi-channel sequences, intent signals, inbox AI, analytics.",
+};
 
 const FEATURES = [
   {

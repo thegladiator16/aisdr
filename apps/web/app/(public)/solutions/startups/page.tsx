@@ -1,6 +1,12 @@
+import type { Metadata } from "next";
 import Link from 'next/link'
 import { ArrowLeft, Rocket } from 'lucide-react'
 import { AryaAvatar } from '@/components/arya/AryaAvatar'
+
+export const metadata: Metadata = {
+  title: "Startups — Affordable AI SDR",
+  description: "AryaSDR for early-stage startups. Get to first 10 meetings without an expensive sales hire.",
+};
 
 export default function StartupsPage() {
   return (

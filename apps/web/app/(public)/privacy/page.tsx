@@ -1,5 +1,11 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { Zap } from "lucide-react";
+
+export const metadata: Metadata = {
+  title: "Privacy Policy",
+  description: "How AryaSDR collects, uses, and protects your data. India DPDP Act 2023 compliant.",
+};
 
 export default function PrivacyPage() {
   return (

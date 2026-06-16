@@ -1,5 +1,11 @@
+import type { Metadata } from "next";
 import { SignUp } from "@clerk/nextjs";
 import { AryaAvatar } from "@/components/arya/AryaAvatar";
+
+export const metadata: Metadata = {
+  title: "Sign Up",
+  description: "Create your AryaSDR account. 50 free credits to start.",
+};
 
 const COMPANIES = ["Zepto", "CRED", "Groww", "PhonePe", "Razorpay", "Meesho"];
 

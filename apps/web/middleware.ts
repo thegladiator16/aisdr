@@ -17,6 +17,7 @@ const isPublicRoute = createRouteMatcher([
 ]);
 
 const isAuthPage = createRouteMatcher(["/sign-in(.*)", "/sign-up(.*)"]);
+const isApiRoute = createRouteMatcher(["/api/(.*)"]);
 
 export default clerkMiddleware((auth, req) => {
   const { userId } = auth();
@@ -26,9 +27,19 @@ export default clerkMiddleware((auth, req) => {
     return NextResponse.redirect(new URL("/dashboard", req.url));
   }
 
-  // Unauthenticated users visiting private routes → Clerk redirects to sign-in
+  // Unauthenticated users hitting private routes
   if (!userId && !isPublicRoute(req)) {
-    auth().protect();
+    // API routes: return JSON 401 so clients can detect + refresh tokens
+    if (isApiRoute(req)) {
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+    // Pages: redirect to sign-in (preserve where the user was going)
+    const url = new URL("/sign-in", req.url);
+    url.searchParams.set("redirect_url", req.nextUrl.pathname + req.nextUrl.search);
+    return NextResponse.redirect(url);
   }
 });
 

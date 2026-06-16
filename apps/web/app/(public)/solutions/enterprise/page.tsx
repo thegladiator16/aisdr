@@ -1,6 +1,12 @@
+import type { Metadata } from "next";
 import Link from 'next/link'
 import { ArrowLeft, Globe } from 'lucide-react'
 import { AryaAvatar } from '@/components/arya/AryaAvatar'
+
+export const metadata: Metadata = {
+  title: "Enterprise — AI SDR for Large Teams",
+  description: "AryaSDR for enterprise B2B teams. Dedicated CSM, SSO/SAML, custom volume, priority support.",
+};
 
 export default function EnterprisePage() {
   return (
