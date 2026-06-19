@@ -8,6 +8,11 @@ import {
   Plus,
   ChevronDown,
   X,
+  Lock,
+  CreditCard,
+  Smartphone,
+  Landmark,
+  Loader2,
 } from "lucide-react";
 import { ChangePlanModal } from "@/components/billing/ChangePlanModal";
 
@@ -23,64 +28,306 @@ type OtherCost = {
 /* ------------------------------------------------------------------ */
 function BuyCreditsModal({ onClose }: { onClose: () => void }) {
   const [quantity, setQuantity] = useState(1000);
-  const pricePerBundle = 0.03;
-  const total = quantity * pricePerBundle;
+  const [tab, setTab] = useState<"card" | "upi" | "netbanking">("card");
+  const [processing, setProcessing] = useState(false);
+
+  const pricePerCredit = 0.03;
+  const subtotal = Math.round(quantity * pricePerCredit * 100) / 100;
+  const GST_RATE = 0.18;
+  const tax = Math.round(subtotal * GST_RATE * 100) / 100;
+  const total = Math.round((subtotal + tax) * 100) / 100;
+
+  const formatMoney = (n: number) =>
+    `$${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+  const handlePay = () => {
+    setProcessing(true);
+    setTimeout(() => {
+      setProcessing(false);
+      toast.success(`Purchased ${quantity.toLocaleString("en-US")} credits`);
+      onClose();
+    }, 900);
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-      <div className="w-full max-w-md rounded-2xl bg-white shadow-xl mx-4">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
-          <h2 className="text-lg font-bold text-gray-900">Buy extra credits</h2>
-          <button onClick={onClose} className="p-1 text-gray-400 hover:text-gray-600 rounded">
+      <div className="w-full max-w-2xl rounded-2xl bg-white shadow-xl mx-4 overflow-hidden max-h-[92vh] overflow-y-auto">
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-[#E5E7EB]">
+          <h2 className="text-lg font-bold text-[#111827]">Buy extra credits</h2>
+          <button
+            onClick={onClose}
+            className="p-1 text-gray-400 hover:text-gray-600 rounded"
+          >
             <X className="h-5 w-5" />
           </button>
         </div>
-        <div className="p-6 space-y-5">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Quantity</label>
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => setQuantity((q) => Math.max(1000, q - 1000))}
-                className="h-9 w-9 flex items-center justify-center border border-gray-300 rounded-lg text-gray-500 hover:bg-gray-50"
-              >
-                <Minus className="h-4 w-4" />
-              </button>
-              <span className="text-lg font-semibold text-gray-900 w-20 text-center">
-                {quantity.toLocaleString("en-US")}
-              </span>
-              <button
-                onClick={() => setQuantity((q) => q + 1000)}
-                className="h-9 w-9 flex items-center justify-center border border-gray-300 rounded-lg text-gray-500 hover:bg-gray-50"
-              >
-                <Plus className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
-          <div className="space-y-2 text-sm">
-            <div className="flex justify-between">
-              <span className="text-gray-500">Price</span>
-              <span className="text-gray-700">{`$${pricePerBundle.toFixed(2)} / credit`}</span>
-            </div>
-            <div className="flex justify-between text-base font-bold">
-              <span className="text-gray-900">Total</span>
-              <span className="text-gray-900">{`$${total.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}</span>
-            </div>
-          </div>
-          <div className="flex justify-end gap-3 pt-2">
+
+        {/* Quantity selector */}
+        <div className="px-6 py-5 border-b border-[#E5E7EB]">
+          <label className="block text-sm font-medium text-[#111827] mb-2">
+            Quantity
+          </label>
+          <div className="flex items-center gap-3">
             <button
-              onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50"
+              onClick={() => setQuantity((q) => Math.max(1000, q - 1000))}
+              className="h-9 w-9 flex items-center justify-center border border-[#E5E7EB] rounded-lg text-[#6B7280] hover:bg-gray-50"
             >
-              Cancel
+              <Minus className="h-4 w-4" />
             </button>
+            <span className="text-lg font-semibold text-[#111827] w-20 text-center">
+              {quantity.toLocaleString("en-US")}
+            </span>
             <button
-              onClick={() => {
-                toast.success(`Purchased ${quantity.toLocaleString("en-US")} credits`);
-                onClose();
-              }}
-              className="px-4 py-2 bg-[#6C47FF] text-white text-sm font-medium rounded-lg hover:bg-[#5a3ad4] transition-colors"
+              onClick={() => setQuantity((q) => q + 1000)}
+              className="h-9 w-9 flex items-center justify-center border border-[#E5E7EB] rounded-lg text-[#6B7280] hover:bg-gray-50"
             >
-              Purchase credits
+              <Plus className="h-4 w-4" />
+            </button>
+            <span className="text-xs text-[#6B7280] ml-2">
+              ${pricePerCredit.toFixed(2)} / credit
+            </span>
+          </div>
+        </div>
+
+        {/* Two-column payment layout */}
+        <div className="grid grid-cols-1 md:grid-cols-[40%_60%]">
+          {/* LEFT: Order summary */}
+          <div className="bg-[#F9FAFB] p-6 border-r border-[#E5E7EB]">
+            <h3 className="text-sm font-semibold text-[#111827] mb-4">
+              Order summary
+            </h3>
+            <div className="space-y-3 text-sm">
+              <div className="flex justify-between">
+                <span className="text-[#6B7280]">
+                  Credits ({quantity.toLocaleString("en-US")})
+                </span>
+                <span className="text-[#111827]">{formatMoney(subtotal)}</span>
+              </div>
+              <div className="flex justify-between text-xs">
+                <span className="text-[#6B7280]">
+                  ${pricePerCredit.toFixed(2)} × {quantity.toLocaleString("en-US")}
+                </span>
+                <span className="text-[#6B7280]"></span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-[#6B7280]">Subtotal</span>
+                <span className="text-[#111827]">{formatMoney(subtotal)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-[#6B7280]">Tax (18% GST)</span>
+                <span className="text-[#111827]">{formatMoney(tax)}</span>
+              </div>
+              <hr className="border-[#E5E7EB]" />
+              <div className="flex justify-between text-base font-bold">
+                <span className="text-[#111827]">Total</span>
+                <span className="text-[#111827]">{formatMoney(total)}</span>
+              </div>
+              <p className="text-xs text-[#6B7280] pt-1">One-time charge</p>
+            </div>
+          </div>
+
+          {/* RIGHT: Payment method */}
+          <div className="p-6">
+            {/* Tabs */}
+            <div className="flex items-center gap-1 border-b border-[#E5E7EB] mb-5">
+              <button
+                onClick={() => setTab("card")}
+                className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-t-md transition-colors ${
+                  tab === "card"
+                    ? "text-[#6C47FF] border-b-2 border-[#6C47FF] -mb-px"
+                    : "text-[#6B7280] hover:text-[#111827]"
+                }`}
+              >
+                <CreditCard className="h-4 w-4" /> Card
+              </button>
+              <button
+                onClick={() => setTab("upi")}
+                className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-t-md transition-colors ${
+                  tab === "upi"
+                    ? "text-[#6C47FF] border-b-2 border-[#6C47FF] -mb-px"
+                    : "text-[#6B7280] hover:text-[#111827]"
+                }`}
+              >
+                <Smartphone className="h-4 w-4" /> UPI
+              </button>
+              <button
+                onClick={() => setTab("netbanking")}
+                className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-t-md transition-colors ${
+                  tab === "netbanking"
+                    ? "text-[#6C47FF] border-b-2 border-[#6C47FF] -mb-px"
+                    : "text-[#6B7280] hover:text-[#111827]"
+                }`}
+              >
+                <Landmark className="h-4 w-4" /> Net Banking
+              </button>
+            </div>
+
+            {/* Tab content */}
+            {tab === "card" && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-end gap-1.5 mb-1">
+                  <span className="text-[10px] font-bold text-white bg-[#1A1F71] px-1.5 py-0.5 rounded">
+                    VISA
+                  </span>
+                  <span className="text-[10px] font-bold text-white bg-[#EB001B] px-1.5 py-0.5 rounded">
+                    MC
+                  </span>
+                  <span className="text-[10px] font-bold text-white bg-[#006FCF] px-1.5 py-0.5 rounded">
+                    AMEX
+                  </span>
+                  <span className="text-[10px] font-bold text-white bg-[#FF6000] px-1.5 py-0.5 rounded">
+                    DISC
+                  </span>
+                  <span className="text-[10px] font-bold text-white bg-[#097DC6] px-1.5 py-0.5 rounded">
+                    RuPay
+                  </span>
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-[#111827]">
+                    Cardholder name
+                  </label>
+                  <input
+                    placeholder="Name on card"
+                    className="mt-1 w-full rounded-lg border border-[#E5E7EB] px-3 py-2.5 text-sm focus:border-[#6C47FF] focus:ring-1 focus:ring-[#6C47FF] outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-[#111827]">
+                    Card number
+                  </label>
+                  <div className="relative">
+                    <input
+                      placeholder="1234 1234 1234 1234"
+                      className="mt-1 w-full rounded-lg border border-[#E5E7EB] px-3 py-2.5 pr-10 text-sm focus:border-[#6C47FF] focus:ring-1 focus:ring-[#6C47FF] outline-none"
+                    />
+                    <CreditCard className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#6B7280]" />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-medium text-[#111827]">
+                      Expiration
+                    </label>
+                    <input
+                      placeholder="MM / YY"
+                      className="mt-1 w-full rounded-lg border border-[#E5E7EB] px-3 py-2.5 text-sm focus:border-[#6C47FF] focus:ring-1 focus:ring-[#6C47FF] outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-[#111827]">
+                      CVC
+                    </label>
+                    <input
+                      placeholder="CVC"
+                      className="mt-1 w-full rounded-lg border border-[#E5E7EB] px-3 py-2.5 text-sm focus:border-[#6C47FF] focus:ring-1 focus:ring-[#6C47FF] outline-none"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-[#111827]">
+                    Billing country
+                  </label>
+                  <select
+                    defaultValue="India"
+                    className="mt-1 w-full rounded-lg border border-[#E5E7EB] px-3 py-2.5 text-sm focus:border-[#6C47FF] focus:ring-1 focus:ring-[#6C47FF] outline-none bg-white"
+                  >
+                    <option>India</option>
+                    <option>United States</option>
+                    <option>United Kingdom</option>
+                    <option>Singapore</option>
+                    <option>United Arab Emirates</option>
+                  </select>
+                </div>
+                <label className="flex items-center gap-2 text-xs text-[#111827] pt-1">
+                  <input
+                    type="checkbox"
+                    className="h-3.5 w-3.5 rounded border-[#E5E7EB] text-[#6C47FF] focus:ring-[#6C47FF]"
+                  />
+                  Save card for future payments
+                </label>
+              </div>
+            )}
+
+            {tab === "upi" && (
+              <div className="space-y-3">
+                <div>
+                  <label className="text-xs font-medium text-[#111827]">
+                    UPI ID
+                  </label>
+                  <input
+                    placeholder="name@bank"
+                    className="mt-1 w-full rounded-lg border border-[#E5E7EB] px-3 py-2.5 text-sm focus:border-[#6C47FF] focus:ring-1 focus:ring-[#6C47FF] outline-none"
+                  />
+                </div>
+                <div className="flex items-center gap-2 pt-1">
+                  <span className="text-[10px] font-bold text-white bg-[#1A73E8] px-2 py-1 rounded">
+                    GPay
+                  </span>
+                  <span className="text-[10px] font-bold text-white bg-[#5F259F] px-2 py-1 rounded">
+                    PhonePe
+                  </span>
+                  <span className="text-[10px] font-bold text-white bg-[#00BAF2] px-2 py-1 rounded">
+                    Paytm
+                  </span>
+                  <span className="text-[10px] font-bold text-white bg-[#EB6F2D] px-2 py-1 rounded">
+                    BHIM
+                  </span>
+                </div>
+                <p className="text-xs text-[#6B7280]">
+                  You&apos;ll get a payment request on your UPI app
+                </p>
+              </div>
+            )}
+
+            {tab === "netbanking" && (
+              <div className="space-y-3">
+                <div>
+                  <label className="text-xs font-medium text-[#111827]">
+                    Select your bank
+                  </label>
+                  <select className="mt-1 w-full rounded-lg border border-[#E5E7EB] px-3 py-2.5 text-sm focus:border-[#6C47FF] focus:ring-1 focus:ring-[#6C47FF] outline-none bg-white">
+                    <option>HDFC Bank</option>
+                    <option>ICICI Bank</option>
+                    <option>SBI</option>
+                    <option>Axis Bank</option>
+                    <option>Kotak</option>
+                    <option>Yes Bank</option>
+                    <option>Other</option>
+                  </select>
+                </div>
+                <p className="text-xs text-[#6B7280]">
+                  You&apos;ll be redirected to your bank&apos;s portal to complete payment
+                </p>
+              </div>
+            )}
+
+            {/* Trust signals */}
+            <div className="mt-5 pt-4 border-t border-[#E5E7EB] space-y-2">
+              <div className="flex items-center gap-1.5 text-xs text-[#6B7280]">
+                <Lock className="h-3 w-3" />
+                Secured by 256-bit SSL encryption
+              </div>
+              <div className="flex items-center gap-1.5 text-xs text-[#6B7280]">
+                Powered by{" "}
+                <span className="font-bold text-[#0E2A8C]">Razorpay</span>
+              </div>
+            </div>
+
+            {/* Submit button */}
+            <button
+              onClick={handlePay}
+              disabled={processing}
+              className="mt-4 w-full h-12 bg-[#6C47FF] text-white text-sm font-semibold rounded-lg hover:bg-[#5538DD] transition-colors flex items-center justify-center gap-2 disabled:opacity-70"
+            >
+              {processing ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Processing...
+                </>
+              ) : (
+                <>Pay {formatMoney(total)}</>
+              )}
             </button>
           </div>
         </div>
