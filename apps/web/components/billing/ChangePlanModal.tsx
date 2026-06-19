@@ -7,9 +7,9 @@ const PLANS = [
   {
     name: "Starter",
     badge: "bg-violet-600",
-    desc: "For Indian B2B founders running outbound",
-    monthly: "₹15,000",
-    yearly: "₹13,500",
+    desc: "For B2B founders running outbound",
+    monthly: "$179",
+    yearly: "$161",
     credits: "500 leads/mo",
     replies: "1-12 positive replies/mo",
     includes: "Everything in Free, plus:",
@@ -25,8 +25,8 @@ const PLANS = [
     name: "Growth",
     badge: "bg-pink-500",
     desc: "For teams scaling with full AI automation",
-    monthly: "₹30,000",
-    yearly: "₹27,000",
+    monthly: "$349",
+    yearly: "$314",
     credits: "2,000 leads/mo",
     replies: "4-30 positive replies/mo",
     includes: "Everything in Starter, plus:",
@@ -205,9 +205,9 @@ export function ChangePlanModal({ onClose }: { onClose: () => void }) {
                 <div className="flex justify-between">
                   <span className="text-gray-500">Price</span>
                   <span>
-                    ₹0/mo →{" "}
+                    $0/mo →{" "}
                     <span className="font-medium">
-                      {selectedPlan === "Starter" ? "₹15,000/mo" : "₹30,000/mo"}
+                      {selectedPlan === "Starter" ? "$179/mo" : "$349/mo"}
                     </span>
                   </span>
                 </div>
@@ -215,13 +215,13 @@ export function ChangePlanModal({ onClose }: { onClose: () => void }) {
                 <div className="flex justify-between">
                   <span className="text-gray-500">Plan credits</span>
                   <span className="font-medium">
-                    {selectedPlan === "Starter" ? "₹15,000" : "₹30,000"}
+                    {selectedPlan === "Starter" ? "$179" : "$349"}
                   </span>
                 </div>
                 <div className="flex justify-between text-lg font-bold">
                   <span>Due today</span>
                   <span>
-                    {selectedPlan === "Starter" ? "₹15,000" : "₹30,000"}
+                    {selectedPlan === "Starter" ? "$179" : "$349"}
                   </span>
                 </div>
               </div>

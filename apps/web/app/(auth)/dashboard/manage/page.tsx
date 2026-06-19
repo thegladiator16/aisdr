@@ -502,11 +502,11 @@ export default function ManageAryaPage() {
             <div className="rounded-lg bg-gray-50 px-4 py-3">
               <div className="flex justify-between text-sm text-gray-600">
                 <span>Price per mailbox</span>
-                <span>&#8377;580/mo</span>
+                <span>$7/mo</span>
               </div>
               <div className="flex justify-between text-sm font-semibold text-gray-900 mt-2 pt-2 border-t border-gray-200">
                 <span>Total</span>
-                <span>&#8377;{(580 * mailboxQuantity).toLocaleString("en-IN")}/mo</span>
+                <span>${(7 * mailboxQuantity).toLocaleString("en-US")}/mo</span>
               </div>
             </div>
           </div>,

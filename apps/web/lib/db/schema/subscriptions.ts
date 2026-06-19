@@ -18,7 +18,7 @@ export const subscriptions = pgTable("subscriptions", {
 
   tier: varchar("tier", { length: 50 }).notNull().default("free"),
   status: varchar("status", { length: 50 }).notNull().default("active"),
-  currency: varchar("currency", { length: 10 }).default("INR"),
+  currency: varchar("currency", { length: 10 }).default("USD"),
 
   razorpaySubscriptionId: varchar("razorpay_subscription_id", { length: 255 }),
   razorpayCustomerId: varchar("razorpay_customer_id", { length: 255 }),
@@ -61,7 +61,7 @@ export const payments = pgTable("payments", {
   subscriptionId: uuid("subscription_id").references(() => subscriptions.id),
 
   amount: integer("amount").notNull(),
-  currency: varchar("currency", { length: 10 }).default("INR"),
+  currency: varchar("currency", { length: 10 }).default("USD"),
   status: varchar("status", { length: 50 }).notNull(),
 
   provider: varchar("provider", { length: 50 }).notNull(),

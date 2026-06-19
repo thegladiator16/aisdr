@@ -38,7 +38,7 @@ const TESTIMONIALS = [
     initials: "RS",
   },
   {
-    quote: "We're getting a ₹800 cost per qualified lead. Way better than any SDR tool we tried.",
+    quote: "We're getting a $10 cost per qualified lead. Way better than any SDR tool we tried.",
     name: "Priya Mehta",
     role: "Growth Lead, SellSmart",
     initials: "PM",
@@ -54,7 +54,7 @@ const TESTIMONIALS = [
 const PLANS = [
   {
     name: "Free",
-    price: "₹0",
+    price: "$0",
     period: "/month",
     desc: "No credit card needed",
     features: ["50 leads/month", "100 emails/month", "Gmail integration", "Basic analytics"],
@@ -64,7 +64,7 @@ const PLANS = [
   },
   {
     name: "Starter",
-    price: "₹15,000",
+    price: "$179",
     period: "/month",
     desc: "Run outbound campaigns",
     features: ["500 leads/month", "2,000 emails/month", "WhatsApp integration", "Intent signals", "Reply drafting"],
@@ -74,7 +74,7 @@ const PLANS = [
   },
   {
     name: "Growth",
-    price: "₹30,000",
+    price: "$349",
     period: "/month",
     desc: "Full outbound automation",
     features: ["2,000 leads/month", "10,000 emails/month", "Everything in Starter", "CRM integrations", "A/Z testing", "Priority support"],
@@ -106,7 +106,7 @@ const FAQ = [
   { q: "How does the free plan work?", a: "Sign up and get 50 leads and 100 emails per month, forever. No credit card needed. Upgrade when you're ready." },
   { q: "Can Arya send WhatsApp messages?", a: "Yes! Arya supports WhatsApp Business API, a channel where Indian prospects actually respond. This is unavailable in most global tools." },
   { q: "Is this compliant with GDPR and India DPDPA?", a: "Absolutely. All data handling is GDPR and India DPDPA compliant. We provide opt-out links and honor unsubscribe requests automatically." },
-  { q: "How is this different from Apollo or Instantly?", a: "Arya is built for India-first B2B. WhatsApp outreach, Hindi/Hinglish support, INR pricing 5x cheaper, Indian company database, and Razorpay payments." },
+  { q: "How is this different from Apollo or Instantly?", a: "Arya is built for India-first B2B. WhatsApp outreach, Hindi/Hinglish support, pricing 5x cheaper than US tools, Indian company database, and flexible payment options." },
   { q: "Can I use my own email domain?", a: "Yes. Connect your Gmail or Google Workspace account. Arya sends from your real email for maximum deliverability." },
   { q: "What if a prospect replies?", a: "Arya reads every reply, classifies the intent, drafts a contextual response, and can book meetings autonomously. You approve or let her handle it." },
 ];
@@ -195,7 +195,7 @@ export default function LandingPage() {
           <h2 className="text-3xl font-bold">Outbound was impossible to scale</h2>
           <div className="grid md:grid-cols-3 gap-6 mt-10">
             {[
-              { stat: "₹80,000/month", label: "Average cost of one human SDR in India" },
+              { stat: "$999/month", label: "Average cost of one human SDR" },
               { stat: "200+ hours", label: "Wasted on manual prospecting per month" },
               { stat: "2% reply rate", label: "Average cold email reply rate without AI" },
             ].map((item) => (
@@ -368,7 +368,7 @@ export default function LandingPage() {
           <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
             <div className="rounded-2xl bg-white border-2 border-red-400 p-8 flex-1 max-w-xs shadow-lg">
               <p className="text-sm text-red-400 mb-2 font-medium">A human SDR</p>
-              <p className="text-4xl font-bold text-red-500">{"₹"}80,000</p>
+              <p className="text-4xl font-bold text-red-500">$999</p>
               <p className="text-sm text-gray-400 mt-1">/month</p>
             </div>
             <div className="flex items-center justify-center h-12 w-12 rounded-full bg-[#6C47FF] text-white font-bold text-sm shrink-0">
@@ -376,10 +376,10 @@ export default function LandingPage() {
             </div>
             <div className="rounded-2xl bg-white border-2 border-[#6C47FF] p-8 flex-1 max-w-xs shadow-lg">
               <p className="text-sm text-[#6C47FF] mb-2 font-medium">Arya</p>
-              <p className="text-4xl font-bold text-[#6C47FF]">{"₹"}15,000</p>
+              <p className="text-4xl font-bold text-[#6C47FF]">$179</p>
               <p className="text-sm text-gray-400 mt-1">/month</p>
               <p className="text-sm text-emerald-600 font-semibold mt-3">
-                Save {"₹"}65,000/month
+                Save $820/month
               </p>
             </div>
           </div>

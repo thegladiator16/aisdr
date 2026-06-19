@@ -9,7 +9,7 @@ const plans = [
   {
     id: 'free',
     name: 'Free',
-    price: '₹0',
+    price: '$0',
     period: '/month',
     description: 'No credit card needed',
     features: [
@@ -25,7 +25,7 @@ const plans = [
   {
     id: 'starter',
     name: 'Starter',
-    price: '₹15,000',
+    price: '$179',
     period: '/month',
     description: 'Run outbound campaigns',
     features: [
@@ -44,7 +44,7 @@ const plans = [
   {
     id: 'growth',
     name: 'Growth',
-    price: '₹30,000',
+    price: '$349',
     period: '/month',
     description: 'Automate your full outbound motion',
     features: [
@@ -80,9 +80,9 @@ const plans = [
 
 const FAQ = [
   { q: "Can I try before buying?", a: "Yes! The free plan includes 50 leads and 100 emails per month, forever. No credit card needed." },
-  { q: "How does billing work?", a: "Monthly billing via Razorpay. Cancel anytime, no contracts. Enterprise plans have annual options." },
+  { q: "How does billing work?", a: "Monthly billing in USD. Cancel anytime, no contracts. Enterprise plans have annual options." },
   { q: "Can I switch plans?", a: "Yes. Upgrade or downgrade at any time. Changes take effect on your next billing cycle." },
-  { q: "What payment methods do you accept?", a: "UPI, credit cards, debit cards, net banking, and wallets via Razorpay. Enterprise can pay via invoice." },
+  { q: "What payment methods do you accept?", a: "Credit cards, debit cards, and major international cards. Enterprise can pay via invoice." },
   { q: "Is there a refund policy?", a: "We offer a 14-day money-back guarantee on all paid plans. No questions asked." },
   { q: "Do unused credits roll over?", a: "Credits reset monthly. We recommend choosing a plan that fits your consistent volume." },
 ]
@@ -126,7 +126,7 @@ export default function PricingPage() {
         <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
           <div className="rounded-2xl bg-white border-2 border-red-400 p-8 flex-1 max-w-xs text-center shadow-lg">
             <p className="text-sm text-red-400 mb-2 font-medium">A human SDR</p>
-            <p className="text-4xl font-bold text-red-500">₹80,000</p>
+            <p className="text-4xl font-bold text-red-500">$999</p>
             <p className="text-sm text-gray-400 mt-1">/month</p>
           </div>
           <div className="flex items-center justify-center h-12 w-12 rounded-full bg-[#6C47FF] text-white font-bold text-sm shrink-0">
@@ -134,9 +134,9 @@ export default function PricingPage() {
           </div>
           <div className="rounded-2xl bg-white border-2 border-[#6C47FF] p-8 flex-1 max-w-xs text-center shadow-lg">
             <p className="text-sm text-[#6C47FF] mb-2 font-medium">Arya</p>
-            <p className="text-4xl font-bold text-[#6C47FF]">₹15,000</p>
+            <p className="text-4xl font-bold text-[#6C47FF]">$179</p>
             <p className="text-sm text-gray-400 mt-1">/month</p>
-            <p className="text-sm text-emerald-600 font-semibold mt-3">Save ₹65,000/month</p>
+            <p className="text-sm text-emerald-600 font-semibold mt-3">Save $820/month</p>
           </div>
         </div>
       </section>

@@ -23,7 +23,7 @@ type OtherCost = {
 /* ------------------------------------------------------------------ */
 function BuyCreditsModal({ onClose }: { onClose: () => void }) {
   const [quantity, setQuantity] = useState(1000);
-  const pricePerBundle = 2;
+  const pricePerBundle = 0.03;
   const total = quantity * pricePerBundle;
 
   return (
@@ -46,7 +46,7 @@ function BuyCreditsModal({ onClose }: { onClose: () => void }) {
                 <Minus className="h-4 w-4" />
               </button>
               <span className="text-lg font-semibold text-gray-900 w-20 text-center">
-                {quantity.toLocaleString("en-IN")}
+                {quantity.toLocaleString("en-US")}
               </span>
               <button
                 onClick={() => setQuantity((q) => q + 1000)}
@@ -59,11 +59,11 @@ function BuyCreditsModal({ onClose }: { onClose: () => void }) {
           <div className="space-y-2 text-sm">
             <div className="flex justify-between">
               <span className="text-gray-500">Price</span>
-              <span className="text-gray-700">{`₹${pricePerBundle}/credit bundle`}</span>
+              <span className="text-gray-700">{`$${pricePerBundle.toFixed(2)} / credit`}</span>
             </div>
             <div className="flex justify-between text-base font-bold">
               <span className="text-gray-900">Total</span>
-              <span className="text-gray-900">{`₹${total.toLocaleString("en-IN")}`}</span>
+              <span className="text-gray-900">{`$${total.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}</span>
             </div>
           </div>
           <div className="flex justify-end gap-3 pt-2">
@@ -75,7 +75,7 @@ function BuyCreditsModal({ onClose }: { onClose: () => void }) {
             </button>
             <button
               onClick={() => {
-                toast.success(`Purchased ${quantity.toLocaleString("en-IN")} credits`);
+                toast.success(`Purchased ${quantity.toLocaleString("en-US")} credits`);
                 onClose();
               }}
               className="px-4 py-2 bg-[#6C47FF] text-white text-sm font-medium rounded-lg hover:bg-[#5a3ad4] transition-colors"
@@ -166,9 +166,9 @@ function AddPaymentModal({ onClose }: { onClose: () => void }) {
 /* ------------------------------------------------------------------ */
 export default function BillingPage() {
   const [otherCosts, setOtherCosts] = useState<OtherCost[]>([
-    { label: "Mailbox slots", quantity: 0, unitPrice: 580, unitLabel: "/mo" },
-    { label: "Human dialer seats", quantity: 0, unitPrice: 6200, unitLabel: "/mo" },
-    { label: "Phone number slots", quantity: 0, unitPrice: 500, unitLabel: "/mo" },
+    { label: "Mailbox slots", quantity: 0, unitPrice: 7, unitLabel: "/mo" },
+    { label: "Human dialer seats", quantity: 0, unitPrice: 75, unitLabel: "/mo" },
+    { label: "Phone number slots", quantity: 0, unitPrice: 6, unitLabel: "/mo" },
   ]);
 
   const [showCreditsModal, setShowCreditsModal] = useState(false);
@@ -195,8 +195,8 @@ export default function BillingPage() {
     0
   );
 
-  const formatINR = (amount: number) =>
-    `₹${amount.toLocaleString("en-IN")}`;
+  const formatUSD = (amount: number) =>
+    `$${amount.toLocaleString("en-US")}`;
 
   return (
     <div className="max-w-4xl space-y-6">
@@ -328,11 +328,11 @@ export default function BillingPage() {
                   </div>
                 </td>
                 <td className="py-3 text-sm text-gray-700 text-right">
-                  {formatINR(cost.unitPrice)}
+                  {formatUSD(cost.unitPrice)}
                   {cost.unitLabel}
                 </td>
                 <td className="py-3 text-sm text-gray-700 text-right">
-                  {formatINR(cost.quantity * cost.unitPrice)}
+                  {formatUSD(cost.quantity * cost.unitPrice)}
                   {cost.unitLabel}
                 </td>
               </tr>
@@ -344,7 +344,7 @@ export default function BillingPage() {
                 Other costs total
               </td>
               <td className="py-3 text-sm font-medium text-gray-700 text-right">
-                {formatINR(otherCostsTotal)}/mo
+                {formatUSD(otherCostsTotal)}/mo
               </td>
             </tr>
             <tr className="border-t border-gray-200">
@@ -355,7 +355,7 @@ export default function BillingPage() {
                 Next billing Jul 13, 2026
               </td>
               <td className="py-3 text-sm font-semibold text-gray-900 text-right">
-                {formatINR(otherCostsTotal)}/mo
+                {formatUSD(otherCostsTotal)}/mo
               </td>
             </tr>
           </tfoot>

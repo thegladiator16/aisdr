@@ -13,11 +13,11 @@ export default function DialerPage() {
   const [cardNumber, setCardNumber] = useState("");
   const [expiration, setExpiration] = useState("");
   const [securityCode, setSecurityCode] = useState("");
-  const [country, setCountry] = useState("IN");
+  const [country, setCountry] = useState("US");
   const [purchasing, setPurchasing] = useState(false);
   const [purchaseSuccess, setPurchaseSuccess] = useState(false);
 
-  const unitPrice = 6200;
+  const unitPrice = 75;
   const monthlyFee = unitPrice * quantity;
   const dueToday = Math.round(unitPrice * quantity * 0.85);
 
@@ -33,7 +33,7 @@ export default function DialerPage() {
         setCardNumber("");
         setExpiration("");
         setSecurityCode("");
-        setCountry("IN");
+        setCountry("US");
       }, 1500);
     }, 1500);
   };
@@ -46,7 +46,7 @@ export default function DialerPage() {
     setCardNumber("");
     setExpiration("");
     setSecurityCode("");
-    setCountry("IN");
+    setCountry("US");
   };
 
   return (
@@ -163,18 +163,18 @@ export default function DialerPage() {
                     <div className="mt-6 space-y-3 border-t border-gray-100 pt-4">
                       <div className="flex items-center justify-between text-sm">
                         <span className="text-gray-500">Unit price</span>
-                        <span className="text-gray-900">&#8377;6,200/mo</span>
+                        <span className="text-gray-900">$75/mo</span>
                       </div>
                       <div className="flex items-center justify-between text-sm">
                         <span className="text-gray-500">Monthly fee</span>
                         <span className="text-gray-900">
-                          &#8377;{monthlyFee.toLocaleString("en-IN")}/mo
+                          ${monthlyFee.toLocaleString("en-US")}/mo
                         </span>
                       </div>
                       <div className="flex items-center justify-between text-sm font-semibold border-t border-gray-100 pt-3">
                         <span className="text-gray-700">Due today (prorated)</span>
                         <span className="text-gray-900">
-                          &#8377;{dueToday.toLocaleString("en-IN")}
+                          ${dueToday.toLocaleString("en-US")}
                         </span>
                       </div>
                     </div>
@@ -231,6 +231,7 @@ export default function DialerPage() {
                           onChange={(e) => setCountry(e.target.value)}
                           className="mt-1 w-full rounded-lg border border-gray-300 py-2 px-3 text-sm outline-none focus:border-[#6C47FF] transition bg-white"
                         >
+                          <option value="US">United States</option>
                           <option value="IN">India</option>
                           <option value="US">United States</option>
                           <option value="UK">United Kingdom</option>
@@ -267,7 +268,7 @@ export default function DialerPage() {
                     {purchasing && <Loader2 className="h-4 w-4 animate-spin" />}
                     {purchasing
                       ? "Processing..."
-                      : `Purchase ${quantity} dialer seat${quantity > 1 ? "s" : ""} — ₹${dueToday.toLocaleString("en-IN")}`}
+                      : `Purchase ${quantity} dialer seat${quantity > 1 ? "s" : ""} — $${dueToday.toLocaleString("en-US")}`}
                   </button>
                 </div>
               </>

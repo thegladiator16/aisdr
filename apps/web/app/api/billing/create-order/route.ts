@@ -6,7 +6,7 @@ export async function POST(req: Request) {
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await req.json();
-  const { plan, amount, currency = "INR", type } = body;
+  const { plan, amount, currency = "USD", type } = body;
 
   const order = {
     id: "order_" + Math.random().toString(36).substring(2, 11),

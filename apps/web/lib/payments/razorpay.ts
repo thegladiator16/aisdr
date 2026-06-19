@@ -5,19 +5,22 @@ export const razorpay = new Razorpay({
   key_secret: process.env.RAZORPAY_KEY_SECRET!,
 });
 
-export const PLAN_PRICES_INR: Record<string, number> = {
-  starter: 1500000,
-  growth: 3000000,
-  scale: 5000000,
+// Amounts in smallest currency unit (cents for USD).
+// Razorpay International supports USD orders; the merchant account must be
+// enabled for international payments.
+export const PLAN_PRICES_USD: Record<string, number> = {
+  starter: 17900, // $179.00
+  growth: 34900,  // $349.00
+  scale: 59900,   // $599.00
 };
 
 export async function createRazorpayOrder(planId: string, userId: string) {
-  const amount = PLAN_PRICES_INR[planId];
+  const amount = PLAN_PRICES_USD[planId];
   if (!amount) throw new Error(`Unknown plan: ${planId}`);
 
   const order = await razorpay.orders.create({
     amount,
-    currency: "INR",
+    currency: "USD",
     receipt: `aisdr_${userId}_${Date.now()}`,
     notes: { userId, planId },
   });
