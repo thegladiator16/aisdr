@@ -11,6 +11,29 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(levelname)s %(name)s %(message)s",
 )
+
+class _StructuredFormatter(logging.Formatter):
+    """Append structured `extra` fields to log records when present."""
+
+    _SKIP = frozenset(
+        logging.LogRecord("", 0, "", 0, "", (), None).__dict__.keys()
+    ) | frozenset({"message", "asctime"})
+
+    def format(self, record: logging.LogRecord) -> str:
+        base = super().format(record)
+        extras = {
+            k: v for k, v in record.__dict__.items()
+            if k not in self._SKIP and not k.startswith("_")
+        }
+        if extras:
+            return f"{base} | {extras}"
+        return base
+
+
+for handler in logging.root.handlers:
+    handler.setFormatter(_StructuredFormatter(
+        fmt="%(asctime)s %(levelname)s %(name)s %(message)s",
+    ))
 logger = logging.getLogger(__name__)
 
 
@@ -37,7 +60,10 @@ app.add_middleware(
 )
 
 from routers.agents import router as agents_router
+from routers.signals import router as signals_router
+
 app.include_router(agents_router, prefix="/api/v1")
+app.include_router(signals_router)
 
 
 @app.get("/health")

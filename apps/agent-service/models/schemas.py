@@ -103,3 +103,17 @@ class OutreachJobRequest(BaseModel):
     step_number: int
     sequence_id: Optional[str] = None
     enrollment_id: Optional[str] = None
+
+
+class ScoreSignalRequest(BaseModel):
+    text: str = Field(..., min_length=1, description="Raw signal text to score")
+    source: str = Field(..., min_length=1, description="Source name (e.g. linkedin, news, job_board)")
+
+
+class ScoreSignalResult(BaseModel):
+    company: str
+    signal_type: str
+    score: float = Field(ge=0.0, le=1.0)
+    summary: str
+    source: str
+    latency_ms: float
