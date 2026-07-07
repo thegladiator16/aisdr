@@ -88,14 +88,21 @@ export function AuthCard({ mode }: { mode: "sign-in" | "sign-up" }) {
     setLoading(true);
     setError("");
     try {
+      // OAuth requires an absolute redirect URL (Clerk rejects relative paths).
+      const origin = window.location.origin;
+      const callbackPath = isSignUp ? "/sign-up/sso-callback" : "/sign-in/sso-callback";
       const authenticator = isSignUp ? signUpHook.signUp : signInHook.signIn;
       await authenticator!.authenticateWithRedirect({
         strategy: "oauth_google",
-        redirectUrl: `/${mode}/sso-callback`,
+        redirectUrl: `${origin}${callbackPath}`,
         redirectUrlComplete: isSignUp ? "/onboarding" : "/dashboard",
       });
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : "Google sign-in failed";
+      const anyE = e as { errors?: Array<{ message?: string; longMessage?: string }>; message?: string };
+      const msg =
+        anyE.errors?.[0]?.longMessage ??
+        anyE.errors?.[0]?.message ??
+        (e instanceof Error ? e.message : "Google sign-in failed");
       setError(msg);
       setLoading(false);
     }
