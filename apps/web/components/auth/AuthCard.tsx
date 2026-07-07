@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useSignIn, useSignUp } from "@clerk/nextjs";
 import { Mail, Key, Loader2, ArrowLeft } from "lucide-react";
+import { AryaAvatar } from "@/components/arya/AryaAvatar";
 
 const COMPANIES = ["Zepto", "CRED", "Groww", "PhonePe", "Razorpay", "Meesho"];
 
@@ -19,11 +20,7 @@ function GoogleIcon() {
 }
 
 function AryaLogo() {
-  return (
-    <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-[#6C47FF] to-[#A855F7] flex items-center justify-center shadow-lg shadow-violet-200">
-      <span className="text-white text-2xl font-black tracking-tight">A</span>
-    </div>
-  );
+  return <AryaAvatar size="md" variant="head" />;
 }
 
 function LeftPanel() {
@@ -39,9 +36,7 @@ function LeftPanel() {
         </h2>
       </div>
       <div className="flex-1 flex items-center justify-center py-8">
-        <div className="h-40 w-40 rounded-3xl bg-white/10 backdrop-blur-sm border border-white/20 flex items-center justify-center">
-          <span className="text-white text-7xl font-black tracking-tight">A</span>
-        </div>
+        <AryaAvatar size="xl" variant="full" />
       </div>
       <div className="text-center space-y-4">
         <p className="text-sm text-white/70">Trusted by 500+ B2B founders across India</p>
