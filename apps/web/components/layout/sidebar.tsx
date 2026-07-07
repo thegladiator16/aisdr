@@ -31,6 +31,7 @@ import {
 import { useUser, useClerk } from "@clerk/nextjs";
 import { AryaAvatar } from "@/components/arya/AryaAvatar";
 import { ChangePlanModal } from "@/components/billing/ChangePlanModal";
+import { useSubscription } from "@/lib/hooks/useSubscription";
 
 const MANAGE_ITEMS = [
   { href: "/dashboard/manage", label: "Manage Arya", icon: Sparkles },
@@ -70,6 +71,9 @@ export function Sidebar({ onChatOpen }: SidebarProps) {
   const [showPlanModal, setShowPlanModal] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
   const supportMenuRef = useRef<HTMLDivElement>(null);
+  const { data: subscription } = useSubscription();
+
+  const credits = subscription?.credits ?? 10000;
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -218,7 +222,9 @@ export function Sidebar({ onChatOpen }: SidebarProps) {
           >
             <div className="flex items-center justify-between text-sm">
               <span className="text-gray-500">Credits</span>
-              <span className="font-semibold text-gray-900">10,000</span>
+              <span className="font-semibold text-gray-900">
+                {credits.toLocaleString()}
+              </span>
             </div>
             <div className="mt-1.5 w-full h-1 bg-gray-200 rounded-full overflow-hidden">
               <div className="h-full w-full bg-[#6C47FF] rounded-full" />

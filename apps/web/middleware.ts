@@ -14,6 +14,8 @@ const isPublicRoute = createRouteMatcher([
   "/solutions(.*)",
   "/api/v1/health",
   "/api/v1/billing/webhook(.*)",
+  "/api/billing/webhook/(.*)",
+  "/api/webhooks/(.*)",
   // System / SEO / icon routes — must be reachable to logged-out crawlers
   "/robots.txt",
   "/sitemap.xml",

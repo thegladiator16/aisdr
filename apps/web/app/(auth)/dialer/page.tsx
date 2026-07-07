@@ -1,7 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useUser } from "@clerk/nextjs";
+import { toast } from "sonner";
 import { Phone, X, Minus, Plus, CreditCard, Check, Loader2, Lock } from "lucide-react";
+import { useRazorpay } from "@/hooks/useRazorpay";
 
 const tabs = ["Ready to call", "Upcoming", "Call log"] as const;
 type Tab = (typeof tabs)[number];
@@ -9,6 +13,9 @@ type Tab = (typeof tabs)[number];
 type PayTab = "Card" | "UPI" | "Net Banking";
 
 export default function DialerPage() {
+  const router = useRouter();
+  const { user } = useUser();
+  const { openCheckout } = useRazorpay();
   const [activeTab, setActiveTab] = useState<Tab>("Ready to call");
   const [dialerModalOpen, setDialerModalOpen] = useState(false);
   const [quantity, setQuantity] = useState(1);
@@ -58,16 +65,51 @@ export default function DialerPage() {
     setBank("HDFC Bank");
   };
 
-  const handlePurchase = () => {
+  const handlePurchase = async () => {
     setPurchasing(true);
-    setTimeout(() => {
+    try {
+      const res = await fetch("/api/billing/create-order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "dialer", quantity }),
+      });
+      if (!res.ok) {
+        toast.error("Could not start payment. Please try again.");
+        return;
+      }
+      const { orderId, amount, currency, keyId } = await res.json();
+      const result = await openCheckout({
+        orderId,
+        amount,
+        currency,
+        keyId,
+        name: "AryaSDR",
+        description: `${quantity} dialer seat${quantity > 1 ? "s" : ""}`,
+        prefill: {
+          email: user?.primaryEmailAddress?.emailAddress,
+          name: user?.fullName ?? undefined,
+        },
+        verifyBody: { type: "dialer", quantity },
+        onVerified: () => {
+          toast.success(
+            `Purchased ${quantity} dialer seat${quantity > 1 ? "s" : ""}`,
+          );
+          setPurchaseSuccess(true);
+          setTimeout(() => {
+            setDialerModalOpen(false);
+            resetState();
+            router.refresh();
+          }, 1500);
+        },
+      });
+      if (result.success === false && result.error) {
+        toast.error(result.error);
+      }
+    } catch {
+      toast.error("Payment failed. Please try again.");
+    } finally {
       setPurchasing(false);
-      setPurchaseSuccess(true);
-      setTimeout(() => {
-        setDialerModalOpen(false);
-        resetState();
-      }, 1500);
-    }, 1500);
+    }
   };
 
   const closeModal = () => {

@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useUser } from "@clerk/nextjs";
 import {
   X,
   Check,
@@ -11,6 +13,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useRazorpay } from "@/hooks/useRazorpay";
 
 const GST_RATE = 0.18;
 
@@ -118,6 +121,9 @@ const PLANS = [
 ];
 
 export function ChangePlanModal({ onClose }: { onClose: () => void }) {
+  const router = useRouter();
+  const { user } = useUser();
+  const { openCheckout } = useRazorpay();
   const [billing, setBilling] = useState<"monthly" | "yearly">("monthly");
   const [step, setStep] = useState<1 | 2>(1);
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
@@ -153,22 +159,38 @@ export function ChangePlanModal({ onClose }: { onClose: () => void }) {
   async function handlePay() {
     setSubmitting(true);
     try {
-      await fetch("/api/billing/create-order", {
+      const planKey = selectedPlan?.toLowerCase();
+      const res = await fetch("/api/billing/create-order", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          plan: selectedPlan,
-          billing,
-          subtotal,
-          tax,
-          total,
-          method: activeTab,
-        }),
-      }).catch(() => null);
-      // Simulate latency for nicer UX
-      await new Promise((r) => setTimeout(r, 700));
-      toast.success(`Payment of ${formatMoney(total)} successful`);
-      onClose();
+        body: JSON.stringify({ plan: planKey }),
+      });
+      if (!res.ok) {
+        toast.error("Could not start payment. Please try again.");
+        return;
+      }
+      const { orderId, amount, currency, keyId } = await res.json();
+      const result = await openCheckout({
+        orderId,
+        amount,
+        currency,
+        keyId,
+        name: "AryaSDR",
+        description: `${selectedPlan} plan — ${billing}`,
+        prefill: {
+          email: user?.primaryEmailAddress?.emailAddress,
+          name: user?.fullName ?? undefined,
+        },
+        verifyBody: { plan: planKey },
+        onVerified: () => {
+          toast.success(`${selectedPlan} plan activated`);
+          onClose();
+          router.refresh();
+        },
+      });
+      if (result.success === false && result.error) {
+        toast.error(result.error);
+      }
     } catch {
       toast.error("Payment failed. Please try again.");
     } finally {

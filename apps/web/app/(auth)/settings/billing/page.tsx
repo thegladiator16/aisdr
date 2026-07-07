@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useUser } from "@clerk/nextjs";
 import { toast } from "sonner";
 import {
   Download,
@@ -15,6 +17,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { ChangePlanModal } from "@/components/billing/ChangePlanModal";
+import { useRazorpay } from "@/hooks/useRazorpay";
 
 type OtherCost = {
   label: string;
@@ -27,6 +30,9 @@ type OtherCost = {
 /*  Buy Credits Modal                                                  */
 /* ------------------------------------------------------------------ */
 function BuyCreditsModal({ onClose }: { onClose: () => void }) {
+  const router = useRouter();
+  const { user } = useUser();
+  const { openCheckout } = useRazorpay();
   const [quantity, setQuantity] = useState(1000);
   const [tab, setTab] = useState<"card" | "upi" | "netbanking">("card");
   const [processing, setProcessing] = useState(false);
@@ -40,13 +46,45 @@ function BuyCreditsModal({ onClose }: { onClose: () => void }) {
   const formatMoney = (n: number) =>
     `$${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-  const handlePay = () => {
+  const handlePay = async () => {
     setProcessing(true);
-    setTimeout(() => {
+    try {
+      const res = await fetch("/api/billing/create-order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "credits", quantity }),
+      });
+      if (!res.ok) {
+        toast.error("Could not start payment. Please try again.");
+        return;
+      }
+      const { orderId, amount, currency, keyId } = await res.json();
+      const result = await openCheckout({
+        orderId,
+        amount,
+        currency,
+        keyId,
+        name: "AryaSDR",
+        description: `${quantity.toLocaleString("en-US")} credits`,
+        prefill: {
+          email: user?.primaryEmailAddress?.emailAddress,
+          name: user?.fullName ?? undefined,
+        },
+        verifyBody: { type: "credits", quantity },
+        onVerified: () => {
+          toast.success(`Purchased ${quantity.toLocaleString("en-US")} credits`);
+          onClose();
+          router.refresh();
+        },
+      });
+      if (result.success === false && result.error) {
+        toast.error(result.error);
+      }
+    } catch {
+      toast.error("Payment failed. Please try again.");
+    } finally {
       setProcessing(false);
-      toast.success(`Purchased ${quantity.toLocaleString("en-US")} credits`);
-      onClose();
-    }, 900);
+    }
   };
 
   return (

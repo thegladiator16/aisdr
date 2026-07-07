@@ -7,8 +7,24 @@ import { WelcomeModal } from "@/components/WelcomeModal";
 import { X } from "lucide-react";
 import Link from "next/link";
 import { ChangePlanModal } from "@/components/billing/ChangePlanModal";
+import { useSubscription } from "@/lib/hooks/useSubscription";
 
-function UpgradeBanner({ onDismiss, onChoosePlan }: { onDismiss: () => void; onChoosePlan: () => void }) {
+function UpgradeBanner({
+  daysLeft,
+  isTrialing,
+  onDismiss,
+  onChoosePlan,
+}: {
+  daysLeft: number | null;
+  isTrialing: boolean;
+  onDismiss: () => void;
+  onChoosePlan: () => void;
+}) {
+  const days = daysLeft ?? 0;
+  const message = isTrialing
+    ? `Your trial ends in ${days} day${days !== 1 ? "s" : ""}. Upgrade to a paid plan today`
+    : "You can reach 1,000s of more people if you upgrade today";
+
   return (
     <div
       className="w-full py-2.5 px-4 text-sm text-white text-center flex items-center justify-center gap-4"
@@ -16,10 +32,7 @@ function UpgradeBanner({ onDismiss, onChoosePlan }: { onDismiss: () => void; onC
         background: "linear-gradient(90deg, #7C3AED, #A855F7, #EC4899, #F97316)",
       }}
     >
-      <span>
-        Your trial ends in 29 days.&nbsp; You can reach 1,000s of more people if you
-        upgrade today
-      </span>
+      <span>{message}</span>
       <div className="flex items-center gap-2">
         <button
           onClick={onChoosePlan}
@@ -43,6 +56,14 @@ export function AuthShell({ children }: { children: React.ReactNode }) {
   const [chatOpen, setChatOpen] = useState(false);
   const [showWelcome, setShowWelcome] = useState(false);
   const [showPlanModal, setShowPlanModal] = useState(false);
+  const { data: subscription } = useSubscription();
+
+  // Hide the banner entirely for paid tiers (anything not trial/free).
+  const tier = subscription?.tier;
+  const isTrialing = subscription?.isTrialing ?? false;
+  const daysLeft = subscription?.daysLeft ?? null;
+  const bannerAllowedForTier =
+    !tier || tier === "trial" || tier === "free";
 
   useEffect(() => {
     const dismissed = localStorage.getItem("arya_banner_dismissed");
@@ -63,7 +84,14 @@ export function AuthShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-[#F8F9FA]">
-      {showBanner && <UpgradeBanner onDismiss={dismissBanner} onChoosePlan={() => setShowPlanModal(true)} />}
+      {showBanner && bannerAllowedForTier && (
+        <UpgradeBanner
+          daysLeft={daysLeft}
+          isTrialing={isTrialing}
+          onDismiss={dismissBanner}
+          onChoosePlan={() => setShowPlanModal(true)}
+        />
+      )}
       <div className="flex flex-1 overflow-hidden">
         <Sidebar onChatOpen={() => setChatOpen(true)} />
         <main className="flex-1 overflow-y-auto">
