@@ -3,9 +3,15 @@ export const dynamic = "force-dynamic";
 
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
+
+async function ensureColumn() {
+  await db.execute(
+    sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS email_signature text`
+  );
+}
 
 export async function POST(req: Request) {
   const { userId: clerkId } = auth();
@@ -15,6 +21,8 @@ export async function POST(req: Request) {
   if (typeof signature !== "string") {
     return NextResponse.json({ error: "signature is required" }, { status: 400 });
   }
+
+  await ensureColumn();
 
   await db
     .update(users)
