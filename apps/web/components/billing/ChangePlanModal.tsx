@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useUser } from "@clerk/nextjs";
 import {
@@ -8,21 +8,42 @@ import {
   Check,
   Lock,
   CreditCard,
-  Smartphone,
   Landmark,
   Loader2,
+  AlertCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useRazorpay } from "@/hooks/useRazorpay";
 
 const GST_RATE = 0.18;
 
-function formatMoney(n: number) {
-  return `$${n.toFixed(2)}`;
+function formatINR(n: number) {
+  return new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    maximumFractionDigits: 0,
+  }).format(n);
+}
+
+/* ---------- card helpers ---------- */
+
+function digits(s: string) {
+  return s.replace(/\D/g, "");
+}
+
+function formatCardNumber(v: string) {
+  const d = digits(v).slice(0, 19);
+  return d.replace(/(.{4})/g, "$1 ").trim();
+}
+
+function formatExpiry(v: string) {
+  const d = digits(v).slice(0, 4);
+  if (d.length <= 2) return d;
+  return `${d.slice(0, 2)} / ${d.slice(2)}`;
 }
 
 function detectCardBrand(num: string): string | null {
-  const n = num.replace(/\s+/g, "");
+  const n = digits(num);
   if (!n) return null;
   if (/^4/.test(n)) return "VISA";
   if (/^(5[1-5]|2[2-7])/.test(n)) return "MC";
@@ -30,6 +51,43 @@ function detectCardBrand(num: string): string | null {
   if (/^6(?:011|5)/.test(n)) return "DISCOVER";
   if (/^(60|65|81|82|508)/.test(n)) return "RUPAY";
   return null;
+}
+
+function luhnValid(num: string): boolean {
+  const n = digits(num);
+  if (n.length < 12 || n.length > 19) return false;
+  let sum = 0;
+  let alt = false;
+  for (let i = n.length - 1; i >= 0; i--) {
+    let d = parseInt(n[i]!, 10);
+    if (alt) {
+      d *= 2;
+      if (d > 9) d -= 9;
+    }
+    sum += d;
+    alt = !alt;
+  }
+  return sum % 10 === 0;
+}
+
+function isValidExpiry(v: string): boolean {
+  const d = digits(v);
+  if (d.length !== 4) return false;
+  const mm = parseInt(d.slice(0, 2), 10);
+  const yy = parseInt(d.slice(2, 4), 10);
+  if (mm < 1 || mm > 12) return false;
+  const now = new Date();
+  const currentYear = now.getFullYear() % 100;
+  const currentMonth = now.getMonth() + 1;
+  if (yy < currentYear) return false;
+  if (yy === currentYear && mm < currentMonth) return false;
+  return true;
+}
+
+function isValidCvc(v: string, brand: string | null): boolean {
+  const d = digits(v);
+  const expected = brand === "AMEX" ? 4 : 3;
+  return d.length === expected;
 }
 
 const CARD_BRANDS: { key: string; label: string; className: string }[] = [
@@ -40,38 +98,27 @@ const CARD_BRANDS: { key: string; label: string; className: string }[] = [
     className: "bg-gradient-to-r from-[#EB001B] to-[#F79E1B] text-white",
   },
   { key: "AMEX", label: "AMEX", className: "bg-[#006FCF] text-white" },
-  {
-    key: "DISCOVER",
-    label: "Discover",
-    className: "bg-[#FF6000] text-white",
-  },
   { key: "RUPAY", label: "RuPay", className: "bg-[#097969] text-white" },
-];
-
-const UPI_APPS: { label: string; className: string }[] = [
-  { label: "GPay", className: "bg-white border border-gray-200 text-gray-700" },
-  { label: "PhonePe", className: "bg-[#5F259F] text-white" },
-  { label: "Paytm", className: "bg-[#00BAF2] text-white" },
-  { label: "BHIM", className: "bg-[#1B3978] text-white" },
 ];
 
 const BANKS = [
   "HDFC Bank",
   "ICICI Bank",
-  "SBI",
+  "State Bank of India",
   "Axis Bank",
-  "Kotak",
+  "Kotak Mahindra Bank",
   "Yes Bank",
   "Other",
 ];
 
 const PLANS = [
   {
+    key: "starter",
     name: "Starter",
     badge: "bg-violet-600",
     desc: "For B2B founders running outbound",
-    monthly: "$199",
-    yearly: "$179",
+    monthly: 16999,
+    yearly: 14999,
     credits: "500 leads/mo",
     replies: "1-12 positive replies/mo",
     includes: "Everything in Free, plus:",
@@ -84,11 +131,12 @@ const PLANS = [
     ],
   },
   {
+    key: "growth",
     name: "Growth",
     badge: "bg-pink-500",
     desc: "For teams scaling with full AI automation",
-    monthly: "$349",
-    yearly: "$314",
+    monthly: 28999,
+    yearly: 25999,
     credits: "2,000 leads/mo",
     replies: "4-30 positive replies/mo",
     includes: "Everything in Starter, plus:",
@@ -102,11 +150,12 @@ const PLANS = [
     recommended: true,
   },
   {
+    key: "scale",
     name: "Enterprise",
     badge: "bg-gray-900",
     desc: "For large organizations",
-    monthly: "Custom",
-    yearly: "Custom",
+    monthly: null as number | null,
+    yearly: null as number | null,
     credits: "Custom volume",
     replies: "50+ positive replies/mo",
     includes: "Everything in Growth, plus:",
@@ -124,51 +173,70 @@ export function ChangePlanModal({ onClose }: { onClose: () => void }) {
   const router = useRouter();
   const { user } = useUser();
   const { openCheckout } = useRazorpay();
+
   const [billing, setBilling] = useState<"monthly" | "yearly">("monthly");
   const [step, setStep] = useState<1 | 2>(1);
-  const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
+  const [selectedPlanKey, setSelectedPlanKey] = useState<string | null>(null);
 
-  // Step 2 payment state
-  const [activeTab, setActiveTab] = useState<"card" | "upi" | "netbanking">(
-    "card"
-  );
+  // Payment state
+  const [activeTab, setActiveTab] = useState<"card" | "netbanking">("card");
   const [cardName, setCardName] = useState("");
   const [cardNumber, setCardNumber] = useState("");
   const [expiry, setExpiry] = useState("");
   const [cvc, setCvc] = useState("");
-  const [country, setCountry] = useState("IN");
-  const [saveCard, setSaveCard] = useState(false);
-  const [upiId, setUpiId] = useState("");
   const [bankName, setBankName] = useState(BANKS[0]);
   const [submitting, setSubmitting] = useState(false);
 
-  const detectedBrand = detectCardBrand(cardNumber);
+  // Blur-triggered errors so we don't shout while the user is still typing
+  const [touched, setTouched] = useState({
+    cardName: false,
+    cardNumber: false,
+    expiry: false,
+    cvc: false,
+  });
 
-  // Pricing math
-  const planForSummary = PLANS.find((p) => p.name === selectedPlan);
-  const subtotal = planForSummary
-    ? Number(
-        (billing === "monthly" ? planForSummary.monthly : planForSummary.yearly)
-          .toString()
-          .replace(/[^0-9.]/g, "")
-      ) || 0
+  const detectedBrand = detectCardBrand(cardNumber);
+  const cardNumberValid = luhnValid(cardNumber);
+  const expiryValid = isValidExpiry(expiry);
+  const cvcValid = isValidCvc(cvc, detectedBrand);
+  const cardNameValid = cardName.trim().length >= 2;
+
+  const cardFormValid =
+    cardNameValid && cardNumberValid && expiryValid && cvcValid;
+
+  const selectedPlan = useMemo(
+    () => PLANS.find((p) => p.key === selectedPlanKey) ?? null,
+    [selectedPlanKey]
+  );
+
+  const subtotal = selectedPlan
+    ? (billing === "monthly" ? selectedPlan.monthly : selectedPlan.yearly) ?? 0
     : 0;
-  const tax = Math.round(subtotal * GST_RATE * 100) / 100;
-  const total = Math.round((subtotal + tax) * 100) / 100;
+  const tax = Math.round(subtotal * GST_RATE);
+  const total = subtotal + tax;
 
   async function handlePay() {
+    if (activeTab === "card" && !cardFormValid) {
+      setTouched({ cardName: true, cardNumber: true, expiry: true, cvc: true });
+      toast.error("Please fix the card details before proceeding");
+      return;
+    }
+
     setSubmitting(true);
     try {
-      const planKey = selectedPlan?.toLowerCase();
       const res = await fetch("/api/billing/create-order", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ plan: planKey }),
+        body: JSON.stringify({ plan: selectedPlanKey, billing }),
       });
+
       if (!res.ok) {
-        toast.error("Could not start payment. Please try again.");
+        const data = await res.json().catch(() => ({}));
+        const msg = data?.detail || data?.error || "Could not start payment. Please try again.";
+        toast.error(msg);
         return;
       }
+
       const { orderId, amount, currency, keyId } = await res.json();
       const result = await openCheckout({
         orderId,
@@ -176,23 +244,24 @@ export function ChangePlanModal({ onClose }: { onClose: () => void }) {
         currency,
         keyId,
         name: "AryaSDR",
-        description: `${selectedPlan} plan — ${billing}`,
+        description: `${selectedPlan?.name} plan — ${billing}`,
         prefill: {
           email: user?.primaryEmailAddress?.emailAddress,
           name: user?.fullName ?? undefined,
         },
-        verifyBody: { plan: planKey },
+        verifyBody: { plan: selectedPlanKey, billing },
         onVerified: () => {
-          toast.success(`${selectedPlan} plan activated`);
+          toast.success(`${selectedPlan?.name} plan activated`);
           onClose();
           router.refresh();
         },
       });
-      if (result.success === false && result.error) {
+      if (result.success === false && result.error && result.error !== "Cancelled by user") {
         toast.error(result.error);
       }
-    } catch {
-      toast.error("Payment failed. Please try again.");
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Payment failed. Please try again.";
+      toast.error(msg);
     } finally {
       setSubmitting(false);
     }
@@ -208,10 +277,7 @@ export function ChangePlanModal({ onClose }: { onClose: () => void }) {
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
           <h2 className="text-lg font-bold text-gray-900">Change plan</h2>
-          <button
-            onClick={onClose}
-            className="p-1 text-gray-400 hover:text-gray-600 rounded"
-          >
+          <button onClick={onClose} className="p-1 text-gray-400 hover:text-gray-600 rounded">
             <X className="h-5 w-5" />
           </button>
         </div>
@@ -249,7 +315,7 @@ export function ChangePlanModal({ onClose }: { onClose: () => void }) {
             <div className="grid grid-cols-3 gap-4">
               {PLANS.map((plan) => (
                 <div
-                  key={plan.name}
+                  key={plan.key}
                   className={`border rounded-xl p-5 relative ${
                     plan.recommended
                       ? "border-pink-300 ring-1 ring-pink-200"
@@ -263,37 +329,36 @@ export function ChangePlanModal({ onClose }: { onClose: () => void }) {
                   </span>
                   <p className="text-xs text-gray-500 mb-3">{plan.desc}</p>
                   <p className="text-2xl font-bold text-gray-900 mb-1">
-                    {billing === "monthly" ? plan.monthly : plan.yearly}
-                    {plan.monthly !== "Custom" && (
-                      <span className="text-sm font-normal text-gray-500">
-                        /mo
-                      </span>
+                    {plan.monthly == null
+                      ? "Custom"
+                      : formatINR(billing === "monthly" ? plan.monthly : plan.yearly!)}
+                    {plan.monthly != null && (
+                      <span className="text-sm font-normal text-gray-500">/mo</span>
                     )}
                   </p>
                   <p className="text-xs text-gray-500 mb-4">{plan.credits}</p>
                   <button
                     onClick={() => {
-                      if (plan.name === "Enterprise") return;
-                      setSelectedPlan(plan.name);
+                      if (plan.key === "scale") {
+                        window.location.href = "mailto:sales@aryasdr.in?subject=Enterprise%20plan%20inquiry";
+                        return;
+                      }
+                      setSelectedPlanKey(plan.key);
                       setStep(2);
                     }}
                     className={`w-full rounded-lg py-2 text-sm font-medium transition-colors ${
-                      plan.name === "Enterprise"
+                      plan.key === "scale"
                         ? "bg-gray-900 text-white hover:bg-gray-800"
                         : "bg-[#6C47FF] text-white hover:bg-[#5A38E0]"
                     }`}
                   >
-                    {plan.name === "Enterprise"
-                      ? "Contact sales"
-                      : "Upgrade"}
+                    {plan.key === "scale" ? "Contact sales" : "Upgrade"}
                   </button>
                   <p className="text-xs text-gray-500 mt-3 flex items-center gap-1">
                     <span className="text-gray-400">ℹ</span> {plan.replies}
                   </p>
                   <hr className="my-4 border-gray-100" />
-                  <p className="text-xs font-medium text-gray-700 mb-2">
-                    {plan.includes}
-                  </p>
+                  <p className="text-xs font-medium text-gray-700 mb-2">{plan.includes}</p>
                   <ul className="space-y-1.5">
                     {plan.features.map((f, i) => {
                       const text = typeof f === "string" ? f : f.text;
@@ -320,43 +385,37 @@ export function ChangePlanModal({ onClose }: { onClose: () => void }) {
           </div>
         ) : (
           <div className="flex flex-col md:flex-row">
-            {/* LEFT: Order summary (40%) */}
+            {/* LEFT: Order summary */}
             <div className="md:w-2/5 bg-[#F9FAFB] p-6 border-r border-[#E5E7EB]">
-              <h3 className="text-sm font-semibold text-[#111827] mb-4">
-                Order summary
-              </h3>
+              <h3 className="text-sm font-semibold text-[#111827] mb-4">Order summary</h3>
 
               <div className="flex items-center gap-2 mb-5">
                 <span className="text-sm font-semibold text-[#111827]">
-                  {selectedPlan}
+                  {selectedPlan?.name}
                 </span>
                 <span
                   className={`inline-block text-white text-[10px] font-semibold px-2 py-0.5 rounded-full ${
-                    planForSummary?.badge ?? "bg-violet-600"
+                    selectedPlan?.badge ?? "bg-violet-600"
                   }`}
                 >
-                  {selectedPlan} tier
+                  {selectedPlan?.name} tier
                 </span>
               </div>
 
               <div className="space-y-2.5 text-sm">
                 <div className="flex justify-between">
                   <span className="text-[#6B7280]">Subtotal</span>
-                  <span className="text-[#111827] tabular-nums">
-                    {formatMoney(subtotal)}
-                  </span>
+                  <span className="text-[#111827] tabular-nums">{formatINR(subtotal)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-[#6B7280]">Tax (18% GST)</span>
-                  <span className="text-[#111827] tabular-nums">
-                    {formatMoney(tax)}
-                  </span>
+                  <span className="text-[#6B7280]">GST (18%)</span>
+                  <span className="text-[#111827] tabular-nums">{formatINR(tax)}</span>
                 </div>
                 <hr className="border-[#E5E7EB]" />
                 <div className="flex justify-between items-baseline">
                   <span className="text-[#111827] font-bold">Total</span>
                   <span className="text-[#111827] font-bold text-lg tabular-nums">
-                    {formatMoney(total)}
+                    {formatINR(total)}
                   </span>
                 </div>
                 <p className="text-xs text-[#6B7280] pt-1">
@@ -365,13 +424,12 @@ export function ChangePlanModal({ onClose }: { onClose: () => void }) {
               </div>
             </div>
 
-            {/* RIGHT: Payment method (60%) */}
+            {/* RIGHT: Payment method */}
             <div className="md:w-3/5 p-6">
-              {/* Tabs */}
+              {/* Tabs (UPI removed) */}
               <div className="flex items-center gap-1 border-b border-[#E5E7EB] mb-5">
                 {[
                   { key: "card", label: "Card", icon: CreditCard },
-                  { key: "upi", label: "UPI", icon: Smartphone },
                   { key: "netbanking", label: "Net Banking", icon: Landmark },
                 ].map((t) => {
                   const Icon = t.icon;
@@ -380,13 +438,9 @@ export function ChangePlanModal({ onClose }: { onClose: () => void }) {
                     <button
                       key={t.key}
                       type="button"
-                      onClick={() =>
-                        setActiveTab(t.key as "card" | "upi" | "netbanking")
-                      }
+                      onClick={() => setActiveTab(t.key as "card" | "netbanking")}
                       className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium transition-colors relative ${
-                        active
-                          ? "text-[#6C47FF]"
-                          : "text-[#6B7280] hover:text-[#111827]"
+                        active ? "text-[#6C47FF]" : "text-[#6B7280] hover:text-[#111827]"
                       }`}
                     >
                       <Icon className="h-4 w-4" />
@@ -402,15 +456,13 @@ export function ChangePlanModal({ onClose }: { onClose: () => void }) {
               {/* Card tab */}
               {activeTab === "card" && (
                 <div className="space-y-3">
-                  {/* Brand row */}
+                  {/* Brand chips */}
                   <div className="flex items-center justify-end gap-1.5 flex-wrap">
                     {CARD_BRANDS.map((b) => (
                       <span
                         key={b.key}
                         className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${b.className} ${
-                          detectedBrand && detectedBrand !== b.key
-                            ? "opacity-40"
-                            : ""
+                          detectedBrand && detectedBrand !== b.key ? "opacity-30" : ""
                         }`}
                       >
                         {b.label}
@@ -425,120 +477,103 @@ export function ChangePlanModal({ onClose }: { onClose: () => void }) {
                     <input
                       value={cardName}
                       onChange={(e) => setCardName(e.target.value)}
+                      onBlur={() => setTouched((t) => ({ ...t, cardName: true }))}
                       placeholder="Name on card"
-                      className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm text-[#111827] focus:border-[#6C47FF] focus:ring-1 focus:ring-[#6C47FF] outline-none"
+                      className={`mt-1 w-full rounded-lg border px-3 py-2.5 text-sm text-[#111827] focus:ring-1 outline-none ${
+                        touched.cardName && !cardNameValid
+                          ? "border-red-300 focus:border-red-400 focus:ring-red-200"
+                          : "border-gray-200 focus:border-[#6C47FF] focus:ring-[#6C47FF]"
+                      }`}
                     />
+                    {touched.cardName && !cardNameValid && (
+                      <p className="mt-1 flex items-center gap-1 text-xs text-red-600">
+                        <AlertCircle className="h-3 w-3" /> Enter the name as printed on your card
+                      </p>
+                    )}
                   </div>
 
                   <div>
-                    <label className="text-xs font-medium text-[#111827]">
-                      Card number
-                    </label>
+                    <label className="text-xs font-medium text-[#111827]">Card number</label>
                     <div className="relative mt-1">
                       <input
                         value={cardNumber}
-                        onChange={(e) => setCardNumber(e.target.value)}
+                        onChange={(e) => setCardNumber(formatCardNumber(e.target.value))}
+                        onBlur={() => setTouched((t) => ({ ...t, cardNumber: true }))}
                         placeholder="1234 1234 1234 1234"
                         inputMode="numeric"
-                        className="w-full rounded-lg border border-gray-200 px-3 py-2.5 pr-16 text-sm text-[#111827] focus:border-[#6C47FF] focus:ring-1 focus:ring-[#6C47FF] outline-none"
+                        autoComplete="cc-number"
+                        className={`w-full rounded-lg border px-3 py-2.5 pr-24 text-sm text-[#111827] focus:ring-1 outline-none ${
+                          touched.cardNumber && cardNumber && !cardNumberValid
+                            ? "border-red-300 focus:border-red-400 focus:ring-red-200"
+                            : "border-gray-200 focus:border-[#6C47FF] focus:ring-[#6C47FF]"
+                        }`}
                       />
                       {detectedBrand && (
                         <span
                           className={`absolute right-2 top-1/2 -translate-y-1/2 px-1.5 py-0.5 rounded text-[10px] font-bold ${
-                            CARD_BRANDS.find((b) => b.key === detectedBrand)
-                              ?.className ?? ""
+                            CARD_BRANDS.find((b) => b.key === detectedBrand)?.className ?? ""
                           }`}
                         >
-                          {
-                            CARD_BRANDS.find((b) => b.key === detectedBrand)
-                              ?.label
-                          }
+                          {CARD_BRANDS.find((b) => b.key === detectedBrand)?.label}
                         </span>
                       )}
                     </div>
+                    {touched.cardNumber && cardNumber && !cardNumberValid && (
+                      <p className="mt-1 flex items-center gap-1 text-xs text-red-600">
+                        <AlertCircle className="h-3 w-3" /> Invalid card number
+                      </p>
+                    )}
                   </div>
 
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="text-xs font-medium text-[#111827]">
-                        Expiration
-                      </label>
+                      <label className="text-xs font-medium text-[#111827]">Expiry</label>
                       <input
                         value={expiry}
-                        onChange={(e) => setExpiry(e.target.value)}
+                        onChange={(e) => setExpiry(formatExpiry(e.target.value))}
+                        onBlur={() => setTouched((t) => ({ ...t, expiry: true }))}
                         placeholder="MM / YY"
-                        className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm text-[#111827] focus:border-[#6C47FF] focus:ring-1 focus:ring-[#6C47FF] outline-none"
+                        inputMode="numeric"
+                        autoComplete="cc-exp"
+                        className={`mt-1 w-full rounded-lg border px-3 py-2.5 text-sm text-[#111827] focus:ring-1 outline-none ${
+                          touched.expiry && expiry && !expiryValid
+                            ? "border-red-300 focus:border-red-400 focus:ring-red-200"
+                            : "border-gray-200 focus:border-[#6C47FF] focus:ring-[#6C47FF]"
+                        }`}
                       />
+                      {touched.expiry && expiry && !expiryValid && (
+                        <p className="mt-1 flex items-center gap-1 text-xs text-red-600">
+                          <AlertCircle className="h-3 w-3" /> Invalid expiry
+                        </p>
+                      )}
                     </div>
                     <div>
-                      <label className="text-xs font-medium text-[#111827]">
-                        CVC
-                      </label>
+                      <label className="text-xs font-medium text-[#111827]">CVC</label>
                       <input
                         value={cvc}
-                        onChange={(e) => setCvc(e.target.value)}
-                        placeholder="123"
+                        onChange={(e) => setCvc(digits(e.target.value).slice(0, 4))}
+                        onBlur={() => setTouched((t) => ({ ...t, cvc: true }))}
+                        placeholder={detectedBrand === "AMEX" ? "1234" : "123"}
                         inputMode="numeric"
-                        className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm text-[#111827] focus:border-[#6C47FF] focus:ring-1 focus:ring-[#6C47FF] outline-none"
+                        autoComplete="cc-csc"
+                        className={`mt-1 w-full rounded-lg border px-3 py-2.5 text-sm text-[#111827] focus:ring-1 outline-none ${
+                          touched.cvc && cvc && !cvcValid
+                            ? "border-red-300 focus:border-red-400 focus:ring-red-200"
+                            : "border-gray-200 focus:border-[#6C47FF] focus:ring-[#6C47FF]"
+                        }`}
                       />
+                      {touched.cvc && cvc && !cvcValid && (
+                        <p className="mt-1 flex items-center gap-1 text-xs text-red-600">
+                          <AlertCircle className="h-3 w-3" />{" "}
+                          {detectedBrand === "AMEX" ? "4 digits" : "3 digits"}
+                        </p>
+                      )}
                     </div>
                   </div>
 
-                  <div>
-                    <label className="text-xs font-medium text-[#111827]">
-                      Billing country
-                    </label>
-                    <select
-                      value={country}
-                      onChange={(e) => setCountry(e.target.value)}
-                      className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm text-[#111827] focus:border-[#6C47FF] focus:ring-1 focus:ring-[#6C47FF] outline-none"
-                    >
-                      <option value="IN">India</option>
-                      <option value="US">United States</option>
-                      <option value="GB">United Kingdom</option>
-                      <option value="CA">Canada</option>
-                      <option value="AU">Australia</option>
-                    </select>
-                  </div>
-
-                  <label className="flex items-center gap-2 text-xs text-[#6B7280] cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={saveCard}
-                      onChange={(e) => setSaveCard(e.target.checked)}
-                      className="rounded border-gray-300 text-[#6C47FF] focus:ring-[#6C47FF]"
-                    />
-                    Save card for future payments
-                  </label>
-                </div>
-              )}
-
-              {/* UPI tab */}
-              {activeTab === "upi" && (
-                <div className="space-y-3">
-                  <div>
-                    <label className="text-xs font-medium text-[#111827]">
-                      UPI ID
-                    </label>
-                    <input
-                      value={upiId}
-                      onChange={(e) => setUpiId(e.target.value)}
-                      placeholder="UPI ID (e.g., name@bank)"
-                      className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm text-[#111827] focus:border-[#6C47FF] focus:ring-1 focus:ring-[#6C47FF] outline-none"
-                    />
-                  </div>
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    {UPI_APPS.map((a) => (
-                      <span
-                        key={a.label}
-                        className={`px-2 py-0.5 rounded text-[10px] font-bold ${a.className}`}
-                      >
-                        {a.label}
-                      </span>
-                    ))}
-                  </div>
-                  <p className="text-xs text-[#6B7280]">
-                    You&apos;ll get a payment request on your UPI app
+                  <p className="text-xs text-[#6B7280] flex items-center gap-1.5">
+                    <Lock className="h-3 w-3" /> All Indian cards supported —
+                    Razorpay processes payments securely.
                   </p>
                 </div>
               )}
@@ -562,38 +597,38 @@ export function ChangePlanModal({ onClose }: { onClose: () => void }) {
                       ))}
                     </select>
                   </div>
+                  <p className="text-xs text-[#6B7280]">
+                    You&apos;ll be redirected to your bank&apos;s secure page to
+                    complete the payment.
+                  </p>
                 </div>
               )}
 
               {/* Submit */}
               <button
                 onClick={handlePay}
-                disabled={submitting}
+                disabled={submitting || (activeTab === "card" && !cardFormValid)}
                 className="mt-5 w-full h-12 rounded-lg bg-[#6C47FF] text-white text-sm font-semibold hover:bg-[#5538DD] transition-colors flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
               >
                 {submitting ? (
                   <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Processing...
+                    <Loader2 className="h-4 w-4 animate-spin" /> Processing...
                   </>
                 ) : (
-                  <>Pay {formatMoney(total)}</>
+                  <>Pay {formatINR(total)}</>
                 )}
               </button>
 
-              {/* Trust signals */}
               <div className="mt-4 space-y-1.5">
                 <div className="flex items-center gap-1.5 text-xs text-[#6B7280]">
                   <Lock className="h-3.5 w-3.5" />
                   Secured by 256-bit SSL encryption
                 </div>
                 <div className="flex items-center gap-1.5 text-xs text-[#6B7280]">
-                  Powered by{" "}
-                  <span className="font-bold text-[#0E2A8C]">Razorpay</span>
+                  Powered by <span className="font-bold text-[#0E2A8C]">Razorpay</span>
                 </div>
               </div>
 
-              {/* Back */}
               <div className="flex justify-start mt-3">
                 <button
                   onClick={() => setStep(1)}

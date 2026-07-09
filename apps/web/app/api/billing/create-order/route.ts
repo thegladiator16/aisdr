@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
-import { razorpay, PLAN_PRICES_USD } from "@/lib/payments/razorpay";
+import { razorpay, getPlanAmountInPaise } from "@/lib/payments/razorpay";
 
 export async function POST(req: Request) {
   const { userId } = auth();
@@ -14,34 +14,40 @@ export async function POST(req: Request) {
   const body = await req.json().catch(() => ({}));
   const {
     plan,
+    billing,
     type,
     quantity,
   }: {
-    plan?: "starter" | "growth";
+    plan?: "starter" | "growth" | "scale";
+    billing?: "monthly" | "yearly";
     type?: "credits" | "dialer" | "mailbox" | "phone";
     quantity?: number;
-    subtotal?: number;
-    tax?: number;
-    total?: number;
   } = body ?? {};
 
-  // Compute amount server-side. NEVER trust client-sent amounts.
   let amount = 0;
 
-  if (plan === "starter" || plan === "growth") {
-    amount = PLAN_PRICES_USD[plan];
+  if (plan === "starter" || plan === "growth" || plan === "scale") {
+    const price = getPlanAmountInPaise(plan, billing === "yearly" ? "yearly" : "monthly");
+    if (!price) {
+      return NextResponse.json({ error: "Invalid plan" }, { status: 400 });
+    }
+    amount = price;
   } else if (type === "credits") {
     const qty = Number(quantity) || 0;
-    amount = qty * 3; // 3 cents per credit ($0.03/credit)
+    // ₹2.5 per credit = 250 paise
+    amount = qty * 250;
   } else if (type === "dialer") {
     const qty = Number(quantity) || 0;
-    amount = qty * 7500; // $75.00 per seat
+    // ₹6,299 per seat
+    amount = qty * 629900;
   } else if (type === "mailbox") {
     const qty = Number(quantity) || 0;
-    amount = qty * 700; // $7.00 per mailbox
+    // ₹599 per mailbox
+    amount = qty * 59900;
   } else if (type === "phone") {
     const qty = Number(quantity) || 0;
-    amount = qty * 600; // $6.00 per phone
+    // ₹499 per phone
+    amount = qty * 49900;
   } else {
     return NextResponse.json(
       { error: "Invalid plan or type" },
@@ -56,17 +62,18 @@ export async function POST(req: Request) {
     );
   }
 
-  // Add 18% GST on top
+  // 18% GST on top
   const taxedAmount = Math.round(amount * 1.18);
 
   try {
     const order = await razorpay.orders.create({
       amount: taxedAmount,
-      currency: "USD",
-      receipt: `aryasdr_${userId}_${Date.now()}`,
+      currency: "INR",
+      receipt: `aryasdr_${userId}_${Date.now()}`.slice(0, 40),
       notes: {
         userId,
         plan: plan ?? "",
+        billing: billing ?? "",
         type: type ?? "",
         quantity: quantity != null ? String(quantity) : "",
       },
@@ -79,10 +86,16 @@ export async function POST(req: Request) {
       keyId: process.env.RAZORPAY_KEY_ID,
     });
   } catch (err: any) {
+    console.error("[create-order] Razorpay error:", {
+      message: err?.message,
+      description: err?.error?.description,
+      code: err?.error?.code,
+      statusCode: err?.statusCode,
+    });
     const detail =
       err?.error?.description ||
       err?.message ||
-      "Unknown Razorpay error";
+      "Unknown payment provider error";
     return NextResponse.json(
       { error: "Payment provider error", detail },
       { status: 502 }

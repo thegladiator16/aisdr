@@ -2,12 +2,6 @@ import Razorpay from "razorpay";
 
 let _razorpay: Razorpay | null = null;
 
-/**
- * Lazily-instantiated Razorpay client.
- * Reading env vars at import time breaks `next build` because the API route
- * modules are evaluated before env vars are injected. This getter defers the
- * check until the request is actually being served.
- */
 function getRazorpay(): Razorpay {
   if (_razorpay) return _razorpay;
   const key_id = process.env.RAZORPAY_KEY_ID;
@@ -21,10 +15,6 @@ function getRazorpay(): Razorpay {
   return _razorpay;
 }
 
-/**
- * Proxy that transparently forwards to the lazily-initialized client so
- * `razorpay.orders.create(...)` still works in call sites without changes.
- */
 export const razorpay = new Proxy({} as Razorpay, {
   get(_target, prop) {
     const client = getRazorpay();
@@ -34,27 +24,24 @@ export const razorpay = new Proxy({} as Razorpay, {
   },
 }) as Razorpay;
 
-// Amounts in smallest currency unit (cents for USD).
-// Razorpay International supports USD orders; the merchant account must be
-// enabled for international payments.
-export const PLAN_PRICES_USD: Record<string, number> = {
-  starter: 19900, // $199.00
-  growth: 34900, //  $349.00
-  scale: 59900, //   $599.00
+// Amounts in paise (smallest INR unit — 1 INR = 100 paise).
+// Monthly prices in INR:
+//   Starter: ₹16,999   Growth: ₹28,999   Scale: ₹59,999
+// Yearly-billed (per-month equivalent, ~10% off):
+//   Starter yearly per mo: ₹14,999   Growth yearly per mo: ₹25,999
+export const PLAN_PRICES_INR: Record<string, { monthly: number; yearly: number }> = {
+  starter: { monthly: 1699900, yearly: 1499900 * 12 },
+  growth:  { monthly: 2899900, yearly: 2599900 * 12 },
+  scale:   { monthly: 5999900, yearly: 5399900 * 12 },
 };
 
-export async function createRazorpayOrder(planId: string, userId: string) {
-  const amount = PLAN_PRICES_USD[planId];
-  if (!amount) throw new Error(`Unknown plan: ${planId}`);
-
-  const order = await getRazorpay().orders.create({
-    amount,
-    currency: "USD",
-    receipt: `aisdr_${userId}_${Date.now()}`,
-    notes: { userId, planId },
-  });
-
-  return order;
+export function getPlanAmountInPaise(
+  plan: string,
+  billing: "monthly" | "yearly" = "monthly"
+): number | null {
+  const p = PLAN_PRICES_INR[plan];
+  if (!p) return null;
+  return billing === "yearly" ? p.yearly : p.monthly;
 }
 
 export function verifyRazorpaySignature(

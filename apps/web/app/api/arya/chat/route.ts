@@ -1,22 +1,32 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 export async function POST(req: NextRequest) {
   try {
     const user = await getCurrentUser();
     if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json(
+        { reply: "You need to be signed in to chat with Arya." },
+        { status: 200 }
+      );
     }
 
     const { message } = await req.json();
     if (!message || typeof message !== "string") {
-      return NextResponse.json({ error: "Message required" }, { status: 400 });
+      return NextResponse.json(
+        { reply: "Please type a message and try again." },
+        { status: 200 }
+      );
     }
 
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) {
+      console.error("[arya/chat] ANTHROPIC_API_KEY missing on server");
       return NextResponse.json({
-        reply: "I'm not fully configured yet. Please ask your admin to set up the ANTHROPIC_API_KEY environment variable.",
+        reply: "I'm not fully configured yet. Please ask your admin to set up ANTHROPIC_API_KEY.",
       });
     }
 
@@ -36,8 +46,28 @@ export async function POST(req: NextRequest) {
     });
 
     if (!response.ok) {
+      const errorBody = await response.text().catch(() => "<no body>");
+      console.error(
+        `[arya/chat] Anthropic API error ${response.status}: ${errorBody.slice(0, 500)}`
+      );
+
+      if (response.status === 401 || response.status === 403) {
+        return NextResponse.json({
+          reply: "Arya's AI service isn't authenticated correctly. Please contact support.",
+        });
+      }
+      if (response.status === 429) {
+        return NextResponse.json({
+          reply: "Arya is a bit overloaded right now. Please try again in a moment.",
+        });
+      }
+      if (response.status >= 500) {
+        return NextResponse.json({
+          reply: "The AI service is having trouble right now. Please try again shortly.",
+        });
+      }
       return NextResponse.json({
-        reply: "I'm having trouble connecting right now. Please try again in a moment.",
+        reply: "I couldn't process that request. Please rephrase and try again.",
       });
     }
 
@@ -48,9 +78,10 @@ export async function POST(req: NextRequest) {
         : "I couldn't generate a response. Please try again.";
 
     return NextResponse.json({ reply });
-  } catch {
+  } catch (err) {
+    console.error("[arya/chat] Unhandled error:", err);
     return NextResponse.json({
-      reply: "Something went wrong. Please try again.",
+      reply: "Something went wrong on our side. Please try again.",
     });
   }
 }

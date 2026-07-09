@@ -8,10 +8,11 @@ import { db } from "@/lib/db";
 import { users, subscriptions, payments } from "@/lib/db/schema";
 import {
   verifyRazorpaySignature,
-  PLAN_PRICES_USD,
+  getPlanAmountInPaise,
 } from "@/lib/payments/razorpay";
 
-type Plan = "starter" | "growth";
+type Plan = "starter" | "growth" | "scale";
+type Billing = "monthly" | "yearly";
 type PurchaseType = "credits" | "dialer" | "mailbox" | "phone";
 
 interface VerifyPaymentBody {
@@ -19,6 +20,7 @@ interface VerifyPaymentBody {
   razorpay_payment_id: string;
   razorpay_signature: string;
   plan?: Plan;
+  billing?: Billing;
   type?: PurchaseType;
   quantity?: number;
 }
@@ -35,6 +37,7 @@ export async function POST(req: Request) {
     razorpay_payment_id,
     razorpay_signature,
     plan,
+    billing,
     type,
     quantity,
   } = body;
@@ -64,29 +67,29 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
 
-  // Compute amount server-side, same rules as create-order
+  // Compute amount server-side (paise), same rules as create-order
   let amount = 0;
-  if (plan === "starter" || plan === "growth") {
-    amount = PLAN_PRICES_USD[plan];
+  if (plan === "starter" || plan === "growth" || plan === "scale") {
+    amount = getPlanAmountInPaise(plan, billing === "yearly" ? "yearly" : "monthly") ?? 0;
   } else if (type === "credits") {
     const qty = Number(quantity) || 0;
-    amount = qty * 3; // 3 cents per credit
+    amount = qty * 250;
   } else if (type === "dialer") {
     const qty = Number(quantity) || 0;
-    amount = qty * 7500;
+    amount = qty * 629900;
   } else if (type === "mailbox") {
     const qty = Number(quantity) || 0;
-    amount = qty * 700;
+    amount = qty * 59900;
   } else if (type === "phone") {
     const qty = Number(quantity) || 0;
-    amount = qty * 600;
+    amount = qty * 49900;
   }
 
   // Record the payment
   await db.insert(payments).values({
     userId: user.id,
     amount,
-    currency: "USD",
+    currency: "INR",
     status: "succeeded",
     provider: "razorpay",
     providerPaymentId: razorpay_payment_id,
@@ -95,10 +98,13 @@ export async function POST(req: Request) {
   });
 
   // Update subscription based on purchase kind
-  if (plan === "starter" || plan === "growth") {
+  if (plan === "starter" || plan === "growth" || plan === "scale") {
     const now = new Date();
-    const periodEnd = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
-    const leadsLimit = plan === "starter" ? 500 : 2000;
+    const cycleMs =
+      billing === "yearly" ? 365 * 24 * 60 * 60 * 1000 : 30 * 24 * 60 * 60 * 1000;
+    const periodEnd = new Date(now.getTime() + cycleMs);
+    const leadsLimit =
+      plan === "starter" ? 500 : plan === "growth" ? 2000 : 999999;
 
     await db
       .update(subscriptions)
