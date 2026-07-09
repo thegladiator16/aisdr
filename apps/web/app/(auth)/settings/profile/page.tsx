@@ -27,11 +27,16 @@ function ConnectMailboxModal({ onClose }: { onClose: () => void }) {
 
   const handleConnect = () => {
     if (!provider) return;
+    if (provider === "gmail") {
+      window.location.href = "/api/v1/integrations/gmail";
+      return;
+    }
+    // Outlook / IMAP — show coming soon
     setConnecting(true);
     setTimeout(() => {
-      toast.success("Mailbox connected successfully!");
-      onClose();
-    }, 1000);
+      toast.success("IMAP / Outlook support coming soon. Use Gmail for now.");
+      setConnecting(false);
+    }, 500);
   };
 
   return (

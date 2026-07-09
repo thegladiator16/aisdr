@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import toast from "react-hot-toast";
 import {
   ChevronDown,
   ChevronUp,
@@ -441,11 +442,19 @@ export default function ManageAryaPage() {
                 className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
               />
             </div>
-            <button className="w-full rounded-lg bg-[#6C47FF] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#5A38E0] transition-colors">
+            <button
+              onClick={() => { window.location.href = "/api/v1/integrations/gmail"; }}
+              className="w-full rounded-lg bg-[#6C47FF] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#5A38E0] transition-colors"
+            >
               Connect with Google
             </button>
             <div className="text-center">
-              <button className="text-sm text-violet-600 hover:text-violet-700 font-medium">Connect manually</button>
+              <button
+                onClick={() => { window.location.href = "/api/v1/integrations/gmail"; }}
+                className="text-sm text-violet-600 hover:text-violet-700 font-medium"
+              >
+                Connect manually
+              </button>
             </div>
           </div>,
           <>{cancelBtn}</>
@@ -467,7 +476,20 @@ export default function ManageAryaPage() {
           <>
             {cancelBtn}
             <button
-              onClick={closeModal}
+              onClick={async () => {
+                try {
+                  const res = await fetch("/api/user/signature", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ signature: signatureHtml }),
+                  });
+                  if (!res.ok) throw new Error("Failed");
+                  toast.success("Signature saved!");
+                  closeModal();
+                } catch {
+                  toast.error("Failed to save signature");
+                }
+              }}
               className="rounded-lg bg-[#6C47FF] px-4 py-2 text-sm font-medium text-white hover:bg-[#5A38E0]"
             >
               Save

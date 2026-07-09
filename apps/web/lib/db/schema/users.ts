@@ -19,6 +19,7 @@ export const users = pgTable("users", {
   industry: varchar("industry", { length: 200 }),
   valueProposition: text("value_proposition"),
   calendarLink: varchar("calendar_link", { length: 500 }),
+  emailSignature: text("email_signature"),
   subscriptionTier: varchar("subscription_tier", { length: 50 }).default(
     "free"
   ),
