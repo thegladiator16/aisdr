@@ -45,7 +45,7 @@ export async function GET() {
       <text x="148" y="564" font-family="Arial, sans-serif" font-size="20" fill="white" font-weight="600">AI SDR Agent</text>
 
       <!-- URL bottom right -->
-      <text x="1100" y="564" font-family="Arial, sans-serif" font-size="18" fill="white" fill-opacity="0.6" text-anchor="end">aisdr-web.vercel.app</text>
+      <text x="1100" y="564" font-family="Arial, sans-serif" font-size="18" fill="white" fill-opacity="0.6" text-anchor="end">aryasdr.in</text>
     </svg>
   `
 

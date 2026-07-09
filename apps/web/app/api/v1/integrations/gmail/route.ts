@@ -6,7 +6,7 @@ import { integrations } from "@aisdr/db/schema";
 import { eq, and } from "drizzle-orm";
 
 const APP_URL =
-  process.env.NEXT_PUBLIC_APP_URL ?? "https://aisdr-web.vercel.app";
+  process.env.NEXT_PUBLIC_APP_URL ?? "https://aryasdr.in";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);

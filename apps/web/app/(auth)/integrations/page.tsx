@@ -111,7 +111,7 @@ export default async function IntegrationsPage({
             </code>{" "}
             in your Vercel environment variables, then add{" "}
             <code className="rounded bg-amber-400/10 px-1 py-0.5">
-              https://aisdr-web.vercel.app/api/v1/integrations/gmail
+              https://aryasdr.in/api/v1/integrations/gmail
             </code>{" "}
             as an authorized redirect URI in Google Cloud Console.
           </p>
