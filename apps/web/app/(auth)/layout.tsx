@@ -17,9 +17,16 @@ export default function AuthLayout({
 }) {
   // Belt-and-suspenders: reading headers() explicitly opts this render out
   // of any static path, so auth() below always sees the request context.
-  headers();
-  const { userId } = auth();
-  if (!userId) redirect("/sign-in");
+  const h = headers();
+  const { userId, sessionId } = auth();
+  const path = h.get("x-invoke-path") ?? h.get("referer") ?? "?";
+  console.log(
+    `[layout(auth)] userId=${userId ?? "null"} sess=${sessionId ?? "null"} ref=${path}`
+  );
+  if (!userId) {
+    console.log(`[layout(auth)] REDIRECT → /sign-in (no userId in SSR context)`);
+    redirect("/sign-in");
+  }
 
   return <AuthShell>{children}</AuthShell>;
 }

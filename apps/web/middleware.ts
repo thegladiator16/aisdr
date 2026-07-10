@@ -31,10 +31,28 @@ const isAuthPage = createRouteMatcher(["/sign-in(.*)", "/sign-up(.*)"]);
 const isApiRoute = createRouteMatcher(["/api/(.*)"]);
 
 export default clerkMiddleware((auth, req) => {
-  const { userId } = auth();
+  const { userId, sessionId } = auth();
+  const path = req.nextUrl.pathname;
+
+  // Log every non-static request so we can trace the redirect chain in
+  // Vercel logs. Look for lines starting with [mw]. Filter to trace only
+  // meaningful routes — skip icons/favicon/etc.
+  const isNoisy =
+    path.startsWith("/_next") ||
+    path.startsWith("/favicon") ||
+    path === "/api/debug/auth-state";
+  if (!isNoisy) {
+    const clientCookie = req.cookies.get("__client")?.value ? "y" : "n";
+    const sessionCookie = req.cookies.get("__session")?.value ? "y" : "n";
+    const uatCookie = req.cookies.get("__client_uat")?.value ? "y" : "n";
+    console.log(
+      `[mw] ${req.method} ${path} userId=${userId ?? "null"} sess=${sessionId ?? "null"} cookies(client=${clientCookie},session=${sessionCookie},uat=${uatCookie})`
+    );
+  }
 
   // Authenticated users visiting sign-in/sign-up → redirect to dashboard
   if (userId && isAuthPage(req)) {
+    console.log(`[mw] REDIRECT auth-page-while-signed-in ${path} → /dashboard (userId=${userId})`);
     return NextResponse.redirect(new URL("/dashboard", req.url));
   }
 
@@ -42,12 +60,14 @@ export default clerkMiddleware((auth, req) => {
   if (!userId && !isPublicRoute(req)) {
     // API routes: return JSON 401 so clients can detect + refresh tokens
     if (isApiRoute(req)) {
+      console.log(`[mw] 401 unauth-api ${path}`);
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 401 }
       );
     }
     // Pages: redirect to sign-in (preserve where the user was going)
+    console.log(`[mw] REDIRECT unauth-private-page ${path} → /sign-in`);
     const url = new URL("/sign-in", req.url);
     url.searchParams.set("redirect_url", req.nextUrl.pathname + req.nextUrl.search);
     return NextResponse.redirect(url);

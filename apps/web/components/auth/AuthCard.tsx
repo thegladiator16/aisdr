@@ -76,8 +76,14 @@ export function AuthCard({ mode }: { mode: "sign-in" | "sign-up" }) {
   // /sign-in" case (SSR middleware couldn't read the cookie yet, or the user
   // hit /sign-in via a bookmark after signing in).
   useEffect(() => {
+    console.log("[AuthCard] state change", {
+      authLoaded, isSignedIn, isSignUp,
+      cookies: typeof document !== "undefined" ? document.cookie : "",
+    });
     if (authLoaded && isSignedIn) {
-      window.location.href = isSignUp ? "/onboarding" : "/dashboard";
+      const dest = isSignUp ? "/onboarding" : "/dashboard";
+      console.log(`[AuthCard] already signed in → hard-nav to ${dest}`);
+      window.location.href = dest;
     }
   }, [authLoaded, isSignedIn, isSignUp]);
 
@@ -147,20 +153,28 @@ export function AuthCard({ mode }: { mode: "sign-in" | "sign-up" }) {
     }
   }
 
-  // After setActive, poll the session for a fresh JWT before navigating.
-  // Without this, window.location.href fires so fast that the browser's next
-  // request to the server may arrive before Clerk has finished writing the
-  // __session cookie — middleware then sees no session and bounces the user
+  // After setActive, poll for Clerk's __client_uat cookie (JS-readable —
+  // unlike __session which is HttpOnly) before navigating. Without this,
+  // window.location.href can fire before Clerk has finished writing the
+  // session state — middleware then sees no session and bounces the user
   // back to /sign-in.
   async function waitForSessionCookie(maxWaitMs = 3000): Promise<boolean> {
     const start = Date.now();
     while (Date.now() - start < maxWaitMs) {
-      const hasSession = document.cookie
-        .split(";")
-        .some((c) => c.trim().startsWith("__session="));
-      if (hasSession) return true;
+      const cookieStr = document.cookie;
+      const hasUat = cookieStr.split(";").some((c) => c.trim().startsWith("__client_uat="));
+      const hasClient = cookieStr.split(";").some((c) => c.trim().startsWith("__client="));
+      if (hasUat || hasClient) {
+        console.log(`[auth] session cookies ready after ${Date.now() - start}ms`, {
+          hasUat, hasClient, cookieCount: cookieStr.split(";").length,
+        });
+        return true;
+      }
       await new Promise((r) => setTimeout(r, 100));
     }
+    console.warn("[auth] session cookies NOT visible after 3s poll", {
+      cookies: document.cookie,
+    });
     return false;
   }
 
@@ -394,7 +408,12 @@ export function AuthCard({ mode }: { mode: "sign-in" | "sign-up" }) {
           )}
 
           {error && (
-            <p className="mt-3 text-sm text-red-600 text-center">{error}</p>
+            <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 flex items-start gap-2">
+              <svg className="h-4 w-4 text-red-600 shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none">
+                <path d="M12 8v4m0 4h.01M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              <p className="text-sm text-red-700 leading-relaxed">{error}</p>
+            </div>
           )}
 
           {/* Clerk bot-protection element — MUST stay mounted whenever signUp.create()
