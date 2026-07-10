@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { useSignIn, useSignUp, useAuth } from "@clerk/nextjs";
+import { useSignIn, useSignUp, useAuth, useClerk } from "@clerk/nextjs";
 import { Mail, Key, Loader2, ArrowLeft } from "lucide-react";
 import { AryaAvatar } from "@/components/arya/AryaAvatar";
 
@@ -60,6 +60,7 @@ export function AuthCard({ mode }: { mode: "sign-in" | "sign-up" }) {
   const signInHook = useSignIn();
   const signUpHook = useSignUp();
   const { isLoaded: authLoaded, isSignedIn } = useAuth();
+  const clerk = useClerk();
   const isSignUp = mode === "sign-up";
 
   const isLoaded = isSignUp ? signUpHook.isLoaded : signInHook.isLoaded;
@@ -70,22 +71,52 @@ export function AuthCard({ mode }: { mode: "sign-in" | "sign-up" }) {
   const [otp, setOtp] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [staleSessionCleared, setStaleSessionCleared] = useState(false);
 
-  // If the browser already has a live Clerk session, don't render the form —
-  // send them straight through. Guards against the "signed in but landed on
-  // /sign-in" case (SSR middleware couldn't read the cookie yet, or the user
-  // hit /sign-in via a bookmark after signing in).
+  // If the browser already has a live Clerk session, don't blindly send them
+  // through — that produces a fast client-side loop when Clerk client thinks
+  // they're signed in but the server-side cookie is missing or from a
+  // different Clerk instance.
+  //
+  // Instead: ask the server ("does auth() see a userId?") before navigating.
+  //  - Server AGREES  → hard-nav to /dashboard or /onboarding.
+  //  - Server DISAGREES → the client Clerk state is stale. Sign out to
+  //    clear it and let the user sign in fresh.
   useEffect(() => {
     console.log("[AuthCard] state change", {
       authLoaded, isSignedIn, isSignUp,
       cookies: typeof document !== "undefined" ? document.cookie : "",
     });
-    if (authLoaded && isSignedIn) {
-      const dest = isSignUp ? "/onboarding" : "/dashboard";
-      console.log(`[AuthCard] already signed in → hard-nav to ${dest}`);
-      window.location.href = dest;
-    }
-  }, [authLoaded, isSignedIn, isSignUp]);
+    if (!authLoaded || !isSignedIn || staleSessionCleared) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/debug/auth-state", { cache: "no-store" });
+        const data = await res.json();
+        if (cancelled) return;
+        console.log("[AuthCard] server auth check", data.auth);
+        if (data.auth?.userId) {
+          const dest = isSignUp ? "/onboarding" : "/dashboard";
+          console.log(`[AuthCard] server agrees → hard-nav to ${dest}`);
+          window.location.href = dest;
+        } else {
+          console.warn(
+            "[AuthCard] client thinks signed-in but server disagrees. Clearing stale Clerk session.",
+            data
+          );
+          setStaleSessionCleared(true);
+          try { await clerk.signOut(); } catch (e) { console.error("[AuthCard] signOut failed", e); }
+          setError(
+            "We couldn't verify your session with our server. Please sign in again."
+          );
+        }
+      } catch (e) {
+        console.error("[AuthCard] server auth check failed", e);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [authLoaded, isSignedIn, isSignUp, clerk, staleSessionCleared]);
 
   const heading = isSignUp ? "Create your AryaSDR account" : "Welcome to AryaSDR";
   const subtitleByView: Record<View, string> = {
@@ -158,6 +189,25 @@ export function AuthCard({ mode }: { mode: "sign-in" | "sign-up" }) {
   // window.location.href can fire before Clerk has finished writing the
   // session state — middleware then sees no session and bounces the user
   // back to /sign-in.
+  // Ask the server whether Clerk's auth() sees the current cookies as a
+  // signed-in session. This is the definitive test — if the server says no,
+  // hard-navigating would just get us bounced back to /sign-in by middleware.
+  // Retries a few times because Clerk's cookie write and the server's next
+  // request can race.
+  async function confirmServerSession(maxAttempts = 6): Promise<boolean> {
+    for (let i = 0; i < maxAttempts; i++) {
+      try {
+        const res = await fetch("/api/debug/auth-state", { cache: "no-store" });
+        const data = await res.json();
+        if (data?.auth?.userId) return true;
+      } catch (e) {
+        console.error("[auth] confirmServerSession attempt failed", e);
+      }
+      await new Promise((r) => setTimeout(r, 250));
+    }
+    return false;
+  }
+
   async function waitForSessionCookie(maxWaitMs = 3000): Promise<boolean> {
     const start = Date.now();
     while (Date.now() - start < maxWaitMs) {
@@ -213,8 +263,19 @@ export function AuthCard({ mode }: { mode: "sign-in" | "sign-up" }) {
 
         if (attempt.status === "complete" && attempt.createdSessionId) {
           await setActive!({ session: attempt.createdSessionId });
-          const ok = await waitForSessionCookie();
-          console.log("[signup] session cookie present after setActive:", ok);
+          await waitForSessionCookie();
+          // Confirm the server can see the session before hard-navigating —
+          // otherwise middleware will bounce us right back to /sign-in.
+          const confirmed = await confirmServerSession();
+          console.log("[signup] server confirms session:", confirmed);
+          if (!confirmed) {
+            setError(
+              "Signed in on device, but our server can't see the session yet. " +
+              "Please refresh the page and try once more."
+            );
+            setLoading(false);
+            return;
+          }
           window.location.href = "/onboarding";
           return;
         }
@@ -239,8 +300,17 @@ export function AuthCard({ mode }: { mode: "sign-in" | "sign-up" }) {
         });
         if (attempt.status === "complete" && attempt.createdSessionId) {
           await setActive!({ session: attempt.createdSessionId });
-          const ok = await waitForSessionCookie();
-          console.log("[signin] session cookie present after setActive:", ok);
+          await waitForSessionCookie();
+          const confirmed = await confirmServerSession();
+          console.log("[signin] server confirms session:", confirmed);
+          if (!confirmed) {
+            setError(
+              "Signed in on device, but our server can't see the session yet. " +
+              "Please refresh the page and try once more."
+            );
+            setLoading(false);
+            return;
+          }
           window.location.href = "/dashboard";
           return;
         }
