@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
-import { useSignIn, useSignUp } from "@clerk/nextjs";
+import { useSignIn, useSignUp, useAuth } from "@clerk/nextjs";
 import { Mail, Key, Loader2, ArrowLeft } from "lucide-react";
 import { AryaAvatar } from "@/components/arya/AryaAvatar";
 
@@ -59,6 +59,7 @@ type View = "picker" | "email" | "otp" | "sso" | "sso-info";
 export function AuthCard({ mode }: { mode: "sign-in" | "sign-up" }) {
   const signInHook = useSignIn();
   const signUpHook = useSignUp();
+  const { isLoaded: authLoaded, isSignedIn } = useAuth();
   const isSignUp = mode === "sign-up";
 
   const isLoaded = isSignUp ? signUpHook.isLoaded : signInHook.isLoaded;
@@ -69,6 +70,16 @@ export function AuthCard({ mode }: { mode: "sign-in" | "sign-up" }) {
   const [otp, setOtp] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  // If the browser already has a live Clerk session, don't render the form —
+  // send them straight through. Guards against the "signed in but landed on
+  // /sign-in" case (SSR middleware couldn't read the cookie yet, or the user
+  // hit /sign-in via a bookmark after signing in).
+  useEffect(() => {
+    if (authLoaded && isSignedIn) {
+      window.location.href = isSignUp ? "/onboarding" : "/dashboard";
+    }
+  }, [authLoaded, isSignedIn, isSignUp]);
 
   const heading = isSignUp ? "Create your AryaSDR account" : "Welcome to AryaSDR";
   const subtitleByView: Record<View, string> = {
@@ -136,6 +147,23 @@ export function AuthCard({ mode }: { mode: "sign-in" | "sign-up" }) {
     }
   }
 
+  // After setActive, poll the session for a fresh JWT before navigating.
+  // Without this, window.location.href fires so fast that the browser's next
+  // request to the server may arrive before Clerk has finished writing the
+  // __session cookie — middleware then sees no session and bounces the user
+  // back to /sign-in.
+  async function waitForSessionCookie(maxWaitMs = 3000): Promise<boolean> {
+    const start = Date.now();
+    while (Date.now() - start < maxWaitMs) {
+      const hasSession = document.cookie
+        .split(";")
+        .some((c) => c.trim().startsWith("__session="));
+      if (hasSession) return true;
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    return false;
+  }
+
   async function handleOtpSubmit() {
     if (!isLoaded) return;
     setLoading(true);
@@ -171,6 +199,8 @@ export function AuthCard({ mode }: { mode: "sign-in" | "sign-up" }) {
 
         if (attempt.status === "complete" && attempt.createdSessionId) {
           await setActive!({ session: attempt.createdSessionId });
+          const ok = await waitForSessionCookie();
+          console.log("[signup] session cookie present after setActive:", ok);
           window.location.href = "/onboarding";
           return;
         }
@@ -195,6 +225,8 @@ export function AuthCard({ mode }: { mode: "sign-in" | "sign-up" }) {
         });
         if (attempt.status === "complete" && attempt.createdSessionId) {
           await setActive!({ session: attempt.createdSessionId });
+          const ok = await waitForSessionCookie();
+          console.log("[signin] session cookie present after setActive:", ok);
           window.location.href = "/dashboard";
           return;
         }
