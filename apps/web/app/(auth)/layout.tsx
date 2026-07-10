@@ -6,8 +6,6 @@ import { AuthShell } from "@/components/layout/AuthShell";
 // Force dynamic rendering. Without this, Next.js can serve this layout from
 // the prerender path where Clerk's auth() cannot see the request cookie and
 // returns userId === null — bouncing every signed-in user back to /sign-in.
-// AuthCard's useAuth() then sees isSignedIn === true and hard-redirects to
-// /dashboard, producing the observed sign-in ↔ dashboard loop.
 export const dynamic = "force-dynamic";
 
 export default function AuthLayout({
