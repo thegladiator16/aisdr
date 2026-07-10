@@ -90,7 +90,7 @@ export class GmailClient {
   static getRedirectUri(): string {
     const base =
       process.env.NEXT_PUBLIC_APP_URL ?? "https://aryasdr.in";
-    return `${base}/api/v1/integrations/gmail`;
+    return `${base}/api/v1/integrations/gmail/callback`;
   }
 
   static getAuthUrl(): string {
