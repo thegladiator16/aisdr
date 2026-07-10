@@ -94,10 +94,15 @@ export class GmailClient {
   }
 
   static getAuthUrl(): string {
+    const redirectUri = GmailClient.getRedirectUri();
+    console.log("[gmail] Building auth URL with redirect_uri:", redirectUri);
+    console.log("[gmail] Client ID (first 20 chars):",
+      process.env.GOOGLE_CLIENT_ID?.slice(0, 20) ?? "MISSING");
+
     const oauth2Client = new google.auth.OAuth2(
       process.env.GOOGLE_CLIENT_ID,
       process.env.GOOGLE_CLIENT_SECRET,
-      GmailClient.getRedirectUri()
+      redirectUri
     );
 
     return oauth2Client.generateAuthUrl({
@@ -113,10 +118,12 @@ export class GmailClient {
   }
 
   static async exchangeCode(code: string) {
+    const redirectUri = GmailClient.getRedirectUri();
+    console.log("[gmail] Exchanging code with redirect_uri:", redirectUri);
     const oauth2Client = new google.auth.OAuth2(
       process.env.GOOGLE_CLIENT_ID,
       process.env.GOOGLE_CLIENT_SECRET,
-      GmailClient.getRedirectUri()
+      redirectUri
     );
 
     const { tokens } = await oauth2Client.getToken(code);

@@ -142,10 +142,50 @@ export function AuthCard({ mode }: { mode: "sign-in" | "sign-up" }) {
     setError("");
     try {
       if (isSignUp) {
-        const attempt = await signUpHook.signUp!.attemptEmailAddressVerification({ code: otp });
-        if (attempt.status === "complete") {
+        let attempt = await signUpHook.signUp!.attemptEmailAddressVerification({ code: otp });
+        console.log("[signup] verification attempt:", {
+          status: attempt.status,
+          missingFields: attempt.missingFields,
+          unverifiedFields: attempt.unverifiedFields,
+          createdSessionId: attempt.createdSessionId,
+        });
+
+        // Clerk instance may require extra attributes we don't collect (name, etc).
+        // If email is verified but the sign-up is still missing_requirements with
+        // no listed missingFields, nudge Clerk to re-evaluate by calling update.
+        if (
+          attempt.status === "missing_requirements" &&
+          (attempt.missingFields?.length ?? 0) === 0
+        ) {
+          try {
+            attempt = await signUpHook.signUp!.update({});
+            console.log("[signup] after nudge update:", {
+              status: attempt.status,
+              missingFields: attempt.missingFields,
+              createdSessionId: attempt.createdSessionId,
+            });
+          } catch (nudgeErr) {
+            console.error("[signup] nudge update failed:", nudgeErr);
+          }
+        }
+
+        if (attempt.status === "complete" && attempt.createdSessionId) {
           await setActive!({ session: attempt.createdSessionId });
           window.location.href = "/onboarding";
+          return;
+        }
+
+        if (attempt.status === "missing_requirements") {
+          const missing = attempt.missingFields ?? [];
+          if (missing.length > 0) {
+            setError(
+              `Sign-up requires additional information: ${missing.join(", ")}. Please contact support@aryasdr.in.`
+            );
+          } else {
+            setError(
+              "Your account is set up but couldn't be finalized automatically. Please refresh and try signing in."
+            );
+          }
           return;
         }
       } else {
@@ -153,16 +193,25 @@ export function AuthCard({ mode }: { mode: "sign-in" | "sign-up" }) {
           strategy: "email_code",
           code: otp,
         });
-        if (attempt.status === "complete") {
+        if (attempt.status === "complete" && attempt.createdSessionId) {
           await setActive!({ session: attempt.createdSessionId });
           window.location.href = "/dashboard";
           return;
         }
       }
-      setError("Verification incomplete");
+      setError("Verification incomplete — please try again or contact support.");
     } catch (e: unknown) {
-      const anyE = e as { errors?: Array<{ message?: string }>; message?: string };
-      setError(anyE.errors?.[0]?.message ?? anyE.message ?? "Invalid code");
+      const anyE = e as {
+        errors?: Array<{ message?: string; longMessage?: string }>;
+        message?: string;
+      };
+      console.error("[signup/signin] verification error:", e);
+      setError(
+        anyE.errors?.[0]?.longMessage ??
+          anyE.errors?.[0]?.message ??
+          anyE.message ??
+          "Invalid code"
+      );
     } finally {
       setLoading(false);
     }
@@ -244,8 +293,6 @@ export function AuthCard({ mode }: { mode: "sign-in" | "sign-up" }) {
               >
                 {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Continue"}
               </button>
-              {/* Clerk CAPTCHA element for signup */}
-              {isSignUp && <div id="clerk-captcha" />}
             </div>
           )}
 
@@ -317,6 +364,10 @@ export function AuthCard({ mode }: { mode: "sign-in" | "sign-up" }) {
           {error && (
             <p className="mt-3 text-sm text-red-600 text-center">{error}</p>
           )}
+
+          {/* Clerk bot-protection element — MUST stay mounted whenever signUp.create()
+              may be called, regardless of which view is showing. */}
+          {isSignUp && <div id="clerk-captcha" />}
 
           <p className="text-xs text-gray-400 text-center mt-6 leading-relaxed">
             By continuing, you agree to our{" "}
