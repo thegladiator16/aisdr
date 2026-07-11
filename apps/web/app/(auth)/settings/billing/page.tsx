@@ -16,6 +16,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { ChangePlanModal } from "@/components/billing/ChangePlanModal";
+import { CardBrandLogo, type CardBrand } from "@/components/brand/CardBrandLogo";
 import { useRazorpay } from "@/hooks/useRazorpay";
 import { useSubscription } from "@/lib/hooks/useSubscription";
 
@@ -205,21 +206,11 @@ function BuyCreditsModal({ onClose }: { onClose: () => void }) {
             {tab === "card" && (
               <div className="space-y-3">
                 <div className="flex items-center justify-end gap-1.5 mb-1">
-                  <span className="text-[10px] font-bold text-white bg-[#1A1F71] px-1.5 py-0.5 rounded">
-                    VISA
-                  </span>
-                  <span className="text-[10px] font-bold text-white bg-[#EB001B] px-1.5 py-0.5 rounded">
-                    MC
-                  </span>
-                  <span className="text-[10px] font-bold text-white bg-[#006FCF] px-1.5 py-0.5 rounded">
-                    AMEX
-                  </span>
-                  <span className="text-[10px] font-bold text-white bg-[#FF6000] px-1.5 py-0.5 rounded">
-                    DISC
-                  </span>
-                  <span className="text-[10px] font-bold text-white bg-[#097DC6] px-1.5 py-0.5 rounded">
-                    RuPay
-                  </span>
+                  {(["VISA", "MC", "AMEX", "DISCOVER", "RUPAY"] as CardBrand[]).map(
+                    (key) => (
+                      <CardBrandLogo key={key} brand={key} className="h-6 w-10" />
+                    )
+                  )}
                 </div>
                 <div>
                   <label className="text-xs font-medium text-[#111827]">

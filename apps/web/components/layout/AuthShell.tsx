@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Sidebar } from "@/components/layout/sidebar";
 import { ChatWithArya } from "@/components/ChatWithArya";
+import { AryaChatWidget } from "@/components/arya/AryaChatWidget";
 import { WelcomeModal } from "@/components/WelcomeModal";
 import { X } from "lucide-react";
 import Link from "next/link";
@@ -101,6 +102,9 @@ export function AuthShell({ children }: { children: React.ReactNode }) {
       </div>
       {showPlanModal && <ChangePlanModal onClose={() => setShowPlanModal(false)} />}
       {showWelcome && <WelcomeModal onClose={dismissWelcome} />}
+      {/* Floating chat launcher — hidden when the inline sidebar panel is open
+          so the two Arya surfaces don't overlap visually. */}
+      <AryaChatWidget visible={!chatOpen} />
     </div>
   );
 }

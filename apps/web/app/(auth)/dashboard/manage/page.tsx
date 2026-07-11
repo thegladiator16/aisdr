@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import toast from "react-hot-toast";
+import { BrandLogo } from "@/components/brand/BrandLogo";
 import {
   ChevronDown,
   ChevronUp,
@@ -755,9 +756,15 @@ export default function ManageAryaPage() {
               onClick={() => {
                 window.location.href = "/api/v1/integrations/gmail";
               }}
-              className="w-full rounded-lg bg-[#6C47FF] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#5A38E0] transition-colors"
+              className="w-full rounded-lg border border-gray-200 bg-white px-4 py-3 text-left hover:border-[#6C47FF] hover:bg-violet-50/40 transition-colors flex items-center gap-3"
             >
-              Connect with Google
+              <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-gray-50 shrink-0">
+                <BrandLogo brand="gmail" className="h-7 w-7" />
+              </span>
+              <span className="flex-1 min-w-0">
+                <span className="block text-sm font-semibold text-gray-900">Gmail</span>
+                <span className="block text-xs text-gray-500">Connect with Google</span>
+              </span>
             </button>
           </div>,
           <>{cancelBtn}</>

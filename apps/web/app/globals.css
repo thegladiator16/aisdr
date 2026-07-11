@@ -50,3 +50,116 @@
 .animate-float-delay-2 {
   animation: float 4s ease-in-out 2s infinite;
 }
+
+/* ---------- Arya chat widget animations ---------- */
+@keyframes arya-pulse-ring {
+  0% {
+    transform: scale(0.95);
+    opacity: 0.55;
+  }
+  80%, 100% {
+    transform: scale(1.7);
+    opacity: 0;
+  }
+}
+.arya-pulse-ring {
+  animation: arya-pulse-ring 2.2s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+@keyframes arya-button-in {
+  0% {
+    transform: scale(0) rotate(-90deg);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1) rotate(0);
+    opacity: 1;
+  }
+}
+.arya-button-in {
+  animation: arya-button-in 320ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+@keyframes arya-panel-in {
+  0% {
+    transform: translateY(24px) scale(0.9);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+.arya-panel-in {
+  animation: arya-panel-in 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  transform-origin: bottom right;
+}
+
+@keyframes arya-panel-out {
+  0% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(24px) scale(0.9);
+    opacity: 0;
+  }
+}
+.arya-panel-out {
+  animation: arya-panel-out 240ms cubic-bezier(0.4, 0, 1, 1) both;
+  transform-origin: bottom right;
+}
+
+@keyframes arya-msg-in {
+  0% {
+    transform: translateY(8px);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+.arya-msg-in {
+  animation: arya-msg-in 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes arya-typing-bounce {
+  0%, 60%, 100% {
+    transform: translateY(0);
+    opacity: 0.4;
+  }
+  30% {
+    transform: translateY(-5px);
+    opacity: 1;
+  }
+}
+.arya-typing-dot {
+  animation: arya-typing-bounce 1.2s ease-in-out infinite;
+}
+
+@keyframes arya-breathe {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.85;
+  }
+  50% {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+}
+.arya-breathe {
+  animation: arya-breathe 2.2s ease-in-out infinite;
+}
+
+@keyframes arya-shine {
+  0% {
+    transform: translateX(-120%) rotate(15deg);
+  }
+  100% {
+    transform: translateX(220%) rotate(15deg);
+  }
+}
+.arya-shine {
+  animation: arya-shine 3.6s ease-in-out infinite;
+}

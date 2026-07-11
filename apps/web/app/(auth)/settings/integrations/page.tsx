@@ -1,73 +1,61 @@
 import { getCurrentUser } from "@/lib/auth";
 import { getUserIntegrations } from "@/lib/db/queries";
-import {
-  Mail,
-  Linkedin,
-  MessageCircle,
-  Calendar,
-  CheckCircle2,
-  AlertCircle,
-  Clock,
-} from "lucide-react";
+import { CheckCircle2, AlertCircle, Clock } from "lucide-react";
 import Link from "next/link";
-import { cn } from "@/lib/utils";
+import { BrandLogo, type BrandLogoName } from "@/components/brand/BrandLogo";
 
-const REAL_INTEGRATIONS = [
+const REAL_INTEGRATIONS: {
+  type: string;
+  label: string;
+  description: string;
+  brand: BrandLogoName;
+  connectUrl: string;
+}[] = [
   {
     type: "gmail",
     label: "Gmail",
     description: "Send emails from your Gmail account. Replies sync automatically.",
-    icon: Mail,
+    brand: "gmail",
     connectUrl: "/api/v1/integrations/gmail",
-    color: "text-red-500 bg-red-50",
   },
   {
     type: "google_calendar",
     label: "Google Calendar",
     description: "Auto-create calendar events when meetings are booked.",
-    icon: Calendar,
+    brand: "google-calendar",
     connectUrl: "/api/v1/integrations/gmail",
-    color: "text-blue-500 bg-blue-50",
   },
 ];
 
-const COMING_SOON = [
+const COMING_SOON: {
+  label: string;
+  description: string;
+  brand: BrandLogoName;
+}[] = [
   {
     label: "HubSpot",
     description: "Sync contacts and deals with your HubSpot CRM",
-    icon: (
-      <div className="h-10 w-10 bg-orange-500 rounded-full flex items-center justify-center text-white font-bold text-lg">
-        H
-      </div>
-    ),
+    brand: "hubspot",
   },
   {
     label: "Salesforce",
     description: "Connect your Salesforce account for lead management",
-    icon: (
-      <div className="h-10 w-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold text-lg">
-        SF
-      </div>
-    ),
+    brand: "salesforce",
   },
   {
     label: "Slack",
     description: "Get real-time notifications and updates in your Slack workspace",
-    icon: (
-      <div className="h-10 w-10 bg-gradient-to-br from-green-400 via-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-bold text-lg">
-        #
-      </div>
-    ),
+    brand: "slack",
   },
   {
     label: "LinkedIn",
     description: "Send connection requests and DMs via PhantomBuster",
-    icon: <Linkedin className="h-10 w-10 text-blue-600 bg-blue-50 rounded-full p-2" />,
+    brand: "linkedin",
   },
   {
     label: "WhatsApp Business",
     description: "Send WhatsApp messages to Indian leads via Meta Cloud API",
-    icon: <MessageCircle className="h-10 w-10 text-green-600 bg-green-50 rounded-full p-2" />,
+    brand: "whatsapp",
   },
 ];
 
@@ -138,7 +126,7 @@ export default async function SettingsIntegrationsPage({
           Email &amp; Calendar
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {REAL_INTEGRATIONS.map(({ type, label, description, icon: Icon, connectUrl, color }) => {
+          {REAL_INTEGRATIONS.map(({ type, label, description, brand, connectUrl }) => {
             const isConnected = connectedTypes.has("gmail"); // one OAuth grant covers both
             return (
               <div
@@ -146,8 +134,8 @@ export default async function SettingsIntegrationsPage({
                 className="bg-white border border-gray-200 rounded-xl p-6 flex flex-col gap-4"
               >
                 <div className="flex items-center gap-3">
-                  <div className={cn("rounded-lg p-2.5", color)}>
-                    <Icon className="h-5 w-5" />
+                  <div className="rounded-lg bg-gray-50 p-2 flex items-center justify-center">
+                    <BrandLogo brand={brand} className="h-8 w-8" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
@@ -208,12 +196,14 @@ export default async function SettingsIntegrationsPage({
           More integrations
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {COMING_SOON.map(({ label, description, icon }) => (
+          {COMING_SOON.map(({ label, description, brand }) => (
             <div
               key={label}
               className="bg-white border border-gray-200 rounded-xl p-6 flex items-start gap-4"
             >
-              <div className="shrink-0">{icon}</div>
+              <div className="shrink-0 h-10 w-10 rounded-lg bg-gray-50 flex items-center justify-center">
+                <BrandLogo brand={brand} className="h-7 w-7" />
+              </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
                   <h3 className="text-sm font-semibold text-gray-900">{label}</h3>

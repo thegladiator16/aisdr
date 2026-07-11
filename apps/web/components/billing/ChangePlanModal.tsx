@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useRazorpay } from "@/hooks/useRazorpay";
+import { CardBrandLogo, type CardBrand } from "@/components/brand/CardBrandLogo";
 
 const GST_RATE = 0.18;
 
@@ -90,16 +91,11 @@ function isValidCvc(v: string, brand: string | null): boolean {
   return d.length === expected;
 }
 
-const CARD_BRANDS: { key: string; label: string; className: string }[] = [
-  { key: "VISA", label: "VISA", className: "bg-[#1A1F71] text-white" },
-  {
-    key: "MC",
-    label: "MasterCard",
-    className: "bg-gradient-to-r from-[#EB001B] to-[#F79E1B] text-white",
-  },
-  { key: "AMEX", label: "AMEX", className: "bg-[#006FCF] text-white" },
-  { key: "RUPAY", label: "RuPay", className: "bg-[#097969] text-white" },
-];
+// Brands surfaced in the "we accept" row above the card form. Discover
+// isn't advertised here (it's not commonly issued in India, our primary
+// market) but detectCardBrand still recognizes it so the inline chip
+// inside the number field renders correctly if a user types one.
+const CARD_BRAND_KEYS: CardBrand[] = ["VISA", "MC", "AMEX", "RUPAY"];
 
 const UPI_APPS = [
   { name: "GPay", className: "bg-white border border-[#E5E7EB]" },
@@ -467,15 +463,14 @@ export function ChangePlanModal({ onClose }: { onClose: () => void }) {
                 <div className="space-y-3">
                   {/* Brand chips */}
                   <div className="flex items-center justify-end gap-1.5 flex-wrap">
-                    {CARD_BRANDS.map((b) => (
-                      <span
-                        key={b.key}
-                        className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${b.className} ${
-                          detectedBrand && detectedBrand !== b.key ? "opacity-30" : ""
+                    {CARD_BRAND_KEYS.map((key) => (
+                      <CardBrandLogo
+                        key={key}
+                        brand={key}
+                        className={`h-6 w-10 transition-opacity ${
+                          detectedBrand && detectedBrand !== key ? "opacity-30" : ""
                         }`}
-                      >
-                        {b.label}
-                      </span>
+                      />
                     ))}
                   </div>
 
@@ -518,13 +513,10 @@ export function ChangePlanModal({ onClose }: { onClose: () => void }) {
                         }`}
                       />
                       {detectedBrand && (
-                        <span
-                          className={`absolute right-2 top-1/2 -translate-y-1/2 px-1.5 py-0.5 rounded text-[10px] font-bold ${
-                            CARD_BRANDS.find((b) => b.key === detectedBrand)?.className ?? ""
-                          }`}
-                        >
-                          {CARD_BRANDS.find((b) => b.key === detectedBrand)?.label}
-                        </span>
+                        <CardBrandLogo
+                          brand={detectedBrand as CardBrand}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 h-6 w-10"
+                        />
                       )}
                     </div>
                     {touched.cardNumber && cardNumber && !cardNumberValid && (
