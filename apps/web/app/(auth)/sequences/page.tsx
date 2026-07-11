@@ -1,9 +1,21 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState, useCallback, type FormEvent } from "react";
 import { toast } from "sonner";
-import { ListOrdered, Plus, X, Trash2, Pencil, Pause, Play, Loader2 } from "lucide-react";
+import { ListOrdered, Plus, X, Trash2, Pencil, Pause, Play, Loader2, FlaskConical, Save } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
+
+type MessageVariant = {
+  id: string;
+  sequenceId: string;
+  stepNumber: number;
+  variantKey: string;
+  subject: string | null;
+  body: string | null;
+  isActive: boolean | null;
+  impressionCount: number;
+  positiveResponseCount: number;
+};
 
 type SequenceStep = {
   stepNumber: number;
@@ -49,6 +61,12 @@ export default function SequencesPage() {
   const [steps, setSteps] = useState<SequenceStep[]>([{ ...EMPTY_STEP }]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [variants, setVariants] = useState<MessageVariant[]>([]);
+  const [variantsLoading, setVariantsLoading] = useState(false);
+  const [variantDrafts, setVariantDrafts] = useState<
+    Record<string, { subject: string; body: string; variantKey: string }>
+  >({});
+  const [savingVariantId, setSavingVariantId] = useState<string | null>(null);
 
   async function loadData() {
     setLoading(true);
@@ -101,7 +119,26 @@ export default function SequencesPage() {
     setName("");
     setCampaignId("");
     setSteps([{ ...EMPTY_STEP }]);
+    setVariants([]);
+    setVariantDrafts({});
   }
+
+  const loadVariants = useCallback(async (sequenceId: string) => {
+    setVariantsLoading(true);
+    try {
+      const res = await fetch(`/api/sequences/${sequenceId}/variants`);
+      if (!res.ok) {
+        toast.error("Could not load variants");
+        return;
+      }
+      const json = await res.json();
+      setVariants(json.data as MessageVariant[]);
+    } catch {
+      toast.error("Could not load variants");
+    } finally {
+      setVariantsLoading(false);
+    }
+  }, []);
 
   function openEdit(seq: Sequence) {
     setEditingId(seq.id);
@@ -109,6 +146,125 @@ export default function SequencesPage() {
     setCampaignId(seq.campaignId ?? "");
     setSteps(seq.steps.length > 0 ? seq.steps : [{ ...EMPTY_STEP }]);
     setShowForm(true);
+    loadVariants(seq.id);
+  }
+
+  async function handleAddVariant(stepNumber: number) {
+    if (!editingId) return;
+    // Assign next unused key from A..Z.
+    const usedKeys = new Set(
+      variants.filter((v) => v.stepNumber === stepNumber).map((v) => v.variantKey)
+    );
+    let nextKey = "A";
+    for (const c of "ABCDEFGHIJKLMNOPQRSTUVWXYZ") {
+      if (!usedKeys.has(c)) {
+        nextKey = c;
+        break;
+      }
+    }
+    try {
+      const res = await fetch(`/api/sequences/${editingId}/variants`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          stepNumber,
+          variantKey: nextKey,
+          subject: "",
+          body: "",
+        }),
+      });
+      if (!res.ok) {
+        toast.error("Could not add variant");
+        return;
+      }
+      const json = await res.json();
+      setVariants((prev) => [...prev, json.data as MessageVariant]);
+      toast.success(`Variant ${nextKey} added`);
+    } catch {
+      toast.error("Could not add variant");
+    }
+  }
+
+  function beginEditVariant(v: MessageVariant) {
+    setVariantDrafts((prev) => ({
+      ...prev,
+      [v.id]: {
+        variantKey: v.variantKey,
+        subject: v.subject ?? "",
+        body: v.body ?? "",
+      },
+    }));
+  }
+
+  function updateVariantDraft(
+    id: string,
+    patch: Partial<{ subject: string; body: string; variantKey: string }>
+  ) {
+    setVariantDrafts((prev) => ({
+      ...prev,
+      [id]: { ...(prev[id] ?? { subject: "", body: "", variantKey: "" }), ...patch },
+    }));
+  }
+
+  async function handleSaveVariant(v: MessageVariant) {
+    if (!editingId) return;
+    const draft = variantDrafts[v.id];
+    if (!draft) return;
+    setSavingVariantId(v.id);
+    try {
+      const res = await fetch(
+        `/api/sequences/${editingId}/variants/${v.id}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            variantKey: draft.variantKey,
+            subject: draft.subject,
+            body: draft.body,
+          }),
+        }
+      );
+      if (!res.ok) {
+        toast.error("Could not save variant");
+        return;
+      }
+      const json = await res.json();
+      setVariants((prev) =>
+        prev.map((x) => (x.id === v.id ? (json.data as MessageVariant) : x))
+      );
+      setVariantDrafts((prev) => {
+        const next = { ...prev };
+        delete next[v.id];
+        return next;
+      });
+      toast.success("Variant saved");
+    } catch {
+      toast.error("Could not save variant");
+    } finally {
+      setSavingVariantId(null);
+    }
+  }
+
+  async function handleDeleteVariant(v: MessageVariant) {
+    if (!editingId) return;
+    if (!confirm(`Delete variant ${v.variantKey}?`)) return;
+    setSavingVariantId(v.id);
+    try {
+      const res = await fetch(
+        `/api/sequences/${editingId}/variants/${v.id}`,
+        { method: "DELETE" }
+      );
+      if (!res.ok) {
+        toast.error("Could not delete variant");
+        return;
+      }
+      setVariants((prev) => prev.filter((x) => x.id !== v.id));
+      toast.success("Variant deleted");
+    } catch {
+      toast.error("Could not delete variant");
+    } finally {
+      setSavingVariantId(null);
+    }
   }
 
   async function handleCreate(e: FormEvent) {
@@ -362,6 +518,164 @@ export default function SequencesPage() {
               ? "Save Changes"
               : "Create Sequence"}
           </button>
+
+          {editingId && (
+            <div className="mt-4 rounded-lg border border-border p-4 space-y-4">
+              <div className="flex items-center gap-2">
+                <FlaskConical className="h-4 w-4 text-primary" />
+                <h3 className="text-sm font-semibold text-foreground">
+                  A/Z variants
+                </h3>
+                <span className="text-xs text-muted-foreground">
+                  Winner is auto-selected at send time (90% best-so-far, 10%
+                  explore).
+                </span>
+              </div>
+
+              {variantsLoading ? (
+                <p className="text-xs text-muted-foreground">Loading variants...</p>
+              ) : (
+                steps.map((step) => {
+                  const stepVariants = variants
+                    .filter((v) => v.stepNumber === step.stepNumber)
+                    .sort((a, b) => a.variantKey.localeCompare(b.variantKey));
+                  return (
+                    <div key={step.stepNumber} className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-medium text-foreground">
+                          Step {step.stepNumber} · {step.channel.replace("_", " ")}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleAddVariant(step.stepNumber)}
+                          className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                        >
+                          <Plus className="h-3 w-3" />
+                          Add variant
+                        </button>
+                      </div>
+                      {stepVariants.length === 0 ? (
+                        <p className="text-xs text-muted-foreground">
+                          No variants yet. The step&apos;s default subject/body will
+                          be used until you add at least one.
+                        </p>
+                      ) : (
+                        <div className="space-y-2">
+                          {stepVariants.map((v) => {
+                            const draft = variantDrafts[v.id];
+                            const posRate =
+                              v.impressionCount > 0
+                                ? (v.positiveResponseCount / v.impressionCount) *
+                                  100
+                                : 0;
+                            return (
+                              <div
+                                key={v.id}
+                                className="rounded-md border border-border bg-background p-3 space-y-2"
+                              >
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-2">
+                                    <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
+                                      {v.variantKey}
+                                    </span>
+                                    <span className="text-xs text-muted-foreground">
+                                      {v.impressionCount} sent ·{" "}
+                                      {posRate.toFixed(1)}% positive
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    {!draft && (
+                                      <button
+                                        type="button"
+                                        onClick={() => beginEditVariant(v)}
+                                        className="text-muted-foreground hover:text-foreground"
+                                        title="Edit variant"
+                                      >
+                                        <Pencil className="h-3.5 w-3.5" />
+                                      </button>
+                                    )}
+                                    {draft && (
+                                      <button
+                                        type="button"
+                                        disabled={savingVariantId === v.id}
+                                        onClick={() => handleSaveVariant(v)}
+                                        className="inline-flex items-center gap-1 text-xs text-primary hover:underline disabled:opacity-50"
+                                      >
+                                        <Save className="h-3 w-3" />
+                                        {savingVariantId === v.id ? "Saving..." : "Save"}
+                                      </button>
+                                    )}
+                                    <button
+                                      type="button"
+                                      disabled={savingVariantId === v.id}
+                                      onClick={() => handleDeleteVariant(v)}
+                                      className="text-muted-foreground hover:text-red-500 disabled:opacity-50"
+                                      title="Delete variant"
+                                    >
+                                      <Trash2 className="h-3.5 w-3.5" />
+                                    </button>
+                                  </div>
+                                </div>
+                                {draft ? (
+                                  <div className="space-y-2">
+                                    <input
+                                      value={draft.variantKey}
+                                      maxLength={20}
+                                      onChange={(e) =>
+                                        updateVariantDraft(v.id, {
+                                          variantKey: e.target.value,
+                                        })
+                                      }
+                                      placeholder="Variant key (e.g. A)"
+                                      className="w-24 rounded border border-border bg-background px-2 py-1 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                                    />
+                                    <input
+                                      value={draft.subject}
+                                      onChange={(e) =>
+                                        updateVariantDraft(v.id, {
+                                          subject: e.target.value,
+                                        })
+                                      }
+                                      placeholder="Subject"
+                                      className="w-full rounded border border-border bg-background px-2 py-1 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                                    />
+                                    <textarea
+                                      value={draft.body}
+                                      onChange={(e) =>
+                                        updateVariantDraft(v.id, {
+                                          body: e.target.value,
+                                        })
+                                      }
+                                      rows={3}
+                                      placeholder="Body"
+                                      className="w-full rounded border border-border bg-background px-2 py-1 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                                    />
+                                  </div>
+                                ) : (
+                                  <div className="space-y-1">
+                                    {v.subject && (
+                                      <p className="text-xs font-medium text-foreground truncate">
+                                        {v.subject}
+                                      </p>
+                                    )}
+                                    {v.body && (
+                                      <p className="text-xs text-muted-foreground line-clamp-2 whitespace-pre-line">
+                                        {v.body}
+                                      </p>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          )}
         </form>
       )}
 

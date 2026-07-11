@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { campaigns, leads } from "@aisdr/db/schema";
 import { eq, and, count } from "drizzle-orm";
 import { ensureCampaignsColumns } from "@/lib/db/ensure-schema";
+import { ensureCampaignsApprovalColumn } from "../approval-mode/_lib";
 
 const updateCampaignSchema = z.object({
   name: z.string().min(1).optional(),
@@ -13,6 +14,7 @@ const updateCampaignSchema = z.object({
   body: z.string().optional(),
   fromEmail: z.string().email().optional().or(z.literal("")),
   status: z.string().optional(),
+  requireApproval: z.boolean().optional(),
 });
 
 export async function GET(
@@ -22,6 +24,7 @@ export async function GET(
   try {
     const user = await requireUser();
     await ensureCampaignsColumns();
+    await ensureCampaignsApprovalColumn();
 
     const result = await db
       .select()
@@ -57,6 +60,7 @@ export async function PUT(
     const user = await requireUser();
     const body = (await req.json()) as unknown;
     const parsed = updateCampaignSchema.parse(body);
+    await ensureCampaignsApprovalColumn();
 
     const result = await db
       .update(campaigns)
@@ -92,6 +96,7 @@ export async function PATCH(
     const user = await requireUser();
     const body = (await req.json()) as unknown;
     const parsed = updateCampaignSchema.parse(body);
+    await ensureCampaignsApprovalColumn();
 
     await db
       .update(campaigns)

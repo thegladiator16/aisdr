@@ -20,6 +20,7 @@ const CHAT_CONTEXT_CATEGORIES = [
   "escalation_rule",
   "knowledge_item",
   "coaching_point",
+  "objection_response",
 ] as const;
 
 const MAX_CONTEXT_ITEMS = 10;
@@ -58,6 +59,8 @@ async function buildUserGuardrails(userId: string): Promise<string> {
           return "Company knowledge";
         case "coaching_point":
           return "Coaching";
+        case "objection_response":
+          return "When a prospect objects with this, respond like this";
         default:
           return "Guideline";
       }

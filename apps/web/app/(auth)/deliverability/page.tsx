@@ -1,5 +1,6 @@
 import { AryaAvatar } from "@/components/arya/AryaAvatar";
 import { Shield, CheckCircle2, AlertTriangle, XCircle, TrendingUp, Mail, ArrowDown } from "lucide-react";
+import { MailboxHealthWidget } from "./MailboxHealthWidget";
 
 function StatusBadge({ status }: { status: "pass" | "warn" | "fail" }) {
   if (status === "pass")
@@ -30,6 +31,8 @@ export default function DeliverabilityPage() {
           Monitor your email health and inbox placement
         </p>
       </div>
+
+      <MailboxHealthWidget />
 
       {/* Domain Health Score */}
       <div className="rounded-xl border border-gray-200 bg-white p-6 flex items-center gap-6">

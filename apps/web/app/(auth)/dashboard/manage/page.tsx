@@ -45,6 +45,7 @@ type ModalType =
   | "addEscalationRule"
   | "addKnowledge"
   | "addReplyCoaching"
+  | "addObjectionResponse"
   | "addQualification"
   | "addDncEmail"
   | "addDncDomain"
@@ -169,6 +170,7 @@ const CAT = {
   escalation: "escalation_rule",
   knowledge: "knowledge_item",
   replyCoaching: "reply_coaching",
+  objectionResponse: "objection_response",
   qualification: "qualification_criterion",
   dncEmail: "dnc_email",
   dncDomain: "dnc_domain",
@@ -222,6 +224,7 @@ export default function ManageAryaPage() {
   const [customEscalationRules, setCustomEscalationRules] = useState<AgentItem[]>([]);
   const [knowledgeItems, setKnowledgeItems] = useState<AgentItem[]>([]);
   const [replyCoachingItems, setReplyCoachingItems] = useState<AgentItem[]>([]);
+  const [objectionResponses, setObjectionResponses] = useState<AgentItem[]>([]);
   const [qualificationItems, setQualificationItems] = useState<AgentItem[]>([]);
   const [dncEmails, setDncEmails] = useState<AgentItem[]>([]);
   const [dncDomains, setDncDomains] = useState<AgentItem[]>([]);
@@ -365,6 +368,7 @@ export default function ManageAryaPage() {
     fetchCategory(CAT.escalation).then(setCustomEscalationRules);
     fetchCategory(CAT.knowledge).then(setKnowledgeItems);
     fetchCategory(CAT.replyCoaching).then(setReplyCoachingItems);
+    fetchCategory(CAT.objectionResponse).then(setObjectionResponses);
     fetchCategory(CAT.qualification).then(setQualificationItems);
     fetchCategory(CAT.dncEmail).then(setDncEmails);
     fetchCategory(CAT.dncDomain).then(setDncDomains);
@@ -578,6 +582,8 @@ export default function ManageAryaPage() {
           return setKnowledgeItems;
         case CAT.replyCoaching:
           return setReplyCoachingItems;
+        case CAT.objectionResponse:
+          return setObjectionResponses;
         case CAT.qualification:
           return setQualificationItems;
         case CAT.dncEmail:
@@ -601,6 +607,7 @@ export default function ManageAryaPage() {
     cat === CAT.proofCaseStudy ||
     cat === CAT.knowledge ||
     cat === CAT.replyCoaching ||
+    cat === CAT.objectionResponse ||
     cat === CAT.qualification;
 
   const closeModal = () => {
@@ -1025,6 +1032,52 @@ export default function ManageAryaPage() {
             {saveBtn(
               "Save",
               () => runAdd(CAT.replyCoaching, setReplyCoachingItems, true, "Coaching item added"),
+              modalTitleInput.trim() === ""
+            )}
+          </>
+        );
+
+      case "addObjectionResponse":
+        return modalWrapper(
+          "Add objection response",
+          <div className="space-y-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Objection (what the prospect says)
+              </label>
+              <input
+                type="text"
+                value={modalTitleInput}
+                onChange={(e) => setModalTitleInput(e.target.value)}
+                placeholder={"e.g. We already use a competitor"}
+                autoFocus
+                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Recommended response
+              </label>
+              <textarea
+                value={modalContentInput}
+                onChange={(e) => setModalContentInput(e.target.value)}
+                placeholder="How Arya should respond when this objection comes up..."
+                rows={4}
+                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent resize-none"
+              />
+            </div>
+          </div>,
+          <>
+            {cancelBtn}
+            {saveBtn(
+              "Save",
+              () =>
+                runAdd(
+                  CAT.objectionResponse,
+                  setObjectionResponses,
+                  true,
+                  "Objection response added"
+                ),
               modalTitleInput.trim() === ""
             )}
           </>
@@ -1849,6 +1902,22 @@ export default function ManageAryaPage() {
               + Add coaching item
             </button>
             {renderListItems(replyCoachingItems, setReplyCoachingItems)}
+          </div>
+
+          {/* Objection responses */}
+          <div className="rounded-xl border border-gray-200 bg-white p-6">
+            <h2 className="font-bold text-gray-900 mb-1">Objection responses</h2>
+            <p className="text-sm text-gray-500 mb-5">
+              Teach Arya how to handle common prospect objections. The title is
+              the objection quote; the content is how Arya should respond.
+            </p>
+            <button
+              onClick={() => openAdd("addObjectionResponse")}
+              className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+            >
+              + Add objection response
+            </button>
+            {renderListItems(objectionResponses, setObjectionResponses)}
           </div>
 
           {/* Qualification criteria */}

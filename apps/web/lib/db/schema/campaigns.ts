@@ -7,6 +7,7 @@ import {
   integer,
   smallint,
   jsonb,
+  boolean,
   index,
 } from "drizzle-orm/pg-core";
 import { users } from "./users";
@@ -63,6 +64,13 @@ export const campaigns = pgTable(
     totalMeetingsBooked: integer("total_meetings_booked").default(0),
 
     status: varchar("status", { length: 50 }).default("draft"),
+
+    // Human-in-the-loop approval mode. When true, the send-scheduler must
+    // route drafted outreach for this campaign into the Tasks queue
+    // (taskType="outbound_approval") instead of dispatching directly. The
+    // helper `shouldQueueForApproval(userId, campaignId)` in
+    // app/api/campaigns/approval-mode/_lib.ts is the canonical check.
+    requireApproval: boolean("require_approval").default(false).notNull(),
 
     startedAt: timestamp("started_at", { withTimezone: true }),
     pausedAt: timestamp("paused_at", { withTimezone: true }),

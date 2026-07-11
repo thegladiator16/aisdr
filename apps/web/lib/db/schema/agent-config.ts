@@ -39,6 +39,9 @@ export const agentConfigItems = pgTable(
     //   dnc_domain               — Guardrails > DNC > Company domains
     //   dnc_phone                — Guardrails > DNC > Phone numbers
     //   banned_phrase            — Guardrails > Banned phrases
+    //   objection_response       — Autonomous replies > Objection responses
+    //                              (title = the objection quote,
+    //                               content = the recommended response)
     category: varchar("category", { length: 50 }).notNull(),
     // For DNC and banned-phrase categories, this IS the value itself
     // (the email address, domain, phone number, or phrase). For
@@ -81,6 +84,7 @@ export const AGENT_CONFIG_CATEGORIES = [
   "dnc_domain",
   "dnc_phone",
   "banned_phrase",
+  "objection_response",
 ] as const;
 
 export type AgentConfigCategory = (typeof AGENT_CONFIG_CATEGORIES)[number];

@@ -27,6 +27,11 @@ const isPublicRoute = createRouteMatcher([
   // pricing page needs to be able to render a friendly "not configured"
   // banner without requiring a session first. No per-user data leaks.
   "/api/billing/status",
+  // Public enrichment-config check — matches the billing/status pattern.
+  // The lead sidepanel pre-checks this so it can render the amber "provider
+  // not configured" banner without triggering a 503 on click. No per-user
+  // data is exposed; only which vendor (if any) is wired up.
+  "/api/enrichment/status",
   "/api/v1/billing/webhook(.*)",
   "/api/billing/webhook/(.*)",
   "/api/webhooks/(.*)",

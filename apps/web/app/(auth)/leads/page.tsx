@@ -21,6 +21,8 @@ import {
   Sparkles,
   ListPlus,
   Loader2,
+  Wand2,
+  AlertTriangle,
 } from "lucide-react";
 import { cn, STATUS_COLOR } from "@/lib/utils";
 import { Spinner } from "@/components/ui/spinner";
@@ -134,6 +136,13 @@ export default function LeadsPage() {
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [notes, setNotes] = useState("");
 
+  /* ---------- enrichment state ---------- */
+  const [enrichmentStatus, setEnrichmentStatus] = useState<{
+    providerName: string;
+    providerConfigured: boolean;
+  } | null>(null);
+  const [enriching, setEnriching] = useState(false);
+
   /* ---------- add-to-list menu state ---------- */
   const [listsMenuOpen, setListsMenuOpen] = useState(false);
   const [availableLists, setAvailableLists] = useState<
@@ -171,6 +180,86 @@ export default function LeadsPage() {
     loadLeads();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [statusFilter]);
+
+  /* Fetch enrichment provider status once — used by the sidepanel banner.
+     Public endpoint, so no auth handshake needed. */
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/enrichment/status");
+        if (!res.ok) return;
+        const json = await res.json();
+        if (!cancelled) {
+          setEnrichmentStatus({
+            providerName: json.providerName ?? "none",
+            providerConfigured: !!json.providerConfigured,
+          });
+        }
+      } catch {
+        /* soft-fail — banner just won't render */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  /* ---------------------------------------------------------------- */
+  /*  Enrich                                                           */
+  /* ---------------------------------------------------------------- */
+
+  async function handleEnrich(leadId: string) {
+    setEnriching(true);
+    try {
+      const res = await fetch(`/api/leads/${leadId}/enrich`, {
+        method: "POST",
+      });
+      const json = await res.json().catch(() => null);
+
+      if (res.status === 503) {
+        // Honest "not configured" state — surface the friendly banner copy
+        // as a toast in case the user didn't see the banner.
+        setEnrichmentStatus({
+          providerName: json?.providerName ?? "none",
+          providerConfigured: false,
+        });
+        toast.error("Enrichment provider not configured", {
+          description:
+            "Set ENRICHMENT_PROVIDER env var. Manual research still works via the notes field.",
+        });
+        return;
+      }
+
+      if (!res.ok) {
+        throw new Error(json?.error ?? "Enrichment failed");
+      }
+
+      // Re-sync just the row we changed instead of refetching the full list.
+      await loadLeads();
+
+      if (json?.updated) {
+        const fields: string[] = Array.isArray(json.updatedFields)
+          ? json.updatedFields
+          : [];
+        toast.success("Lead enriched", {
+          description: fields.length
+            ? `Updated: ${fields.join(", ")}`
+            : "Provider returned data",
+        });
+      } else {
+        toast.info("No new data from provider", {
+          description: "Provider had no additional info for this lead.",
+        });
+      }
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Failed to enrich lead"
+      );
+    } finally {
+      setEnriching(false);
+    }
+  }
 
   /* close "Add to list" menu on outside click */
   useEffect(() => {
@@ -1014,6 +1103,36 @@ export default function LeadsPage() {
                     >
                       {selectedLead.score}/100
                     </span>
+                  </div>
+                )}
+              </div>
+
+              {/* Enrich */}
+              <div className="space-y-2">
+                <button
+                  onClick={() => handleEnrich(selectedLead.id)}
+                  disabled={enriching}
+                  className="inline-flex items-center justify-center gap-2 rounded-lg border border-[#6C47FF] px-4 py-2.5 text-sm font-medium text-[#6C47FF] hover:bg-violet-50 transition-colors w-full disabled:opacity-50"
+                >
+                  {enriching ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Wand2 className="h-4 w-4" />
+                  )}
+                  {enriching ? "Enriching..." : "Enrich"}
+                </button>
+                {enrichmentStatus && !enrichmentStatus.providerConfigured && (
+                  <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                    <AlertTriangle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-medium">
+                        Enrichment provider not configured
+                      </p>
+                      <p className="mt-0.5">
+                        Set <code className="font-mono">ENRICHMENT_PROVIDER</code>{" "}
+                        env var. Manual research still works via the notes field.
+                      </p>
+                    </div>
                   </div>
                 )}
               </div>

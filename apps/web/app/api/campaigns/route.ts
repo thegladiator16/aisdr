@@ -8,6 +8,7 @@ import { db } from "@/lib/db";
 import { campaigns } from "@aisdr/db/schema";
 import { eq, desc, and, ne } from "drizzle-orm";
 import { ensureCampaignsColumns } from "@/lib/db/ensure-schema";
+import { ensureCampaignsApprovalColumn } from "./approval-mode/_lib";
 
 const createCampaignSchema = z.object({
   name: z.string().min(1),
@@ -27,6 +28,7 @@ export async function GET(req: NextRequest) {
     }
 
     await ensureCampaignsColumns();
+    await ensureCampaignsApprovalColumn();
 
     const { searchParams } = new URL(req.url);
     const status = searchParams.get("status");
@@ -55,6 +57,7 @@ export async function GET(req: NextRequest) {
         emailsSent: campaigns.emailsSent,
         totalReplies: campaigns.totalReplies,
         meetingsBooked: campaigns.meetingsBooked,
+        requireApproval: campaigns.requireApproval,
         createdAt: campaigns.createdAt,
       })
       .from(campaigns)

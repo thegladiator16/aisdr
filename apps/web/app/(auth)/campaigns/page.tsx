@@ -22,6 +22,10 @@ import {
   Loader2,
   Search,
   SlidersHorizontal,
+  RefreshCw,
+  Zap,
+  ChevronDown,
+  Trash2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Spinner } from "@/components/ui/spinner";
@@ -37,6 +41,7 @@ type Campaign = {
   emailsSent: number | null;
   totalReplies: number | null;
   meetingsBooked: number | null;
+  requireApproval?: boolean | null;
   createdAt?: string | null;
 };
 
@@ -124,6 +129,37 @@ export default function CampaignsPage() {
   /* archive confirmation modal */
   const [archiveTarget, setArchiveTarget] = useState<Campaign | null>(null);
   const [archiving, setArchiving] = useState(false);
+
+  /* reactivate-stale-leads modal */
+  const [reactivateTarget, setReactivateTarget] = useState<Campaign | null>(
+    null
+  );
+  const [reactivateDays, setReactivateDays] = useState("60");
+  const [reactivateStatuses, setReactivateStatuses] = useState<Set<string>>(
+    new Set(["not_interested", "no_response"])
+  );
+  const [reactivating, setReactivating] = useState(false);
+
+  /* automated triggers */
+  type CampaignTrigger = {
+    id: string;
+    campaignId: string;
+    campaignName: string | null;
+    triggerType: string;
+    threshold: number;
+    enabled: boolean;
+    lastFiredAt: string | null;
+    createdAt: string;
+  };
+  const [triggers, setTriggers] = useState<CampaignTrigger[]>([]);
+  const [triggersOpen, setTriggersOpen] = useState(false);
+  const [triggersLoading, setTriggersLoading] = useState(false);
+  const [showTriggerModal, setShowTriggerModal] = useState(false);
+  const [newTriggerCampaignId, setNewTriggerCampaignId] = useState("");
+  const [newTriggerType, setNewTriggerType] =
+    useState<string>("subscription_days_old");
+  const [newTriggerThreshold, setNewTriggerThreshold] = useState("30");
+  const [creatingTrigger, setCreatingTrigger] = useState(false);
 
   /* search */
   const [searchQuery, setSearchQuery] = useState("");
@@ -239,6 +275,36 @@ export default function CampaignsPage() {
 
   /* ---- campaign actions ---- */
 
+  async function handleToggleApproval(c: Campaign, next: boolean) {
+    // Optimistic — flip locally, revert on failure.
+    setCampaigns((prev) =>
+      prev.map((x) => (x.id === c.id ? { ...x, requireApproval: next } : x))
+    );
+    try {
+      const res = await fetch(`/api/campaigns/${c.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ requireApproval: next }),
+      });
+      if (!res.ok) throw new Error("Failed to update approval mode");
+      toast.success(
+        next
+          ? "Approval required before send"
+          : "Approval no longer required"
+      );
+    } catch (err) {
+      // Revert
+      setCampaigns((prev) =>
+        prev.map((x) =>
+          x.id === c.id ? { ...x, requireApproval: !next } : x
+        )
+      );
+      toast.error(
+        err instanceof Error ? err.message : "Failed to update approval mode"
+      );
+    }
+  }
+
   async function handleDuplicate(c: Campaign) {
     setOpenMenuId(null);
     try {
@@ -258,6 +324,178 @@ export default function CampaignsPage() {
   function openArchiveConfirm(c: Campaign) {
     setOpenMenuId(null);
     setArchiveTarget(c);
+  }
+
+  function openReactivateModal(c: Campaign) {
+    setOpenMenuId(null);
+    setReactivateTarget(c);
+    setReactivateDays("60");
+    setReactivateStatuses(new Set(["not_interested", "no_response"]));
+  }
+
+  function toggleReactivateStatus(id: string) {
+    setReactivateStatuses((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  async function confirmReactivate() {
+    if (!reactivateTarget) return;
+    const days = Number(reactivateDays);
+    if (!Number.isFinite(days) || days <= 0) {
+      toast.error("Days threshold must be a positive number");
+      return;
+    }
+    if (reactivateStatuses.size === 0) {
+      toast.error("Pick at least one lead status");
+      return;
+    }
+    setReactivating(true);
+    try {
+      const res = await fetch(
+        `/api/campaigns/${reactivateTarget.id}/reactivate-stale-leads`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            staleAfterDays: days,
+            fromStatuses: Array.from(reactivateStatuses),
+          }),
+        }
+      );
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}) as { error?: string });
+        throw new Error(
+          typeof json.error === "string"
+            ? json.error
+            : "Failed to reactivate leads"
+        );
+      }
+      const json = (await res.json()) as { enrolled: number };
+      toast.success(
+        json.enrolled === 0
+          ? "No stale leads matched the criteria"
+          : `Enrolled ${json.enrolled} stale lead${
+              json.enrolled === 1 ? "" : "s"
+            }`
+      );
+      setReactivateTarget(null);
+      loadCampaigns();
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Failed to reactivate leads"
+      );
+    } finally {
+      setReactivating(false);
+    }
+  }
+
+  /* ---- automated triggers ---- */
+
+  const loadTriggers = useCallback(async () => {
+    setTriggersLoading(true);
+    try {
+      const res = await fetch("/api/campaign-triggers");
+      if (!res.ok) throw new Error("Failed to load triggers");
+      const json = (await res.json()) as { data: CampaignTrigger[] };
+      setTriggers(json.data);
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Failed to load triggers"
+      );
+    } finally {
+      setTriggersLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (triggersOpen && triggers.length === 0 && !triggersLoading) {
+      loadTriggers();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [triggersOpen]);
+
+  async function handleCreateTrigger() {
+    if (!newTriggerCampaignId) {
+      toast.error("Pick a campaign");
+      return;
+    }
+    const threshold = Number(newTriggerThreshold);
+    if (!Number.isFinite(threshold) || threshold < 0) {
+      toast.error("Threshold must be a non-negative number");
+      return;
+    }
+    setCreatingTrigger(true);
+    try {
+      const res = await fetch("/api/campaign-triggers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          campaignId: newTriggerCampaignId,
+          triggerType: newTriggerType,
+          threshold,
+        }),
+      });
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}) as { error?: string });
+        throw new Error(
+          typeof json.error === "string"
+            ? json.error
+            : "Failed to create trigger"
+        );
+      }
+      toast.success("Trigger created");
+      setShowTriggerModal(false);
+      setNewTriggerCampaignId("");
+      setNewTriggerThreshold("30");
+      setNewTriggerType("subscription_days_old");
+      loadTriggers();
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Failed to create trigger"
+      );
+    } finally {
+      setCreatingTrigger(false);
+    }
+  }
+
+  async function handleToggleTrigger(t: CampaignTrigger) {
+    try {
+      const res = await fetch(`/api/campaign-triggers/${t.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled: !t.enabled }),
+      });
+      if (!res.ok) throw new Error("Failed to update trigger");
+      const json = (await res.json()) as { data: CampaignTrigger };
+      setTriggers((prev) =>
+        prev.map((x) =>
+          x.id === t.id ? { ...x, enabled: json.data.enabled } : x
+        )
+      );
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Failed to update trigger"
+      );
+    }
+  }
+
+  async function handleDeleteTrigger(t: CampaignTrigger) {
+    try {
+      const res = await fetch(`/api/campaign-triggers/${t.id}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) throw new Error("Failed to delete trigger");
+      setTriggers((prev) => prev.filter((x) => x.id !== t.id));
+      toast.success("Trigger deleted");
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Failed to delete trigger"
+      );
+    }
   }
 
   async function confirmArchive() {
@@ -533,13 +771,20 @@ export default function CampaignsPage() {
                       </button>
 
                       {openMenuId === c.id && (
-                        <div className="absolute right-0 top-8 z-20 w-40 rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
+                        <div className="absolute right-0 top-8 z-20 w-52 rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
                           <button
                             onClick={() => handleDuplicate(c)}
                             className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                           >
                             <Copy className="h-3.5 w-3.5" />
                             Duplicate
+                          </button>
+                          <button
+                            onClick={() => openReactivateModal(c)}
+                            className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                          >
+                            <RefreshCw className="h-3.5 w-3.5" />
+                            Reactivate stale leads
                           </button>
                           <button
                             onClick={() => openArchiveConfirm(c)}
@@ -588,9 +833,346 @@ export default function CampaignsPage() {
                       </div>
                     ))}
                   </div>
+
+                  {/* require-approval toggle */}
+                  <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-xs font-medium text-gray-700 leading-tight">
+                        Require approval before send
+                      </p>
+                      <p className="text-[10px] text-gray-400 leading-tight mt-0.5">
+                        Route drafts to Tasks for review
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={Boolean(c.requireApproval)}
+                      aria-label="Require approval before send"
+                      onClick={() =>
+                        handleToggleApproval(c, !c.requireApproval)
+                      }
+                      className={cn(
+                        "relative inline-flex h-5 w-9 flex-shrink-0 items-center rounded-full transition-colors",
+                        c.requireApproval
+                          ? "bg-[#6C47FF]"
+                          : "bg-gray-200"
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          "inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform",
+                          c.requireApproval ? "translate-x-4" : "translate-x-0.5"
+                        )}
+                      />
+                    </button>
+                  </div>
                 </div>
               );
             })}
+          </div>
+
+          {/* ========== AUTOMATED TRIGGERS ========== */}
+          <div className="rounded-xl border border-gray-200 bg-white">
+            <button
+              type="button"
+              onClick={() => setTriggersOpen((v) => !v)}
+              className="flex w-full items-center justify-between px-5 py-4 text-left"
+            >
+              <div className="flex items-center gap-2">
+                <Zap className="h-4 w-4 text-violet-600" />
+                <div>
+                  <p className="text-sm font-semibold text-gray-900">
+                    Automated triggers
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    Auto-enroll into a campaign when a customer milestone
+                    fires (subscription age, credits used).
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-gray-400">
+                  {triggers.length}{" "}
+                  {triggers.length === 1 ? "trigger" : "triggers"}
+                </span>
+                <ChevronDown
+                  className={cn(
+                    "h-4 w-4 text-gray-400 transition-transform",
+                    triggersOpen && "rotate-180"
+                  )}
+                />
+              </div>
+            </button>
+            {triggersOpen && (
+              <div className="border-t border-gray-100 px-5 py-4">
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-xs text-gray-500">
+                    Firing enrolls leads into the target campaign. Manual
+                    triggers are fired from a workflow you build.
+                  </p>
+                  <button
+                    onClick={() => {
+                      setNewTriggerCampaignId(
+                        campaigns.find((c) => c.status !== "archived")?.id ?? ""
+                      );
+                      setShowTriggerModal(true);
+                    }}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-[#6C47FF] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#5a39dd] transition-colors"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    New trigger
+                  </button>
+                </div>
+                {triggersLoading ? (
+                  <div className="py-6 text-center text-sm text-gray-400">
+                    Loading…
+                  </div>
+                ) : triggers.length === 0 ? (
+                  <div className="py-6 text-center text-sm text-gray-400">
+                    No triggers configured yet.
+                  </div>
+                ) : (
+                  <div className="divide-y divide-gray-100 border border-gray-100 rounded-lg">
+                    {triggers.map((t) => (
+                      <div
+                        key={t.id}
+                        className="flex items-center gap-3 px-3 py-3"
+                      >
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-gray-900 truncate">
+                            {t.campaignName ?? "(deleted campaign)"}
+                          </p>
+                          <p className="text-xs text-gray-500 mt-0.5">
+                            <span className="font-mono">{t.triggerType}</span>{" "}
+                            when threshold ≥{" "}
+                            <span className="font-semibold">
+                              {t.threshold}
+                              {t.triggerType === "credits_used_pct" ? "%" : ""}
+                              {t.triggerType === "subscription_days_old"
+                                ? " days"
+                                : ""}
+                            </span>
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => handleToggleTrigger(t)}
+                          className={cn(
+                            "relative inline-flex h-5 w-9 items-center rounded-full transition-colors flex-shrink-0",
+                            t.enabled ? "bg-violet-600" : "bg-gray-200"
+                          )}
+                          aria-label={
+                            t.enabled ? "Disable trigger" : "Enable trigger"
+                          }
+                        >
+                          <span
+                            className={cn(
+                              "inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform",
+                              t.enabled ? "translate-x-5" : "translate-x-[3px]"
+                            )}
+                          />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteTrigger(t)}
+                          className="text-gray-300 hover:text-red-500 transition-colors"
+                          aria-label="Delete trigger"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ========== NEW TRIGGER MODAL ========== */}
+      {showTriggerModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl bg-white shadow-xl mx-4">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+              <h2 className="text-lg font-bold text-gray-900">New trigger</h2>
+              <button
+                onClick={() => setShowTriggerModal(false)}
+                className="rounded-lg p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="px-6 py-5 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Campaign to enroll
+                </label>
+                <select
+                  value={newTriggerCampaignId}
+                  onChange={(e) => setNewTriggerCampaignId(e.target.value)}
+                  className="w-full rounded-lg border border-gray-200 h-11 px-3 text-sm text-gray-900 focus:border-[#6C47FF] focus:ring-1 focus:ring-[#6C47FF] focus:outline-none"
+                >
+                  <option value="">Select a campaign…</option>
+                  {campaigns
+                    .filter((c) => c.status !== "archived")
+                    .map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Trigger type
+                </label>
+                <select
+                  value={newTriggerType}
+                  onChange={(e) => setNewTriggerType(e.target.value)}
+                  className="w-full rounded-lg border border-gray-200 h-11 px-3 text-sm text-gray-900 focus:border-[#6C47FF] focus:ring-1 focus:ring-[#6C47FF] focus:outline-none"
+                >
+                  <option value="subscription_days_old">
+                    Subscription age (days)
+                  </option>
+                  <option value="credits_used_pct">
+                    Credits used (% of monthly allotment)
+                  </option>
+                  <option value="manual">Manual (fired from a workflow)</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Threshold
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  value={newTriggerThreshold}
+                  onChange={(e) => setNewTriggerThreshold(e.target.value)}
+                  disabled={newTriggerType === "manual"}
+                  className="w-full rounded-lg border border-gray-200 h-11 px-3 text-sm text-gray-900 focus:border-[#6C47FF] focus:ring-1 focus:ring-[#6C47FF] focus:outline-none disabled:bg-gray-50 disabled:text-gray-400"
+                />
+                <p className="mt-1.5 text-xs text-gray-400">
+                  {newTriggerType === "subscription_days_old" &&
+                    "Fires when the account has been on its current plan for at least this many days."}
+                  {newTriggerType === "credits_used_pct" &&
+                    "Fires when leads-used / leads-limit crosses this percentage (0-100)."}
+                  {newTriggerType === "manual" &&
+                    "Manual triggers don't fire on a threshold — they're kicked off by a workflow."}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-gray-100">
+              <button
+                onClick={() => setShowTriggerModal(false)}
+                disabled={creatingTrigger}
+                className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreateTrigger}
+                disabled={creatingTrigger}
+                className="rounded-lg bg-[#6C47FF] px-4 py-2 text-sm font-semibold text-white hover:bg-[#5a39dd] transition-colors disabled:opacity-40 inline-flex items-center gap-2"
+              >
+                {creatingTrigger && (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                )}
+                {creatingTrigger ? "Creating…" : "Create trigger"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========== REACTIVATE STALE LEADS MODAL ========== */}
+      {reactivateTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl bg-white shadow-xl mx-4">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+              <h2 className="text-lg font-bold text-gray-900">
+                Reactivate stale leads
+              </h2>
+              <button
+                onClick={() => setReactivateTarget(null)}
+                className="rounded-lg p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="px-6 py-5 space-y-5">
+              <p className="text-sm text-gray-500">
+                Move every stale lead into{" "}
+                <span className="font-semibold text-gray-700">
+                  {reactivateTarget.name}
+                </span>{" "}
+                and reset its status to <span className="font-mono">new</span>.
+              </p>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Stale after (days)
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  value={reactivateDays}
+                  onChange={(e) => setReactivateDays(e.target.value)}
+                  className="w-full rounded-lg border border-gray-200 h-11 px-4 text-sm text-gray-900 focus:border-[#6C47FF] focus:ring-1 focus:ring-[#6C47FF] focus:outline-none transition"
+                />
+                <p className="mt-1.5 text-xs text-gray-400">
+                  Leads whose last contact was more than this many days ago
+                  will be included.
+                </p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  From statuses
+                </label>
+                <div className="space-y-2">
+                  {[
+                    { id: "not_interested", label: "Not interested" },
+                    { id: "no_response", label: "No response" },
+                    { id: "closed_lost", label: "Closed lost" },
+                    { id: "unqualified", label: "Unqualified" },
+                  ].map((s) => (
+                    <label
+                      key={s.id}
+                      className="flex items-center gap-2.5 cursor-pointer"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={reactivateStatuses.has(s.id)}
+                        onChange={() => toggleReactivateStatus(s.id)}
+                        className="h-4 w-4 rounded border-gray-300 text-[#6C47FF] focus:ring-[#6C47FF]"
+                      />
+                      <span className="text-sm text-gray-700">{s.label}</span>
+                      <span className="text-xs text-gray-400 font-mono">
+                        {s.id}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-gray-100">
+              <button
+                onClick={() => setReactivateTarget(null)}
+                disabled={reactivating}
+                className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmReactivate}
+                disabled={reactivating}
+                className="rounded-lg bg-[#6C47FF] px-4 py-2 text-sm font-semibold text-white hover:bg-[#5a39dd] transition-colors disabled:opacity-40 inline-flex items-center gap-2"
+              >
+                {reactivating && (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                )}
+                {reactivating ? "Enrolling…" : "Enroll stale leads"}
+              </button>
+            </div>
           </div>
         </div>
       )}
