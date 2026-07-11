@@ -117,8 +117,8 @@ const PLANS = [
     name: "Starter",
     badge: "bg-violet-600",
     desc: "For B2B founders running outbound",
-    monthly: 16999,
-    yearly: 14999,
+    monthly: 6799,
+    yearly: 5999,
     credits: "500 leads/mo",
     replies: "1-12 positive replies/mo",
     includes: "Everything in Free, plus:",
@@ -135,8 +135,8 @@ const PLANS = [
     name: "Growth",
     badge: "bg-pink-500",
     desc: "For teams scaling with full AI automation",
-    monthly: 28999,
-    yearly: 25999,
+    monthly: 11599,
+    yearly: 10399,
     credits: "2,000 leads/mo",
     replies: "4-30 positive replies/mo",
     includes: "Everything in Starter, plus:",
@@ -210,7 +210,7 @@ export function ChangePlanModal({ onClose }: { onClose: () => void }) {
   );
 
   // selectedPlan.yearly is the PER-MONTH equivalent price when billed
-  // annually (e.g. "₹14,999/mo billed yearly") — matches how it's displayed
+  // annually (e.g. "₹5,999/mo billed yearly") — matches how it's displayed
   // on the plan-selection card. The actual charge for yearly billing is 12x
   // that, matching lib/payments/razorpay.ts's PLAN_PRICES_INR.yearly (which
   // is literally `pricePerMonth * 12`). This was previously missing here,

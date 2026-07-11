@@ -64,7 +64,7 @@ const PLANS = [
   },
   {
     name: "Starter",
-    price: "$199",
+    price: "$79",
     period: "/month",
     desc: "Run outbound campaigns",
     features: ["500 leads/month", "2,000 emails/month", "WhatsApp integration", "Intent signals", "Reply drafting"],
@@ -74,7 +74,7 @@ const PLANS = [
   },
   {
     name: "Growth",
-    price: "$349",
+    price: "$139",
     period: "/month",
     desc: "Full outbound automation",
     features: ["2,000 leads/month", "10,000 emails/month", "Everything in Starter", "CRM integrations", "A/Z testing", "Priority support"],
@@ -376,10 +376,10 @@ export default function LandingPage() {
             </div>
             <div className="rounded-2xl bg-white border-2 border-[#6C47FF] p-8 flex-1 max-w-xs shadow-lg">
               <p className="text-sm text-[#6C47FF] mb-2 font-medium">Arya</p>
-              <p className="text-4xl font-bold text-[#6C47FF]">$199</p>
+              <p className="text-4xl font-bold text-[#6C47FF]">$79</p>
               <p className="text-sm text-gray-400 mt-1">/month</p>
               <p className="text-sm text-emerald-600 font-semibold mt-3">
-                Save $820/month
+                Save $920/month
               </p>
             </div>
           </div>

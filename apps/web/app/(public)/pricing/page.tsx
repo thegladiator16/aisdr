@@ -25,7 +25,7 @@ const plans = [
   {
     id: 'starter',
     name: 'Starter',
-    price: '$199',
+    price: '$79',
     period: '/month',
     description: 'Run outbound campaigns',
     features: [
@@ -44,7 +44,7 @@ const plans = [
   {
     id: 'growth',
     name: 'Growth',
-    price: '$349',
+    price: '$139',
     period: '/month',
     description: 'Automate your full outbound motion',
     features: [
@@ -134,9 +134,9 @@ export default function PricingPage() {
           </div>
           <div className="rounded-2xl bg-white border-2 border-[#6C47FF] p-8 flex-1 max-w-xs text-center shadow-lg">
             <p className="text-sm text-[#6C47FF] mb-2 font-medium">Arya</p>
-            <p className="text-4xl font-bold text-[#6C47FF]">$199</p>
+            <p className="text-4xl font-bold text-[#6C47FF]">$79</p>
             <p className="text-sm text-gray-400 mt-1">/month</p>
-            <p className="text-sm text-emerald-600 font-semibold mt-3">Save $820/month</p>
+            <p className="text-sm text-emerald-600 font-semibold mt-3">Save $920/month</p>
           </div>
         </div>
       </section>
