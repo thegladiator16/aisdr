@@ -38,6 +38,13 @@ function BuyCreditsModal({ onClose }: { onClose: () => void }) {
   const [quantity, setQuantity] = useState(1000);
   const [tab, setTab] = useState<"card" | "upi">("card");
   const [processing, setProcessing] = useState(false);
+  const [paymentsAvailable, setPaymentsAvailable] = useState<boolean | null>(null);
+  useEffect(() => {
+    fetch("/api/billing/status", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((j) => setPaymentsAvailable(!!j?.paymentsAvailable))
+      .catch(() => setPaymentsAvailable(false));
+  }, []);
 
   // ₹2.50/credit (250 paise) — matches app/api/billing/create-order/route.ts
   // `qty * 250`. This modal previously showed USD ($0.03/credit) while the
@@ -57,6 +64,10 @@ function BuyCreditsModal({ onClose }: { onClose: () => void }) {
     }).format(n);
 
   const handlePay = async () => {
+    if (paymentsAvailable === false) {
+      toast.error("Payments aren't set up on this account yet. Please contact support.");
+      return;
+    }
     setProcessing(true);
     try {
       const res = await fetch("/api/billing/create-order", {
@@ -339,17 +350,32 @@ function BuyCreditsModal({ onClose }: { onClose: () => void }) {
               </div>
             </div>
 
+            {/* Payments-not-configured banner */}
+            {paymentsAvailable === false && (
+              <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 flex items-start gap-2">
+                <Lock className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                <div className="text-xs text-amber-800">
+                  <p className="font-semibold">Payments aren&apos;t set up yet</p>
+                  <p className="mt-0.5">
+                    Contact your account admin to enable Razorpay before purchasing.
+                  </p>
+                </div>
+              </div>
+            )}
+
             {/* Submit button */}
             <button
               onClick={handlePay}
-              disabled={processing}
-              className="mt-4 w-full h-12 bg-[#6C47FF] text-white text-sm font-semibold rounded-lg hover:bg-[#5538DD] transition-colors flex items-center justify-center gap-2 disabled:opacity-70"
+              disabled={processing || paymentsAvailable === false}
+              className="mt-4 w-full h-12 bg-[#6C47FF] text-white text-sm font-semibold rounded-lg hover:bg-[#5538DD] transition-colors flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
             >
               {processing ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
                   Processing...
                 </>
+              ) : paymentsAvailable === false ? (
+                <>Payments unavailable</>
               ) : (
                 <>Pay {formatMoney(total)}</>
               )}

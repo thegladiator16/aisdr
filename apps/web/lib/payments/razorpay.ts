@@ -2,14 +2,24 @@ import Razorpay from "razorpay";
 
 let _razorpay: Razorpay | null = null;
 
+/** Non-throwing config check for callers that want to gate UI or return a
+ * friendly "not configured" error to the client without triggering the
+ * proxy's exception path (which surfaces a message that mentions env var
+ * names — never safe to leak to a browser). */
+export function isRazorpayConfigured(): boolean {
+  return !!(process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET);
+}
+
 function getRazorpay(): Razorpay {
   if (_razorpay) return _razorpay;
   const key_id = process.env.RAZORPAY_KEY_ID;
   const key_secret = process.env.RAZORPAY_KEY_SECRET;
   if (!key_id || !key_secret) {
-    throw new Error(
-      "RAZORPAY_KEY_ID / RAZORPAY_KEY_SECRET env vars are not set on the server"
-    );
+    // Message is intentionally opaque — this exception bubbles to any caller
+    // that reaches the proxy without gating on isRazorpayConfigured() first,
+    // and its .message must not leak env var names to the browser. Callers
+    // should use isRazorpayConfigured() and return their own friendly error.
+    throw new Error("PAYMENTS_NOT_CONFIGURED");
   }
   _razorpay = new Razorpay({ key_id, key_secret });
   return _razorpay;

@@ -23,6 +23,10 @@ const isPublicRoute = createRouteMatcher([
   "/api/team/invite/(.*)",
   "/api/v1/health",
   "/api/debug/(.*)",
+  // Public payments-config check — the checkout modal on the public
+  // pricing page needs to be able to render a friendly "not configured"
+  // banner without requiring a session first. No per-user data leaks.
+  "/api/billing/status",
   "/api/v1/billing/webhook(.*)",
   "/api/billing/webhook/(.*)",
   "/api/webhooks/(.*)",

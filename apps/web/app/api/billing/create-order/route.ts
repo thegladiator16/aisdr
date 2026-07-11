@@ -3,12 +3,33 @@ export const dynamic = "force-dynamic";
 
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
-import { razorpay, getPlanAmountInPaise } from "@/lib/payments/razorpay";
+import {
+  razorpay,
+  getPlanAmountInPaise,
+  isRazorpayConfigured,
+} from "@/lib/payments/razorpay";
 
 export async function POST(req: Request) {
   const { userId } = auth();
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  // Gate BEFORE hitting the Razorpay proxy so we return a stable, safe
+  // client-facing error instead of the proxy's exception (which will surface
+  // as a scary error message). A specific error code lets the client render
+  // a friendly "Payments aren't set up yet" state.
+  if (!isRazorpayConfigured()) {
+    console.error(
+      "[create-order] Razorpay not configured — RAZORPAY_KEY_ID / RAZORPAY_KEY_SECRET missing on server"
+    );
+    return NextResponse.json(
+      {
+        error: "Payments aren't set up on this account yet. Please contact support.",
+        code: "PAYMENTS_NOT_CONFIGURED",
+      },
+      { status: 503 }
+    );
   }
 
   const body = await req.json().catch(() => ({}));
@@ -92,12 +113,30 @@ export async function POST(req: Request) {
       code: err?.error?.code,
       statusCode: err?.statusCode,
     });
-    const detail =
-      err?.error?.description ||
-      err?.message ||
-      "Unknown payment provider error";
+
+    // Route the "not configured" case through the friendly 503 above rather
+    // than the generic 502 — this preserves the correct code path if a race
+    // or first-request-after-cold-start ever slips past the pre-check.
+    if (err?.message === "PAYMENTS_NOT_CONFIGURED") {
+      return NextResponse.json(
+        {
+          error: "Payments aren't set up on this account yet. Please contact support.",
+          code: "PAYMENTS_NOT_CONFIGURED",
+        },
+        { status: 503 }
+      );
+    }
+
+    // For every other Razorpay error, surface a customer-safe message only.
+    // Razorpay's own error.description (if present) is safe — it comes from
+    // the payment provider and is designed for end-user display. The raw
+    // err.message is NOT safe (may include env var names / stack info).
+    const safeDetail =
+      typeof err?.error?.description === "string"
+        ? err.error.description
+        : "Payment provider is having trouble right now. Please try again shortly.";
     return NextResponse.json(
-      { error: "Payment provider error", detail },
+      { error: "Payment provider error", detail: safeDetail },
       { status: 502 }
     );
   }
