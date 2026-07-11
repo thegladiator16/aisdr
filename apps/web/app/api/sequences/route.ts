@@ -13,6 +13,8 @@ const stepSchema = z.object({
     "linkedin_connection",
     "linkedin_dm",
     "whatsapp",
+    "manual_task",
+    "human_call",
   ]),
   delayDays: z.number(),
   subject: z.string().optional(),

@@ -7,7 +7,14 @@ import { eq, and } from "drizzle-orm";
 
 const stepSchema = z.object({
   stepNumber: z.number(),
-  channel: z.enum(["email", "linkedin_connection", "linkedin_dm", "whatsapp"]),
+  channel: z.enum([
+    "email",
+    "linkedin_connection",
+    "linkedin_dm",
+    "whatsapp",
+    "manual_task",
+    "human_call",
+  ]),
   delayDays: z.number(),
   subject: z.string().optional(),
   body: z.string().optional(),

@@ -15,7 +15,9 @@ import {
   CheckCircle2,
   Copy,
   Check,
+  FileSignature,
 } from "lucide-react";
+import SignatureEditor from "@/components/signature/SignatureEditor";
 
 /* ------------------------------------------------------------------ */
 /*  Connect Mailbox Modal                                              */
@@ -428,6 +430,11 @@ export default function ProfilePage() {
   /* Campaign membership */
   const [activeCampaigns, setActiveCampaigns] = useState<{ id: string; name: string; status: string | null }[]>([]);
 
+  /* Email signature */
+  const [showSignatureEditor, setShowSignatureEditor] = useState(false);
+  const [signature, setSignature] = useState<string>("");
+  const [loadingSignature, setLoadingSignature] = useState(true);
+
   useEffect(() => {
     if (user) setFullName(user.fullName ?? "");
   }, [user]);
@@ -447,6 +454,12 @@ export default function ProfilePage() {
       .then((res) => res.json())
       .then((json) => setGmailConnected(!!json.gmail))
       .catch(() => setGmailConnected(false));
+
+    fetch("/api/user/signature", { cache: "no-store" })
+      .then((res) => res.json())
+      .then((json) => setSignature(typeof json?.signature === "string" ? json.signature : ""))
+      .catch(() => {})
+      .finally(() => setLoadingSignature(false));
 
     fetch("/api/campaigns", { cache: "no-store" })
       .then((res) => res.json())
@@ -637,6 +650,49 @@ export default function ProfilePage() {
         )}
       </div>
 
+      {/* Email signature */}
+      <div className="bg-white border border-gray-200 rounded-xl p-6 space-y-4">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-base font-semibold text-gray-900 flex items-center gap-2">
+              <FileSignature className="h-4 w-4 text-[#6C47FF]" />
+              Email signature
+            </h2>
+            <p className="text-sm text-gray-500 mt-1">
+              Appended to emails Arya sends from your mailbox
+            </p>
+          </div>
+          <button
+            onClick={() => setShowSignatureEditor(true)}
+            className="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shrink-0"
+          >
+            {signature.trim() ? "Edit signature" : "Set up signature"}
+          </button>
+        </div>
+        {loadingSignature ? (
+          <Loader2 className="h-4 w-4 text-gray-300 animate-spin" />
+        ) : signature.trim() ? (
+          <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+            {/^\s*<[a-z][\s\S]*>/i.test(signature) ? (
+              // NOTE: dangerouslySetInnerHTML is safe here — this is the current
+              // user's own signature, only rendered back to themselves.
+              <div
+                className="text-sm text-gray-800"
+                dangerouslySetInnerHTML={{ __html: signature }}
+              />
+            ) : (
+              <pre className="whitespace-pre-wrap font-sans text-sm text-gray-800">
+                {signature}
+              </pre>
+            )}
+          </div>
+        ) : (
+          <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50 p-4 text-sm text-gray-500">
+            No signature yet — set one up so Arya can sign off properly.
+          </div>
+        )}
+      </div>
+
       {/* Account security */}
       <div className="bg-white border border-gray-200 rounded-xl p-6 space-y-4">
         <h2 className="text-base font-semibold text-gray-900">Account security</h2>
@@ -805,6 +861,12 @@ export default function ProfilePage() {
           user={user}
           onClose={() => setShow2FAModal(false)}
           onEnable={() => {}}
+        />
+      )}
+      {showSignatureEditor && (
+        <SignatureEditor
+          onClose={() => setShowSignatureEditor(false)}
+          onSaved={(s) => setSignature(s)}
         />
       )}
     </div>

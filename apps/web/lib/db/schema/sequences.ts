@@ -14,7 +14,13 @@ import { leads } from "./leads";
 
 export type SequenceStep = {
   stepNumber: number;
-  channel: "email" | "linkedin_connection" | "linkedin_dm" | "whatsapp";
+  channel:
+    | "email"
+    | "linkedin_connection"
+    | "linkedin_dm"
+    | "whatsapp"
+    | "manual_task"
+    | "human_call";
   delayDays: number;
   subject?: string;
   body?: string;

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import toast from "react-hot-toast";
 import { BrandLogo } from "@/components/brand/BrandLogo";
+import SignatureEditor from "@/components/signature/SignatureEditor";
 import {
   ChevronDown,
   ChevronUp,
@@ -238,6 +239,7 @@ export default function ManageAryaPage() {
   // Modal form state
   const [signatureHtml, setSignatureHtml] = useState("");
   const [savingSignature, setSavingSignature] = useState(false);
+  const [showSignatureEditor, setShowSignatureEditor] = useState(false);
   const [modalTitleInput, setModalTitleInput] = useState("");
   const [modalContentInput, setModalContentInput] = useState("");
   const [modalSaving, setModalSaving] = useState(false);
@@ -477,7 +479,7 @@ export default function ManageAryaPage() {
           break;
         case "Set up signature":
           setSignatureHtml(savedSignature);
-          setActiveModal("setupSignature");
+          setShowSignatureEditor(true);
           break;
         case "Set up signals":
           router.push("/signals");
@@ -780,45 +782,21 @@ export default function ManageAryaPage() {
       case "setupSignature":
         return modalWrapper(
           "Set up email signature",
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Signature HTML</label>
-            <textarea
-              value={signatureHtml}
-              onChange={(e) => setSignatureHtml(e.target.value)}
-              placeholder="Paste your email signature HTML here..."
-              rows={6}
-              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent resize-none"
-            />
-          </div>,
-          <>
-            {cancelBtn}
+          <div className="space-y-3">
+            <p className="text-sm text-gray-600">
+              Build your signature with structured fields and a live preview.
+            </p>
             <button
-              onClick={async () => {
-                setSavingSignature(true);
-                try {
-                  const res = await fetch("/api/user/signature", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ signature: signatureHtml }),
-                  });
-                  if (!res.ok) throw new Error("Failed");
-                  toast.success("Signature saved");
-                  setSavedSignature(signatureHtml);
-                  setSignatureConfigured(signatureHtml.trim().length > 0);
-                  closeModal();
-                } catch {
-                  toast.error("Failed to save signature");
-                } finally {
-                  setSavingSignature(false);
-                }
+              onClick={() => {
+                closeModal();
+                setShowSignatureEditor(true);
               }}
-              disabled={savingSignature}
-              className="rounded-lg bg-[#6C47FF] px-4 py-2 text-sm font-medium text-white hover:bg-[#5A38E0] disabled:opacity-50 inline-flex items-center gap-2"
+              className="text-sm font-medium text-[#6C47FF] hover:text-[#5A38E0]"
             >
-              {savingSignature && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-              Save
+              Use the full signature editor →
             </button>
-          </>
+          </div>,
+          <>{cancelBtn}</>
         );
 
       case "addCoachingPoint":
@@ -2143,6 +2121,16 @@ export default function ManageAryaPage() {
       )}
 
       {renderModal()}
+      {showSignatureEditor && (
+        <SignatureEditor
+          onClose={() => setShowSignatureEditor(false)}
+          onSaved={(s) => {
+            setSavedSignature(s);
+            setSignatureHtml(s);
+            setSignatureConfigured(s.trim().length > 0);
+          }}
+        />
+      )}
     </div>
   );
 }

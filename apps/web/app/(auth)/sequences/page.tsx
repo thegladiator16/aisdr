@@ -1,9 +1,26 @@
 "use client";
 
-import { useEffect, useState, useCallback, type FormEvent } from "react";
+import { useEffect, useState, useCallback, useRef, type FormEvent } from "react";
 import { toast } from "sonner";
-import { ListOrdered, Plus, X, Trash2, Pencil, Pause, Play, Loader2, FlaskConical, Save } from "lucide-react";
+import { useUser } from "@clerk/nextjs";
+import {
+  ListOrdered,
+  Plus,
+  X,
+  Trash2,
+  Pencil,
+  Pause,
+  Play,
+  Loader2,
+  FlaskConical,
+  Save,
+  Sparkles,
+  FileText,
+  ChevronDown,
+} from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
+import { renderTokens, TOKEN_KEYS, type TokenContext } from "@/lib/personalization";
+import type { SequenceTemplate } from "@/lib/sequences/templates";
 
 type MessageVariant = {
   id: string;
@@ -19,11 +36,38 @@ type MessageVariant = {
 
 type SequenceStep = {
   stepNumber: number;
-  channel: "email" | "linkedin_connection" | "linkedin_dm" | "whatsapp";
+  channel:
+    | "email"
+    | "linkedin_connection"
+    | "linkedin_dm"
+    | "whatsapp"
+    | "manual_task"
+    | "human_call";
   delayDays: number;
   subject?: string;
   body?: string;
   condition: "always" | "if_no_reply" | "if_opened";
+};
+
+const CHANNEL_OPTIONS: { value: SequenceStep["channel"]; label: string }[] = [
+  { value: "email", label: "Email" },
+  { value: "linkedin_connection", label: "LinkedIn Connection" },
+  { value: "linkedin_dm", label: "LinkedIn DM" },
+  { value: "whatsapp", label: "WhatsApp" },
+  { value: "manual_task", label: "Manual task" },
+  { value: "human_call", label: "Human call" },
+];
+
+const CHANNELS_WITH_TOKENS: SequenceStep["channel"][] = ["email", "linkedin_dm"];
+const CHANNELS_AS_TASKS: SequenceStep["channel"][] = ["manual_task", "human_call"];
+
+const SAMPLE_LEAD_CONTEXT = {
+  firstName: "Priya",
+  lastName: "Sharma",
+  fullName: "Priya Sharma",
+  email: "priya@acmecloud.com",
+  companyName: "Acme Cloud",
+  jobTitle: "VP Sales",
 };
 
 type Sequence = {
@@ -49,11 +93,15 @@ const EMPTY_STEP: SequenceStep = {
 };
 
 export default function SequencesPage() {
+  const { user } = useUser();
   const [sequences, setSequences] = useState<Sequence[]>([]);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const [showPicker, setShowPicker] = useState(false);
+  const [templates, setTemplates] = useState<SequenceTemplate[]>([]);
+  const [templatesLoaded, setTemplatesLoaded] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   const [name, setName] = useState("");
@@ -67,6 +115,25 @@ export default function SequencesPage() {
     Record<string, { subject: string; body: string; variantKey: string }>
   >({});
   const [savingVariantId, setSavingVariantId] = useState<string | null>(null);
+
+  // Tracks which subject/body input was focused most recently so the
+  // "Insert token" dropdown knows which field to append into.
+  const focusedFieldRef = useRef<{
+    stepIndex: number;
+    field: "subject" | "body";
+  } | null>(null);
+  const [tokenPickerOpen, setTokenPickerOpen] = useState<number | null>(null);
+
+  const tokenContext: TokenContext = {
+    lead: SAMPLE_LEAD_CONTEXT,
+    sender: {
+      name: user?.fullName ?? user?.firstName ?? "",
+      company:
+        (user?.publicMetadata?.company as string | undefined) ??
+        (user?.unsafeMetadata?.company as string | undefined) ??
+        "",
+    },
+  };
 
   async function loadData() {
     setLoading(true);
@@ -115,12 +182,66 @@ export default function SequencesPage() {
 
   function resetForm() {
     setShowForm(false);
+    setShowPicker(false);
     setEditingId(null);
     setName("");
     setCampaignId("");
     setSteps([{ ...EMPTY_STEP }]);
     setVariants([]);
     setVariantDrafts({});
+    setTokenPickerOpen(null);
+    focusedFieldRef.current = null;
+  }
+
+  async function ensureTemplatesLoaded() {
+    if (templatesLoaded) return;
+    try {
+      const res = await fetch("/api/sequences/templates");
+      if (!res.ok) return;
+      const json = await res.json();
+      setTemplates(json.data as SequenceTemplate[]);
+      setTemplatesLoaded(true);
+    } catch {
+      // silent — the "Start blank" option still works
+    }
+  }
+
+  function openNewSequence() {
+    setShowPicker(true);
+    setShowForm(false);
+    ensureTemplatesLoaded();
+  }
+
+  function pickTemplate(tpl: SequenceTemplate) {
+    // Clone the steps so downstream edits don't mutate the static template.
+    setSteps(tpl.steps.map((s) => ({ ...s })));
+    setName(tpl.name);
+    setShowPicker(false);
+    setShowForm(true);
+  }
+
+  function startBlank() {
+    setSteps([{ ...EMPTY_STEP }]);
+    setName("");
+    setShowPicker(false);
+    setShowForm(true);
+  }
+
+  function insertToken(stepIndex: number, token: string) {
+    const target = focusedFieldRef.current;
+    const inserted = `{{${token}}}`;
+    // If a field on this step is focused, append into it; otherwise fall back to body.
+    const field: "subject" | "body" =
+      target && target.stepIndex === stepIndex ? target.field : "body";
+    setSteps((prev) =>
+      prev.map((s, i) => {
+        if (i !== stepIndex) return s;
+        const current = (field === "subject" ? s.subject : s.body) ?? "";
+        const glue = current && !current.endsWith(" ") ? " " : "";
+        return { ...s, [field]: current + glue + inserted };
+      })
+    );
+    setTokenPickerOpen(null);
   }
 
   const loadVariants = useCallback(async (sequenceId: string) => {
@@ -145,6 +266,7 @@ export default function SequencesPage() {
     setName(seq.name);
     setCampaignId(seq.campaignId ?? "");
     setSteps(seq.steps.length > 0 ? seq.steps : [{ ...EMPTY_STEP }]);
+    setShowPicker(false);
     setShowForm(true);
     loadVariants(seq.id);
   }
@@ -363,17 +485,85 @@ export default function SequencesPage() {
           </p>
         </div>
         <button
-          onClick={() => (showForm ? resetForm() : setShowForm(true))}
+          onClick={() =>
+            showForm || showPicker ? resetForm() : openNewSequence()
+          }
           className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary/90 transition-colors"
         >
-          {showForm ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
-          {showForm ? "Cancel" : "New Sequence"}
+          {showForm || showPicker ? (
+            <X className="h-4 w-4" />
+          ) : (
+            <Plus className="h-4 w-4" />
+          )}
+          {showForm || showPicker ? "Cancel" : "New Sequence"}
         </button>
       </div>
 
       {error && (
         <div className="rounded-xl border border-border bg-card py-16 text-center text-sm text-muted-foreground">
           {error}
+        </div>
+      )}
+
+      {showPicker && (
+        <div className="rounded-xl border border-border bg-card p-5 space-y-4">
+          <div className="flex items-center gap-2">
+            <Sparkles className="h-4 w-4 text-primary" />
+            <h2 className="text-sm font-semibold text-foreground">
+              Start from a template
+            </h2>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Pick a starter cadence to load into the editor, or start with an
+            empty step. You can edit everything before saving.
+          </p>
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            {templates.map((tpl) => (
+              <button
+                key={tpl.id}
+                type="button"
+                onClick={() => pickTemplate(tpl)}
+                className="rounded-lg border border-border bg-background p-4 text-left hover:border-primary transition-colors"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-foreground">
+                    {tpl.name}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    {tpl.steps.length} steps
+                  </span>
+                </div>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {tpl.description}
+                </p>
+                <div className="mt-3 flex flex-wrap gap-1">
+                  {tpl.steps.map((s, i) => (
+                    <span
+                      key={i}
+                      className="rounded-full border border-border px-2 py-0.5 text-[10px] text-muted-foreground"
+                    >
+                      Day {s.delayDays} · {s.channel.replace("_", " ")}
+                    </span>
+                  ))}
+                </div>
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={startBlank}
+              className="rounded-lg border border-dashed border-border bg-background p-4 text-left hover:border-primary transition-colors"
+            >
+              <div className="flex items-center gap-2">
+                <Plus className="h-4 w-4 text-primary" />
+                <span className="text-sm font-medium text-foreground">
+                  Start blank
+                </span>
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">
+                One empty email step. Add channels and copy as you go.
+              </p>
+            </button>
+          </div>
         </div>
       )}
 
@@ -453,10 +643,11 @@ export default function SequencesPage() {
                       }
                       className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                     >
-                      <option value="email">Email</option>
-                      <option value="linkedin_connection">LinkedIn Connection</option>
-                      <option value="linkedin_dm">LinkedIn DM</option>
-                      <option value="whatsapp">WhatsApp</option>
+                      {CHANNEL_OPTIONS.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
                     </select>
                   </div>
                   <div>
@@ -484,21 +675,120 @@ export default function SequencesPage() {
                     </select>
                   </div>
                 </div>
+                {CHANNELS_AS_TASKS.includes(step.channel) && (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 rounded-md border border-dashed border-border bg-background px-3 py-2 text-xs text-muted-foreground">
+                      <FileText className="h-3.5 w-3.5" />
+                      <span>
+                        Non-automated step — creates a task in the Tasks queue
+                        for a human to handle.
+                      </span>
+                    </div>
+                    <label className="text-xs text-muted-foreground">
+                      Task instructions
+                    </label>
+                    <textarea
+                      value={step.body ?? ""}
+                      onChange={(e) => updateStep(i, { body: e.target.value })}
+                      placeholder="What should the person do when this step fires? (e.g. call, review LinkedIn, send a personal note)"
+                      rows={3}
+                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                  </div>
+                )}
                 {step.channel === "email" && (
                   <div className="grid grid-cols-1 gap-3">
                     <input
                       value={step.subject ?? ""}
+                      onFocus={() => {
+                        focusedFieldRef.current = { stepIndex: i, field: "subject" };
+                      }}
                       onChange={(e) => updateStep(i, { subject: e.target.value })}
                       placeholder="Subject"
                       className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                     />
                     <textarea
                       value={step.body ?? ""}
+                      onFocus={() => {
+                        focusedFieldRef.current = { stepIndex: i, field: "body" };
+                      }}
                       onChange={(e) => updateStep(i, { body: e.target.value })}
                       placeholder="Body"
                       rows={3}
                       className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                     />
+                  </div>
+                )}
+                {step.channel === "linkedin_dm" && (
+                  <div className="grid grid-cols-1 gap-3">
+                    <textarea
+                      value={step.body ?? ""}
+                      onFocus={() => {
+                        focusedFieldRef.current = { stepIndex: i, field: "body" };
+                      }}
+                      onChange={(e) => updateStep(i, { body: e.target.value })}
+                      placeholder="LinkedIn DM message"
+                      rows={3}
+                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                  </div>
+                )}
+
+                {CHANNELS_WITH_TOKENS.includes(step.channel) && (
+                  <div className="rounded-md border border-border bg-background/50 p-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5 text-xs font-medium text-foreground">
+                        <Sparkles className="h-3 w-3 text-primary" />
+                        Preview
+                      </div>
+                      <div className="relative">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setTokenPickerOpen(tokenPickerOpen === i ? null : i)
+                          }
+                          className="inline-flex items-center gap-1 rounded border border-border bg-background px-2 py-0.5 text-xs text-muted-foreground hover:text-foreground"
+                        >
+                          Insert token
+                          <ChevronDown className="h-3 w-3" />
+                        </button>
+                        {tokenPickerOpen === i && (
+                          <div className="absolute right-0 top-full z-10 mt-1 w-56 rounded-md border border-border bg-card shadow-md">
+                            <ul className="py-1 text-xs">
+                              {TOKEN_KEYS.map((tk) => (
+                                <li key={tk}>
+                                  <button
+                                    type="button"
+                                    onClick={() => insertToken(i, tk)}
+                                    className="block w-full px-3 py-1.5 text-left font-mono text-muted-foreground hover:bg-muted hover:text-foreground"
+                                  >
+                                    {`{{${tk}}}`}
+                                  </button>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    {step.channel === "email" && step.subject && (
+                      <p className="text-xs font-medium text-foreground">
+                        {renderTokens(step.subject, tokenContext)}
+                      </p>
+                    )}
+                    {step.body ? (
+                      <p className="whitespace-pre-line text-xs text-muted-foreground">
+                        {renderTokens(step.body, tokenContext)}
+                      </p>
+                    ) : (
+                      <p className="text-xs italic text-muted-foreground">
+                        Type a message to see the preview.
+                      </p>
+                    )}
+                    <p className="text-[10px] text-muted-foreground">
+                      Sample lead: Priya Sharma at Acme Cloud. Unresolved tokens
+                      stay wrapped in {"{{ }}"} so you can spot them.
+                    </p>
                   </div>
                 )}
               </div>
@@ -687,7 +977,7 @@ export default function SequencesPage() {
             Create a sequence to automate multi-step outreach for a campaign.
           </p>
           <button
-            onClick={() => setShowForm(true)}
+            onClick={openNewSequence}
             className="mt-6 inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white"
           >
             <Plus className="h-4 w-4" />
