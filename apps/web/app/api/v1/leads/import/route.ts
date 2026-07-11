@@ -3,6 +3,7 @@ import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { leads } from "@aisdr/db/schema";
 import { eq, and, inArray } from "drizzle-orm";
+import { consumeCredits } from "@/lib/credits";
 
 type CsvRow = Record<string, string>;
 
@@ -92,6 +93,14 @@ export async function POST(req: NextRequest) {
           errors.push(`Chunk insert failed: ${e instanceof Error ? e.message : "Unknown"}`);
         }
       }
+    }
+
+    if (imported > 0) {
+      await consumeCredits({
+        userId: user.id,
+        amount: imported,
+        action: "leads_csv_imported",
+      });
     }
 
     return NextResponse.json({

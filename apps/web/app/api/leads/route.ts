@@ -4,6 +4,7 @@ import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { leads } from "@aisdr/db/schema";
 import { eq, and, desc } from "drizzle-orm";
+import { consumeCredits } from "@/lib/credits";
 
 const createLeadSchema = z.object({
   campaignId: z.string().uuid().optional(),
@@ -92,6 +93,13 @@ export async function POST(req: NextRequest) {
         status: parsed.status ?? "new",
       })
       .returning();
+
+    await consumeCredits({
+      userId: user.id,
+      amount: 1,
+      action: "lead_added",
+      campaignId: parsed.campaignId,
+    });
 
     return NextResponse.json({ data: result[0] }, { status: 201 });
   } catch (error) {

@@ -4,6 +4,7 @@ import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { leads, campaigns } from "@aisdr/db/schema";
 import { and, eq, sql } from "drizzle-orm";
+import { consumeCredits } from "@/lib/credits";
 
 const leadRowSchema = z.object({
   firstName: z.string().optional(),
@@ -77,6 +78,13 @@ export async function POST(req: NextRequest) {
           )
         );
     }
+
+    await consumeCredits({
+      userId: user.id,
+      amount: imported,
+      action: "leads_bulk_imported",
+      campaignId: parsed.campaignId,
+    });
 
     return NextResponse.json({
       data: { imported, total: parsed.leads.length },

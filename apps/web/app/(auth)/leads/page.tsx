@@ -25,6 +25,7 @@ import {
 import { cn, STATUS_COLOR } from "@/lib/utils";
 import { Spinner } from "@/components/ui/spinner";
 import { AryaAvatar } from "@/components/arya/AryaAvatar";
+import { notifyCreditsUpdated } from "@/lib/hooks/useSubscription";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -211,6 +212,7 @@ export default function LeadsPage() {
       if (!res.ok) throw new Error("Failed to create lead");
       const json = await res.json();
       setLeads((prev) => [json.data, ...prev]);
+      notifyCreditsUpdated();
       toast.success("Lead added");
       setShowForm(false);
       setFirstName("");
@@ -262,6 +264,7 @@ export default function LeadsPage() {
             throw new Error(errJson?.error ?? "Failed to import leads");
           }
           const json = await res.json();
+          notifyCreditsUpdated();
           toast.success(
             `Imported ${json.data.imported} of ${json.data.total} leads`
           );
