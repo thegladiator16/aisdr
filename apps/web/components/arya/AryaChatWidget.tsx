@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { X, Send, MessageCircle } from "lucide-react";
 import { AryaAvatar } from "./AryaAvatar";
+import { notifyCreditsUpdated } from "@/lib/hooks/useSubscription";
 
 interface Message {
   role: "user" | "assistant";
@@ -41,6 +42,7 @@ export function AryaChatWidget() {
         ...prev,
         { role: "assistant", content: data.reply ?? "Sorry, I couldn't process that right now." },
       ]);
+      if (data.creditsConsumed) notifyCreditsUpdated();
     } catch {
       setMessages((prev) => [
         ...prev,

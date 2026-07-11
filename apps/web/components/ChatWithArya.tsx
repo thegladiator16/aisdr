@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { X, Send, Maximize2, Sparkles, Target, BarChart2, Mail } from "lucide-react";
+import { notifyCreditsUpdated } from "@/lib/hooks/useSubscription";
 
 interface Message {
   role: "user" | "assistant";
@@ -44,6 +45,7 @@ export function ChatWithArya({ onClose }: { onClose: () => void }) {
         ...prev,
         { role: "assistant", content: data.reply ?? "Sorry, I couldn't process that right now." },
       ]);
+      if (data.creditsConsumed) notifyCreditsUpdated();
     } catch {
       setMessages((prev) => [
         ...prev,

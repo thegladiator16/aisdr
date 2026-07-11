@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { agentConfigItems } from "@aisdr/db/schema";
 import { and, eq, asc, inArray } from "drizzle-orm";
 import { ensureAgentConfigSchema } from "@/app/api/agent-config/_lib";
+import { consumeCredits } from "@/lib/credits";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -156,7 +157,17 @@ export async function POST(req: NextRequest) {
         ? data.content[0].text
         : "I couldn't generate a response. Please try again.";
 
-    return NextResponse.json({ reply });
+    // Only charge on the success path — canned apology replies from the
+    // error branches above are free (the user didn't get real value from
+    // them). consumeCredits swallows its own errors, so a credits-log
+    // failure won't break the chat response.
+    await consumeCredits({
+      userId: user.id,
+      amount: 1,
+      action: "arya_chat_message",
+    });
+
+    return NextResponse.json({ reply, creditsConsumed: 1 });
   } catch (err) {
     console.error("[arya/chat] Unhandled error:", err);
     return NextResponse.json({
