@@ -15,8 +15,12 @@ const isPublicRoute = createRouteMatcher([
   // Public invite-accept landing page — an invited person may not have an
   // account yet, so this must be reachable before Clerk auth exists. The
   // page itself (app/invite/[token]/page.tsx) shows sign-in/sign-up prompts
-  // when the visitor isn't authenticated yet.
+  // when the visitor isn't authenticated yet, and calls GET
+  // /api/team/invite/[token] (also public — the route handler doesn't
+  // require auth; the POST handler on that same path still requires auth
+  // and verifies the signer's email matches the invited email).
   "/invite(.*)",
+  "/api/team/invite/(.*)",
   "/api/v1/health",
   "/api/debug/(.*)",
   "/api/v1/billing/webhook(.*)",
