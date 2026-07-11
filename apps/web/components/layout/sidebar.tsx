@@ -249,14 +249,22 @@ export function Sidebar({ onChatOpen }: SidebarProps) {
           </button>
           {supportMenuOpen && !collapsed && (
             <div className="absolute bottom-full left-0 mb-1 w-48 rounded-lg border border-gray-200 bg-white shadow-lg py-1 z-50">
-              <button className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
+              <a
+                href="mailto:support@aryasdr.in?subject=Support%20request"
+                onClick={() => setSupportMenuOpen(false)}
+                className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+              >
                 <Send className="h-3.5 w-3.5" />
                 Talk to support
-              </button>
-              <button className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
+              </a>
+              <Link
+                href="/contact"
+                onClick={() => setSupportMenuOpen(false)}
+                className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+              >
                 <HelpCircle className="h-3.5 w-3.5" />
                 Help center
-              </button>
+              </Link>
             </div>
           )}
         </div>
