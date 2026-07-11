@@ -8,7 +8,7 @@ import {
   Check,
   Lock,
   CreditCard,
-  Landmark,
+  Smartphone,
   Loader2,
   AlertCircle,
 } from "lucide-react";
@@ -101,14 +101,12 @@ const CARD_BRANDS: { key: string; label: string; className: string }[] = [
   { key: "RUPAY", label: "RuPay", className: "bg-[#097969] text-white" },
 ];
 
-const BANKS = [
-  "HDFC Bank",
-  "ICICI Bank",
-  "State Bank of India",
-  "Axis Bank",
-  "Kotak Mahindra Bank",
-  "Yes Bank",
-  "Other",
+const UPI_APPS = [
+  { name: "GPay", className: "bg-white border border-[#E5E7EB]" },
+  { name: "PhonePe", className: "bg-[#5F259F] text-white" },
+  { name: "Paytm", className: "bg-[#00BAF2] text-white" },
+  { name: "BHIM", className: "bg-[#00A651] text-white" },
+  { name: "Amazon Pay", className: "bg-[#232F3E] text-white" },
 ];
 
 const PLANS = [
@@ -179,12 +177,11 @@ export function ChangePlanModal({ onClose }: { onClose: () => void }) {
   const [selectedPlanKey, setSelectedPlanKey] = useState<string | null>(null);
 
   // Payment state
-  const [activeTab, setActiveTab] = useState<"card" | "netbanking">("card");
+  const [activeTab, setActiveTab] = useState<"card" | "upi">("card");
   const [cardName, setCardName] = useState("");
   const [cardNumber, setCardNumber] = useState("");
   const [expiry, setExpiry] = useState("");
   const [cvc, setCvc] = useState("");
-  const [bankName, setBankName] = useState(BANKS[0]);
   const [submitting, setSubmitting] = useState(false);
 
   // Blur-triggered errors so we don't shout while the user is still typing
@@ -259,6 +256,7 @@ export function ChangePlanModal({ onClose }: { onClose: () => void }) {
           name: user?.fullName ?? undefined,
         },
         verifyBody: { plan: selectedPlanKey, billing },
+        preferredMethod: activeTab,
         onVerified: () => {
           toast.success(`${selectedPlan?.name} plan activated`);
           onClose();
@@ -435,11 +433,13 @@ export function ChangePlanModal({ onClose }: { onClose: () => void }) {
 
             {/* RIGHT: Payment method */}
             <div className="md:w-3/5 p-6">
-              {/* Tabs (UPI removed) */}
+              {/* Payment method tabs — the selection is passed through to
+                  Razorpay Checkout via config.display.blocks so the modal
+                  opens with the user's preferred method surfaced first */}
               <div className="flex items-center gap-1 border-b border-[#E5E7EB] mb-5">
                 {[
                   { key: "card", label: "Card", icon: CreditCard },
-                  { key: "netbanking", label: "Net Banking", icon: Landmark },
+                  { key: "upi", label: "UPI", icon: Smartphone },
                 ].map((t) => {
                   const Icon = t.icon;
                   const active = activeTab === t.key;
@@ -447,7 +447,7 @@ export function ChangePlanModal({ onClose }: { onClose: () => void }) {
                     <button
                       key={t.key}
                       type="button"
-                      onClick={() => setActiveTab(t.key as "card" | "netbanking")}
+                      onClick={() => setActiveTab(t.key as "card" | "upi")}
                       className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium transition-colors relative ${
                         active ? "text-[#6C47FF]" : "text-[#6B7280] hover:text-[#111827]"
                       }`}
@@ -587,28 +587,47 @@ export function ChangePlanModal({ onClose }: { onClose: () => void }) {
                 </div>
               )}
 
-              {/* Net Banking tab */}
-              {activeTab === "netbanking" && (
-                <div className="space-y-3">
-                  <div>
-                    <label className="text-xs font-medium text-[#111827]">
-                      Select your bank
-                    </label>
-                    <select
-                      value={bankName}
-                      onChange={(e) => setBankName(e.target.value)}
-                      className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm text-[#111827] focus:border-[#6C47FF] focus:ring-1 focus:ring-[#6C47FF] outline-none"
-                    >
-                      {BANKS.map((b) => (
-                        <option key={b} value={b}>
-                          {b}
-                        </option>
-                      ))}
-                    </select>
+              {/* UPI tab — user picks UPI here, and Razorpay Checkout opens
+                  with UPI (Collect / Intent / QR) surfaced first. Actual
+                  UPI ID capture happens inside Razorpay's PCI-compliant
+                  checkout, not in our modal. */}
+              {activeTab === "upi" && (
+                <div className="space-y-4">
+                  <div className="rounded-lg border border-[#E5E7EB] bg-[#F9FAFB] p-4">
+                    <div className="flex items-start gap-3">
+                      <div className="rounded-lg bg-white border border-[#E5E7EB] p-2 shrink-0">
+                        <Smartphone className="h-5 w-5 text-[#6C47FF]" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-[#111827]">Pay by UPI</p>
+                        <p className="text-xs text-[#6B7280] mt-1">
+                          Enter your UPI ID, scan a QR code, or approve the request
+                          directly in your UPI app. Razorpay handles the whole flow
+                          securely.
+                        </p>
+                      </div>
+                    </div>
                   </div>
-                  <p className="text-xs text-[#6B7280]">
-                    You&apos;ll be redirected to your bank&apos;s secure page to
-                    complete the payment.
+
+                  <div>
+                    <p className="text-xs font-medium text-[#111827] mb-2">
+                      Works with every major UPI app
+                    </p>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {UPI_APPS.map((app) => (
+                        <span
+                          key={app.name}
+                          className={`px-2 py-1 rounded text-[11px] font-semibold ${app.className}`}
+                        >
+                          {app.name}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  <p className="text-xs text-[#6B7280] flex items-center gap-1.5">
+                    <Lock className="h-3 w-3" /> UPI PIN is entered on your bank&apos;s
+                    secure screen — never on ours.
                   </p>
                 </div>
               )}

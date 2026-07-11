@@ -12,7 +12,7 @@ import {
   X,
   Lock,
   CreditCard,
-  Landmark,
+  Smartphone,
   Loader2,
 } from "lucide-react";
 import { ChangePlanModal } from "@/components/billing/ChangePlanModal";
@@ -35,7 +35,7 @@ function BuyCreditsModal({ onClose }: { onClose: () => void }) {
   const { user } = useUser();
   const { openCheckout } = useRazorpay();
   const [quantity, setQuantity] = useState(1000);
-  const [tab, setTab] = useState<"card" | "netbanking">("card");
+  const [tab, setTab] = useState<"card" | "upi">("card");
   const [processing, setProcessing] = useState(false);
 
   // ₹2.50/credit (250 paise) — matches app/api/billing/create-order/route.ts
@@ -80,6 +80,7 @@ function BuyCreditsModal({ onClose }: { onClose: () => void }) {
           name: user?.fullName ?? undefined,
         },
         verifyBody: { type: "credits", quantity },
+        preferredMethod: tab,
         onVerified: () => {
           toast.success(`Purchased ${quantity.toLocaleString("en-US")} credits`);
           onClose();
@@ -189,14 +190,14 @@ function BuyCreditsModal({ onClose }: { onClose: () => void }) {
                 <CreditCard className="h-4 w-4" /> Card
               </button>
               <button
-                onClick={() => setTab("netbanking")}
+                onClick={() => setTab("upi")}
                 className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-t-md transition-colors ${
-                  tab === "netbanking"
+                  tab === "upi"
                     ? "text-[#6C47FF] border-b-2 border-[#6C47FF] -mb-px"
                     : "text-[#6B7280] hover:text-[#111827]"
                 }`}
               >
-                <Landmark className="h-4 w-4" /> Net Banking
+                <Smartphone className="h-4 w-4" /> UPI
               </button>
             </div>
 
@@ -287,24 +288,50 @@ function BuyCreditsModal({ onClose }: { onClose: () => void }) {
             )}
 
 
-            {tab === "netbanking" && (
-              <div className="space-y-3">
-                <div>
-                  <label className="text-xs font-medium text-[#111827]">
-                    Select your bank
-                  </label>
-                  <select className="mt-1 w-full rounded-lg border border-[#E5E7EB] px-3 py-2.5 text-sm focus:border-[#6C47FF] focus:ring-1 focus:ring-[#6C47FF] outline-none bg-white">
-                    <option>HDFC Bank</option>
-                    <option>ICICI Bank</option>
-                    <option>SBI</option>
-                    <option>Axis Bank</option>
-                    <option>Kotak</option>
-                    <option>Yes Bank</option>
-                    <option>Other</option>
-                  </select>
+            {tab === "upi" && (
+              <div className="space-y-4">
+                <div className="rounded-lg border border-[#E5E7EB] bg-[#F9FAFB] p-4">
+                  <div className="flex items-start gap-3">
+                    <div className="rounded-lg bg-white border border-[#E5E7EB] p-2 shrink-0">
+                      <Smartphone className="h-5 w-5 text-[#6C47FF]" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-[#111827]">Pay by UPI</p>
+                      <p className="text-xs text-[#6B7280] mt-1">
+                        Enter your UPI ID, scan a QR code, or approve the request
+                        directly in your UPI app — Razorpay handles the whole flow
+                        securely.
+                      </p>
+                    </div>
+                  </div>
                 </div>
-                <p className="text-xs text-[#6B7280]">
-                  You&apos;ll be redirected to your bank&apos;s portal to complete payment
+
+                <div>
+                  <p className="text-xs font-medium text-[#111827] mb-2">
+                    Works with every major UPI app
+                  </p>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="rounded px-2 py-1 text-[11px] font-semibold bg-white border border-[#E5E7EB]">
+                      GPay
+                    </span>
+                    <span className="rounded px-2 py-1 text-[11px] font-semibold bg-[#5F259F] text-white">
+                      PhonePe
+                    </span>
+                    <span className="rounded px-2 py-1 text-[11px] font-semibold bg-[#00BAF2] text-white">
+                      Paytm
+                    </span>
+                    <span className="rounded px-2 py-1 text-[11px] font-semibold bg-[#00A651] text-white">
+                      BHIM
+                    </span>
+                    <span className="rounded px-2 py-1 text-[11px] font-semibold bg-[#232F3E] text-white">
+                      Amazon Pay
+                    </span>
+                  </div>
+                </div>
+
+                <p className="text-xs text-[#6B7280] flex items-center gap-1.5">
+                  <Lock className="h-3 w-3" /> UPI PIN is entered on your bank&apos;s
+                  secure screen — never on ours.
                 </p>
               </div>
             )}

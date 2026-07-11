@@ -14,6 +14,11 @@ interface RazorpayResponse {
   razorpay_signature: string
 }
 
+interface RazorpayDisplayBlock {
+  name: string
+  instruments: Array<{ method: string }>
+}
+
 interface RazorpayOptions {
   key: string
   amount: number
@@ -31,11 +36,20 @@ interface RazorpayOptions {
   modal?: {
     ondismiss?: () => void
   }
+  config?: {
+    display?: {
+      blocks?: Record<string, RazorpayDisplayBlock>
+      sequence?: string[]
+      preferences?: { show_default_blocks?: boolean }
+    }
+  }
 }
 
 interface RazorpayInstance {
   open: () => void
 }
+
+export type PreferredPaymentMethod = 'card' | 'upi' | 'netbanking' | 'wallet'
 
 export interface OpenCheckoutOptions {
   orderId: string
@@ -52,6 +66,13 @@ export interface OpenCheckoutOptions {
   onVerified?: (paymentId: string) => void
   verifyBody?: Record<string, unknown>
   theme?: string
+  /**
+   * When set, Razorpay Checkout opens with this payment method surfaced
+   * first (via config.display.blocks + sequence). Users can still switch
+   * to other methods within the Razorpay modal — show_default_blocks
+   * stays true.
+   */
+  preferredMethod?: PreferredPaymentMethod
 }
 
 export interface CheckoutResult {
@@ -120,6 +141,32 @@ export function useRazorpay(): {
             return
           }
 
+          // Build config.display so the user's payment-method choice in our
+          // modal (Card vs UPI) actually influences what Razorpay Checkout
+          // surfaces first. show_default_blocks stays true so the user can
+          // still switch inside Razorpay's modal — it's a preference, not a
+          // hard filter.
+          const preferenceLabels: Record<PreferredPaymentMethod, string> = {
+            upi: 'Pay using UPI',
+            card: 'Pay by Card',
+            netbanking: 'Net Banking',
+            wallet: 'Pay by Wallet',
+          }
+          const config = opts.preferredMethod
+            ? {
+                display: {
+                  blocks: {
+                    preferred: {
+                      name: preferenceLabels[opts.preferredMethod],
+                      instruments: [{ method: opts.preferredMethod }],
+                    },
+                  },
+                  sequence: ['block.preferred'],
+                  preferences: { show_default_blocks: true },
+                },
+              }
+            : undefined
+
           const rzp = new window.Razorpay({
             key: opts.keyId,
             amount: opts.amount,
@@ -129,6 +176,7 @@ export function useRazorpay(): {
             description: opts.description ?? 'Subscription',
             prefill: opts.prefill,
             theme: { color: opts.theme ?? '#6C47FF' },
+            ...(config ? { config } : {}),
             handler: async (response: RazorpayResponse) => {
               try {
                 const verifyRes = await fetch('/api/billing/verify-payment', {
