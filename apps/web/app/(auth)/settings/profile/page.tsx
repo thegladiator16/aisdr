@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
+import { useUser } from "@clerk/nextjs";
 import { toast } from "sonner";
 import Link from "next/link";
 import {
@@ -10,6 +11,10 @@ import {
   Phone,
   ExternalLink,
   X,
+  Loader2,
+  CheckCircle2,
+  Copy,
+  Check,
 } from "lucide-react";
 
 /* ------------------------------------------------------------------ */
@@ -31,7 +36,6 @@ function ConnectMailboxModal({ onClose }: { onClose: () => void }) {
       window.location.href = "/api/v1/integrations/gmail";
       return;
     }
-    // Outlook / IMAP — show coming soon
     setConnecting(true);
     setTimeout(() => {
       toast.success("IMAP / Outlook support coming soon. Use Gmail for now.");
@@ -87,25 +91,152 @@ function ConnectMailboxModal({ onClose }: { onClose: () => void }) {
 }
 
 /* ------------------------------------------------------------------ */
-/*  2FA Modal                                                          */
+/*  Change Password Modal (real Clerk password update)                 */
+/* ------------------------------------------------------------------ */
+function ChangePasswordModal({
+  user,
+  onClose,
+}: {
+  user: NonNullable<ReturnType<typeof useUser>["user"]>;
+  onClose: () => void;
+}) {
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = async () => {
+    if (user.passwordEnabled && !currentPassword) {
+      toast.error("Enter your current password");
+      return;
+    }
+    if (newPassword.length < 8) {
+      toast.error("New password must be at least 8 characters");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await user.updatePassword({
+        currentPassword: user.passwordEnabled ? currentPassword : undefined,
+        newPassword,
+        signOutOfOtherSessions: true,
+      });
+      toast.success("Password updated");
+      onClose();
+    } catch (err: any) {
+      toast.error(err?.errors?.[0]?.message ?? "Could not update password");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+      <div className="w-full max-w-md rounded-2xl bg-white shadow-xl mx-4">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+          <h2 className="text-lg font-bold text-gray-900">
+            {user.passwordEnabled ? "Change password" : "Set a password"}
+          </h2>
+          <button onClick={onClose} className="p-1 text-gray-400 hover:text-gray-600 rounded">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <div className="p-6 space-y-4">
+          {user.passwordEnabled && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Current password
+              </label>
+              <input
+                type="password"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500"
+              />
+            </div>
+          )}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              New password
+            </label>
+            <input
+              type="password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500"
+            />
+          </div>
+          <div className="flex justify-end gap-3 pt-2">
+            <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50">
+              Cancel
+            </button>
+            <button
+              onClick={handleSubmit}
+              disabled={submitting}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-[#6C47FF] text-white text-sm font-medium rounded-lg hover:bg-[#5a3ad4] transition-colors disabled:opacity-50"
+            >
+              {submitting && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+              Save
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  2FA Modal (real Clerk TOTP)                                        */
 /* ------------------------------------------------------------------ */
 function TwoFactorModal({
+  user,
   onClose,
   onEnable,
 }: {
+  user: NonNullable<ReturnType<typeof useUser>["user"]>;
   onClose: () => void;
   onEnable: () => void;
 }) {
+  const [secret, setSecret] = useState<string | null>(null);
+  const [loadingSecret, setLoadingSecret] = useState(true);
   const [code, setCode] = useState("");
+  const [verifying, setVerifying] = useState(false);
+  const [copied, setCopied] = useState(false);
 
-  const handleVerify = () => {
+  useEffect(() => {
+    user
+      .createTOTP()
+      .then((totp) => setSecret(totp.secret ?? null))
+      .catch(() => toast.error("Could not start 2FA setup"))
+      .finally(() => setLoadingSecret(false));
+  }, [user]);
+
+  const handleCopy = async () => {
+    if (!secret) return;
+    try {
+      await navigator.clipboard.writeText(secret);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleVerify = async () => {
     if (code.length !== 6) {
       toast.error("Please enter a 6-digit code");
       return;
     }
-    toast.success("2FA enabled successfully");
-    onEnable();
-    onClose();
+    setVerifying(true);
+    try {
+      await user.verifyTOTP({ code });
+      toast.success("2FA enabled successfully");
+      onEnable();
+      onClose();
+    } catch (err: any) {
+      toast.error(err?.errors?.[0]?.message ?? "Invalid code — try again");
+    } finally {
+      setVerifying(false);
+    }
   };
 
   return (
@@ -121,13 +252,27 @@ function TwoFactorModal({
         </div>
         <div className="p-6 space-y-6">
           <p className="text-sm text-gray-600">
-            Scan this QR code with your authenticator app (Google Authenticator, Authy, etc.)
+            Add this key to your authenticator app (Google Authenticator, Authy, etc.) —
+            look for &quot;enter a setup key&quot; instead of scanning a QR code.
           </p>
-          {/* QR Code placeholder */}
-          <div className="flex justify-center">
-            <div className="h-[150px] w-[150px] bg-gray-100 border-2 border-dashed border-gray-300 rounded-xl flex items-center justify-center">
-              <span className="text-sm font-medium text-gray-400">QR Code</span>
-            </div>
+          <div className="flex items-center justify-center">
+            {loadingSecret ? (
+              <Loader2 className="h-6 w-6 text-gray-300 animate-spin" />
+            ) : secret ? (
+              <button
+                onClick={handleCopy}
+                className="flex items-center gap-2 rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 px-4 py-3 font-mono text-sm text-gray-700 hover:bg-gray-100 transition"
+              >
+                {secret.match(/.{1,4}/g)?.join(" ")}
+                {copied ? (
+                  <Check className="h-4 w-4 text-green-600" />
+                ) : (
+                  <Copy className="h-4 w-4 text-gray-400" />
+                )}
+              </button>
+            ) : (
+              <p className="text-sm text-red-500">Could not generate a setup key</p>
+            )}
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2 text-center">
@@ -148,8 +293,10 @@ function TwoFactorModal({
             </button>
             <button
               onClick={handleVerify}
-              className="px-4 py-2 bg-[#6C47FF] text-white text-sm font-medium rounded-lg hover:bg-[#5a3ad4] transition-colors"
+              disabled={verifying || !secret}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-[#6C47FF] text-white text-sm font-medium rounded-lg hover:bg-[#5a3ad4] transition-colors disabled:opacity-50"
             >
+              {verifying && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
               Verify
             </button>
           </div>
@@ -171,15 +318,24 @@ function EditableField({
   label: string;
   addLabel: string;
   value: string;
-  onChange: (v: string) => void;
+  onChange: (v: string) => Promise<void> | void;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);
+  const [saving, setSaving] = useState(false);
 
-  const save = () => {
-    onChange(draft.trim());
-    setEditing(false);
-    if (draft.trim()) toast.success(`${label} updated`);
+  useEffect(() => {
+    setDraft(value);
+  }, [value]);
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      await onChange(draft.trim());
+      setEditing(false);
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -204,9 +360,10 @@ function EditableField({
           />
           <button
             onClick={save}
-            className="px-3 py-1.5 text-xs font-medium text-white bg-[#6C47FF] rounded-lg hover:bg-[#5a3ad4]"
+            disabled={saving}
+            className="px-3 py-1.5 text-xs font-medium text-white bg-[#6C47FF] rounded-lg hover:bg-[#5a3ad4] disabled:opacity-50"
           >
-            Save
+            {saving ? "Saving..." : "Save"}
           </button>
           <button
             onClick={() => {
@@ -247,42 +404,127 @@ function EditableField({
 /*  Profile Page                                                       */
 /* ------------------------------------------------------------------ */
 export default function ProfilePage() {
+  const { user, isLoaded } = useUser();
   const [activeTab, setActiveTab] = useState<"primary" | "secondary" | "dialer">("primary");
 
-  /* Profile fields */
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
-  const [fullName, setFullName] = useState("Shashank Kumar");
-  const [role] = useState("Owner");
+  const [fullName, setFullName] = useState("");
+  const [savingName, setSavingName] = useState(false);
 
   /* Personalization context */
   const [city, setCity] = useState("");
   const [companies, setCompanies] = useState("");
   const [schools, setSchools] = useState("");
+  const [loadingProfile, setLoadingProfile] = useState(true);
 
   /* Security */
-  const [twoFAEnabled, setTwoFAEnabled] = useState(false);
   const [show2FAModal, setShow2FAModal] = useState(false);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
 
-  /* Mailbox modal */
+  /* Mailbox modal + real connection status */
   const [showMailboxModal, setShowMailboxModal] = useState(false);
+  const [gmailConnected, setGmailConnected] = useState<boolean | null>(null);
 
-  /* Avatar change handler */
-  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  /* Campaign membership */
+  const [activeCampaigns, setActiveCampaigns] = useState<{ id: string; name: string; status: string | null }[]>([]);
+
+  useEffect(() => {
+    if (user) setFullName(user.fullName ?? "");
+  }, [user]);
+
+  useEffect(() => {
+    fetch("/api/user/profile", { cache: "no-store" })
+      .then((res) => res.json())
+      .then((json) => {
+        setCity(json.personalCity ?? "");
+        setCompanies(json.previousCompanies ?? "");
+        setSchools(json.previousSchools ?? "");
+      })
+      .catch(() => toast.error("Could not load profile"))
+      .finally(() => setLoadingProfile(false));
+
+    fetch("/api/v1/integrations/status", { cache: "no-store" })
+      .then((res) => res.json())
+      .then((json) => setGmailConnected(!!json.gmail))
+      .catch(() => setGmailConnected(false));
+
+    fetch("/api/campaigns", { cache: "no-store" })
+      .then((res) => res.json())
+      .then((json) => {
+        const active = (json.data ?? []).filter(
+          (c: any) => c.status === "active" || c.status === "paused"
+        );
+        setActiveCampaigns(active);
+      })
+      .catch(() => {});
+  }, []);
+
+  const savePersonalization = async (
+    field: "personalCity" | "previousCompanies" | "previousSchools",
+    value: string,
+    label: string
+  ) => {
+    try {
+      const res = await fetch("/api/user/profile", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ [field]: value }),
+      });
+      if (!res.ok) {
+        toast.error(`Could not update ${label.toLowerCase()}`);
+        return;
+      }
+      if (field === "personalCity") setCity(value);
+      if (field === "previousCompanies") setCompanies(value);
+      if (field === "previousSchools") setSchools(value);
+      toast.success(`${label} updated`);
+    } catch {
+      toast.error(`Could not update ${label.toLowerCase()}`);
+    }
+  };
+
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const url = URL.createObjectURL(file);
-      setAvatarPreview(url);
+    if (!file || !user) return;
+    try {
+      await user.setProfileImage({ file });
       toast.success("Profile photo updated");
+    } catch {
+      toast.error("Could not update profile photo");
     }
   };
 
-  /* Name save handler */
-  const handleNameBlur = () => {
-    if (fullName.trim()) {
+  const handleNameBlur = async () => {
+    if (!user || !fullName.trim() || fullName === user.fullName) return;
+    setSavingName(true);
+    try {
+      const [firstName, ...rest] = fullName.trim().split(/\s+/);
+      await user.update({ firstName, lastName: rest.join(" ") || undefined });
       toast.success("Profile updated");
+    } catch {
+      toast.error("Could not update name");
+    } finally {
+      setSavingName(false);
     }
   };
+
+  const handleDisable2FA = async () => {
+    if (!user) return;
+    try {
+      await user.disableTOTP();
+      toast.success("2FA disabled");
+    } catch {
+      toast.error("Could not disable 2FA");
+    }
+  };
+
+  if (!isLoaded || !user) {
+    return (
+      <div className="flex justify-center py-20">
+        <Loader2 className="h-6 w-6 text-gray-300 animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-3xl space-y-6">
@@ -295,37 +537,33 @@ export default function ProfilePage() {
       </div>
 
       {/* Warning card */}
-      <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <AlertTriangle className="h-5 w-5 text-amber-500" />
-          <div>
-            <p className="text-sm font-bold text-amber-800">Issues you can fix</p>
-            <p className="text-sm text-amber-700">Your primary mailbox is not connected</p>
+      {gmailConnected === false && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <AlertTriangle className="h-5 w-5 text-amber-500" />
+            <div>
+              <p className="text-sm font-bold text-amber-800">Issues you can fix</p>
+              <p className="text-sm text-amber-700">Your primary mailbox is not connected</p>
+            </div>
           </div>
+          <button
+            onClick={() => setShowMailboxModal(true)}
+            className="px-4 py-2 bg-[#6C47FF] text-white text-sm font-medium rounded-lg hover:bg-[#5a3ad4] transition-colors"
+          >
+            Connect mailbox
+          </button>
         </div>
-        <button
-          onClick={() => setShowMailboxModal(true)}
-          className="px-4 py-2 bg-[#6C47FF] text-white text-sm font-medium rounded-lg hover:bg-[#5a3ad4] transition-colors"
-        >
-          Connect mailbox
-        </button>
-      </div>
+      )}
 
       {/* Profile section */}
       <div className="bg-white border border-gray-200 rounded-xl p-6 space-y-6">
         <div className="flex items-center gap-4">
           <div className="relative">
-            {avatarPreview ? (
-              <img
-                src={avatarPreview}
-                alt="Avatar"
-                className="h-14 w-14 rounded-full object-cover"
-              />
-            ) : (
-              <div className="h-14 w-14 bg-violet-100 text-violet-700 font-bold text-lg rounded-full flex items-center justify-center">
-                {fullName.charAt(0).toUpperCase()}
-              </div>
-            )}
+            <img
+              src={user.imageUrl}
+              alt="Avatar"
+              className="h-14 w-14 rounded-full object-cover"
+            />
             <input
               ref={fileInputRef}
               type="file"
@@ -348,19 +586,18 @@ export default function ProfilePage() {
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
                 onBlur={handleNameBlur}
+                disabled={savingName}
                 className="w-full px-3 py-2 bg-white text-sm text-gray-700 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
               />
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1">Role</label>
               <select
-                value={role}
+                value="Owner"
                 disabled
                 className="w-full px-3 py-2 bg-gray-100 text-sm text-gray-700 rounded-lg border border-gray-200 cursor-not-allowed"
               >
                 <option>Owner</option>
-                <option>Admin</option>
-                <option>Member</option>
               </select>
             </div>
           </div>
@@ -370,15 +607,34 @@ export default function ProfilePage() {
       {/* Context for personalizations */}
       <div className="bg-white border border-gray-200 rounded-xl p-6 space-y-4">
         <h2 className="text-base font-semibold text-gray-900">Context for personalizations</h2>
-        <div className="space-y-3">
-          <EditableField label="City you live in" addLabel="+ Add city" value={city} onChange={setCity} />
-          <div className="border-t border-gray-100">
-            <EditableField label="Previous companies" addLabel="+ Add companies" value={companies} onChange={setCompanies} />
+        {loadingProfile ? (
+          <Loader2 className="h-4 w-4 text-gray-300 animate-spin" />
+        ) : (
+          <div className="space-y-3">
+            <EditableField
+              label="City you live in"
+              addLabel="+ Add city"
+              value={city}
+              onChange={(v) => savePersonalization("personalCity", v, "City")}
+            />
+            <div className="border-t border-gray-100">
+              <EditableField
+                label="Previous companies"
+                addLabel="+ Add companies"
+                value={companies}
+                onChange={(v) => savePersonalization("previousCompanies", v, "Previous companies")}
+              />
+            </div>
+            <div className="border-t border-gray-100">
+              <EditableField
+                label="Previous schools"
+                addLabel="+ Add schools"
+                value={schools}
+                onChange={(v) => savePersonalization("previousSchools", v, "Previous schools")}
+              />
+            </div>
           </div>
-          <div className="border-t border-gray-100">
-            <EditableField label="Previous schools" addLabel="+ Add schools" value={schools} onChange={setSchools} />
-          </div>
-        </div>
+        )}
       </div>
 
       {/* Account security */}
@@ -387,20 +643,26 @@ export default function ProfilePage() {
         <div className="space-y-3">
           <div className="flex items-center justify-between py-2">
             <div>
-              <p className="text-sm font-medium text-gray-700">Reset password</p>
-              <p className="text-xs text-gray-500">Send a password reset link to your email</p>
+              <p className="text-sm font-medium text-gray-700">
+                {user.passwordEnabled ? "Change password" : "Set a password"}
+              </p>
+              <p className="text-xs text-gray-500">
+                {user.passwordEnabled
+                  ? "Update the password used to sign in"
+                  : `Signed in via ${user.externalAccounts[0]?.provider ?? "an external provider"} — set a password to also sign in directly`}
+              </p>
             </div>
             <button
-              onClick={() => toast.success("Password reset email sent to your email")}
+              onClick={() => setShowPasswordModal(true)}
               className="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
             >
-              Reset
+              {user.passwordEnabled ? "Change" : "Set password"}
             </button>
           </div>
           <div className="flex items-center justify-between py-2 border-t border-gray-100">
             <div>
               <p className="text-sm font-medium text-gray-700">Two Factor Authentication (2FA)</p>
-              {twoFAEnabled ? (
+              {user.totpEnabled ? (
                 <span className="inline-block mt-1 px-2 py-0.5 text-xs font-medium text-green-700 bg-green-100 rounded-full">
                   Enabled
                 </span>
@@ -412,16 +674,19 @@ export default function ProfilePage() {
             </div>
             <button
               onClick={() => {
-                if (!twoFAEnabled) setShow2FAModal(true);
+                if (user.totpEnabled) {
+                  handleDisable2FA();
+                } else {
+                  setShow2FAModal(true);
+                }
               }}
-              disabled={twoFAEnabled}
               className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
-                twoFAEnabled
-                  ? "text-green-700 border border-green-300 bg-green-50 cursor-default"
+                user.totpEnabled
+                  ? "text-red-600 border border-red-200 hover:bg-red-50"
                   : "text-gray-700 border border-gray-300 hover:bg-gray-50"
               }`}
             >
-              {twoFAEnabled ? "Enabled" : "Enable"}
+              {user.totpEnabled ? "Disable" : "Enable"}
             </button>
           </div>
         </div>
@@ -439,7 +704,7 @@ export default function ProfilePage() {
                 : "border-transparent text-gray-500 hover:text-gray-700"
             }`}
           >
-            <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
+            {gmailConnected === false && <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />}
             Primary mailbox
           </button>
           <button
@@ -464,19 +729,26 @@ export default function ProfilePage() {
           </button>
         </div>
 
-        {activeTab === "primary" && (
-          <div className="text-center py-8 space-y-3">
-            <Mail className="h-10 w-10 text-gray-300 mx-auto" />
-            <h3 className="text-sm font-semibold text-gray-900">Connect mailbox</h3>
-            <p className="text-sm text-gray-500">Your primary mailbox is not connected</p>
-            <button
-              onClick={() => setShowMailboxModal(true)}
-              className="px-4 py-2 bg-[#6C47FF] text-white text-sm font-medium rounded-lg hover:bg-[#5a3ad4] transition-colors"
-            >
-              Connect mailbox
-            </button>
-          </div>
-        )}
+        {activeTab === "primary" &&
+          (gmailConnected === true ? (
+            <div className="text-center py-8 space-y-3">
+              <CheckCircle2 className="h-10 w-10 text-green-500 mx-auto" />
+              <h3 className="text-sm font-semibold text-gray-900">Gmail connected</h3>
+              <p className="text-sm text-gray-500">Your primary mailbox is connected and sending.</p>
+            </div>
+          ) : (
+            <div className="text-center py-8 space-y-3">
+              <Mail className="h-10 w-10 text-gray-300 mx-auto" />
+              <h3 className="text-sm font-semibold text-gray-900">Connect mailbox</h3>
+              <p className="text-sm text-gray-500">Your primary mailbox is not connected</p>
+              <button
+                onClick={() => setShowMailboxModal(true)}
+                className="px-4 py-2 bg-[#6C47FF] text-white text-sm font-medium rounded-lg hover:bg-[#5a3ad4] transition-colors"
+              >
+                Connect mailbox
+              </button>
+            </div>
+          ))}
 
         {activeTab === "secondary" && (
           <div className="text-center py-8 text-sm text-gray-500">
@@ -487,7 +759,9 @@ export default function ProfilePage() {
         {activeTab === "dialer" && (
           <div className="text-center py-8 space-y-3">
             <Phone className="h-10 w-10 text-gray-300 mx-auto" />
-            <p className="text-sm text-gray-500">Dialer not configured</p>
+            <p className="text-sm text-gray-500">
+              Dialer requires a telephony provider (e.g. Twilio) that isn&apos;t connected yet
+            </p>
           </div>
         )}
       </div>
@@ -495,24 +769,42 @@ export default function ProfilePage() {
       {/* Campaign membership */}
       <div className="bg-white border border-gray-200 rounded-xl p-6 space-y-4">
         <h2 className="text-base font-semibold text-gray-900">Campaign membership</h2>
-        <div className="text-center py-8 space-y-2">
-          <p className="text-sm text-gray-500">No active or paused campaigns</p>
-          <Link
-            href="/campaigns"
-            className="text-sm font-medium text-violet-600 hover:text-violet-700 inline-flex items-center gap-1"
-          >
-            View all campaigns
-            <ExternalLink className="h-3.5 w-3.5" />
-          </Link>
-        </div>
+        {activeCampaigns.length > 0 ? (
+          <div className="space-y-2">
+            {activeCampaigns.map((c) => (
+              <div
+                key={c.id}
+                className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0"
+              >
+                <span className="text-sm text-gray-900">{c.name}</span>
+                <span className="text-xs text-gray-500 capitalize">{c.status}</span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-8 space-y-2">
+            <p className="text-sm text-gray-500">No active or paused campaigns</p>
+          </div>
+        )}
+        <Link
+          href="/campaigns"
+          className="text-sm font-medium text-violet-600 hover:text-violet-700 inline-flex items-center gap-1"
+        >
+          View all campaigns
+          <ExternalLink className="h-3.5 w-3.5" />
+        </Link>
       </div>
 
       {/* Modals */}
       {showMailboxModal && <ConnectMailboxModal onClose={() => setShowMailboxModal(false)} />}
+      {showPasswordModal && (
+        <ChangePasswordModal user={user} onClose={() => setShowPasswordModal(false)} />
+      )}
       {show2FAModal && (
         <TwoFactorModal
+          user={user}
           onClose={() => setShow2FAModal(false)}
-          onEnable={() => setTwoFAEnabled(true)}
+          onEnable={() => {}}
         />
       )}
     </div>

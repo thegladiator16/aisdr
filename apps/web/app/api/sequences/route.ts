@@ -4,6 +4,7 @@ import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { sequences, campaigns } from "@aisdr/db/schema";
 import { eq, and, desc } from "drizzle-orm";
+import { ensureCampaignsColumns } from "@/lib/db/ensure-schema";
 
 const stepSchema = z.object({
   stepNumber: z.number(),
@@ -52,6 +53,8 @@ export async function POST(req: NextRequest) {
     const user = await requireUser();
     const body = (await req.json()) as unknown;
     const parsed = createSequenceSchema.parse(body);
+
+    await ensureCampaignsColumns();
 
     const campaign = await db
       .select()

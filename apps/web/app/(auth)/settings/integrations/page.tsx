@@ -1,254 +1,233 @@
-"use client";
+import { getCurrentUser } from "@/lib/auth";
+import { getUserIntegrations } from "@/lib/db/queries";
+import {
+  Mail,
+  Linkedin,
+  MessageCircle,
+  Calendar,
+  CheckCircle2,
+  AlertCircle,
+  Clock,
+} from "lucide-react";
+import Link from "next/link";
+import { cn } from "@/lib/utils";
 
-import { useState } from "react";
-import { toast } from "sonner";
-import { Cloud, X, Loader2 } from "lucide-react";
+const REAL_INTEGRATIONS = [
+  {
+    type: "gmail",
+    label: "Gmail",
+    description: "Send emails from your Gmail account. Replies sync automatically.",
+    icon: Mail,
+    connectUrl: "/api/v1/integrations/gmail",
+    color: "text-red-500 bg-red-50",
+  },
+  {
+    type: "google_calendar",
+    label: "Google Calendar",
+    description: "Auto-create calendar events when meetings are booked.",
+    icon: Calendar,
+    connectUrl: "/api/v1/integrations/gmail",
+    color: "text-blue-500 bg-blue-50",
+  },
+];
 
-/* ------------------------------------------------------------------ */
-/*  Integration Connect Modal                                          */
-/* ------------------------------------------------------------------ */
-function IntegrationModal({
-  title,
-  description,
-  inputLabel,
-  inputPlaceholder,
-  connectLabel,
-  oauthLabel,
-  onClose,
-  onConnect,
+const COMING_SOON = [
+  {
+    label: "HubSpot",
+    description: "Sync contacts and deals with your HubSpot CRM",
+    icon: (
+      <div className="h-10 w-10 bg-orange-500 rounded-full flex items-center justify-center text-white font-bold text-lg">
+        H
+      </div>
+    ),
+  },
+  {
+    label: "Salesforce",
+    description: "Connect your Salesforce account for lead management",
+    icon: (
+      <div className="h-10 w-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold text-lg">
+        SF
+      </div>
+    ),
+  },
+  {
+    label: "Slack",
+    description: "Get real-time notifications and updates in your Slack workspace",
+    icon: (
+      <div className="h-10 w-10 bg-gradient-to-br from-green-400 via-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-bold text-lg">
+        #
+      </div>
+    ),
+  },
+  {
+    label: "LinkedIn",
+    description: "Send connection requests and DMs via PhantomBuster",
+    icon: <Linkedin className="h-10 w-10 text-blue-600 bg-blue-50 rounded-full p-2" />,
+  },
+  {
+    label: "WhatsApp Business",
+    description: "Send WhatsApp messages to Indian leads via Meta Cloud API",
+    icon: <MessageCircle className="h-10 w-10 text-green-600 bg-green-50 rounded-full p-2" />,
+  },
+];
+
+export default async function SettingsIntegrationsPage({
+  searchParams,
 }: {
-  title: string;
-  description: string;
-  inputLabel: string;
-  inputPlaceholder: string;
-  connectLabel: string;
-  oauthLabel?: string;
-  onClose: () => void;
-  onConnect: () => void;
+  searchParams: { connected?: string; error?: string };
 }) {
-  const [inputValue, setInputValue] = useState("");
-  const [connecting, setConnecting] = useState(false);
+  let userIntegrations: Awaited<ReturnType<typeof getUserIntegrations>> = [];
 
-  const handleConnect = () => {
-    if (!inputValue.trim()) {
-      toast.error(`Please enter your ${inputLabel.toLowerCase()}`);
-      return;
+  try {
+    const user = await getCurrentUser();
+    if (user) {
+      userIntegrations = await getUserIntegrations(user.id);
     }
-    setConnecting(true);
-    setTimeout(() => {
-      onConnect();
-      setConnecting(false);
-    }, 1000);
-  };
+  } catch {
+    userIntegrations = [];
+  }
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-      <div className="w-full max-w-md rounded-2xl bg-white shadow-xl mx-4">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
-          <h2 className="text-lg font-bold text-gray-900">{title}</h2>
-          <button onClick={onClose} className="p-1 text-gray-400 hover:text-gray-600 rounded">
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-        <div className="p-6 space-y-4">
-          <p className="text-sm text-gray-600">{description}</p>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">{inputLabel}</label>
-            <input
-              autoFocus
-              type="text"
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") handleConnect();
-              }}
-              placeholder={inputPlaceholder}
-              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
-            />
-          </div>
-          {oauthLabel && (
-            <button
-              onClick={handleConnect}
-              className="text-sm text-violet-600 hover:text-violet-700 font-medium"
-            >
-              {oauthLabel}
-            </button>
-          )}
-          <div className="flex justify-end gap-3 pt-2">
-            <button
-              onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleConnect}
-              disabled={connecting}
-              className="px-4 py-2 bg-[#6C47FF] text-white text-sm font-medium rounded-lg hover:bg-[#5a3ad4] transition-colors disabled:opacity-50 flex items-center gap-2"
-            >
-              {connecting && <Loader2 className="h-4 w-4 animate-spin" />}
-              {connecting ? "Connecting..." : connectLabel}
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
+  const connectedTypes = new Set(
+    userIntegrations.filter((i) => i.accessToken).map((i) => i.type)
   );
-}
+  const gmailIntegration = userIntegrations.find((i) => i.type === "gmail");
 
-/* ------------------------------------------------------------------ */
-/*  Integration Card                                                   */
-/* ------------------------------------------------------------------ */
-function IntegrationCard({
-  icon,
-  title,
-  description,
-  connected,
-  onConnect,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  description: string;
-  connected: boolean;
-  onConnect: () => void;
-}) {
-  return (
-    <div className="bg-white border border-gray-200 rounded-xl p-6 flex items-start gap-4">
-      <div className="shrink-0">{icon}</div>
-      <div className="flex-1 min-w-0">
-        <h3 className="text-sm font-semibold text-gray-900">{title}</h3>
-        <p className="text-xs text-gray-500 mt-1">{description}</p>
-      </div>
-      {connected ? (
-        <span className="shrink-0 px-4 py-2 bg-green-50 text-green-700 text-sm font-medium rounded-lg border border-green-200 cursor-default">
-          Connected
-        </span>
-      ) : (
-        <button
-          onClick={onConnect}
-          className="shrink-0 px-4 py-2 bg-[#6C47FF] text-white text-sm font-medium rounded-lg hover:bg-[#5a3ad4] transition-colors"
-        >
-          Connect
-        </button>
-      )}
-    </div>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/*  Integrations Page                                                  */
-/* ------------------------------------------------------------------ */
-export default function IntegrationsPage() {
-  const [hubspotConnected, setHubspotConnected] = useState(false);
-  const [salesforceConnected, setSalesforceConnected] = useState(false);
-  const [slackConnected, setSlackConnected] = useState(false);
-
-  const [showModal, setShowModal] = useState<"hubspot" | "salesforce" | "slack" | null>(null);
+  const googleNotConfigured = searchParams.error === "google_not_configured";
 
   return (
     <div className="max-w-3xl space-y-8">
-      {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Integrations</h1>
+        <p className="text-sm text-gray-500 mt-1">
+          Connect your accounts to enable automated outreach.
+        </p>
       </div>
 
-      {/* CRM */}
-      <div className="space-y-4">
-        <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">CRM</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <IntegrationCard
-            icon={
-              <div className="h-10 w-10 bg-orange-500 rounded-full flex items-center justify-center text-white font-bold text-lg">
-                H
-              </div>
-            }
-            title="HubSpot"
-            description="Sync contacts and deals with your HubSpot CRM"
-            connected={hubspotConnected}
-            onConnect={() => setShowModal("hubspot")}
-          />
-          <IntegrationCard
-            icon={
-              <div className="h-10 w-10 bg-blue-500 rounded-full flex items-center justify-center">
-                <Cloud className="h-5 w-5 text-white" />
-              </div>
-            }
-            title="Salesforce"
-            description="Connect your Salesforce account for lead management"
-            connected={salesforceConnected}
-            onConnect={() => setShowModal("salesforce")}
-          />
+      {searchParams.connected && (
+        <div className="flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+          <CheckCircle2 className="h-4 w-4 shrink-0" />
+          {searchParams.connected} connected successfully!
         </div>
-      </div>
+      )}
 
-      {/* Communication */}
+      {googleNotConfigured && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-4 space-y-2">
+          <div className="flex items-center gap-2 text-sm font-medium text-amber-700">
+            <AlertCircle className="h-4 w-4 shrink-0" />
+            Google OAuth not configured
+          </div>
+          <p className="text-xs text-amber-700/80 leading-relaxed">
+            To enable Gmail and Calendar, set{" "}
+            <code className="rounded bg-amber-100 px-1 py-0.5">GOOGLE_CLIENT_ID</code> and{" "}
+            <code className="rounded bg-amber-100 px-1 py-0.5">GOOGLE_CLIENT_SECRET</code> in your
+            environment variables.
+          </p>
+        </div>
+      )}
+
+      {searchParams.error && !googleNotConfigured && (
+        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          Connection failed. Please try again.
+        </div>
+      )}
+
+      {/* Email & Calendar */}
       <div className="space-y-4">
         <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">
-          Communication
+          Email &amp; Calendar
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <IntegrationCard
-            icon={
-              <div className="h-10 w-10 bg-gradient-to-br from-green-400 via-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-bold text-lg">
-                #
+          {REAL_INTEGRATIONS.map(({ type, label, description, icon: Icon, connectUrl, color }) => {
+            const isConnected = connectedTypes.has("gmail"); // one OAuth grant covers both
+            return (
+              <div
+                key={type}
+                className="bg-white border border-gray-200 rounded-xl p-6 flex flex-col gap-4"
+              >
+                <div className="flex items-center gap-3">
+                  <div className={cn("rounded-lg p-2.5", color)}>
+                    <Icon className="h-5 w-5" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="text-sm font-semibold text-gray-900">{label}</h3>
+                      {isConnected && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-2 py-0.5 text-xs text-green-700">
+                          <CheckCircle2 className="h-3 w-3" />
+                          Connected
+                        </span>
+                      )}
+                    </div>
+                    {isConnected && gmailIntegration?.accountEmail && (
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        {gmailIntegration.accountEmail}
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <p className="text-xs text-gray-500">{description}</p>
+                {isConnected ? (
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="text-center">
+                      <p className="text-sm font-bold text-gray-900">
+                        {gmailIntegration?.emailsSentToday ?? 0}
+                      </p>
+                      <p className="text-xs text-gray-500">Today</p>
+                    </div>
+                    <div className="text-center border-x border-gray-100">
+                      <p className="text-sm font-bold text-gray-900">
+                        {gmailIntegration?.dailyEmailLimit ?? "—"}
+                      </p>
+                      <p className="text-xs text-gray-500">Limit</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-sm font-bold text-gray-900">
+                        {gmailIntegration?.status === "active" ? "✓" : "!"}
+                      </p>
+                      <p className="text-xs text-gray-500">Status</p>
+                    </div>
+                  </div>
+                ) : (
+                  <Link
+                    href={connectUrl}
+                    className="inline-flex items-center justify-center rounded-lg bg-[#6C47FF] px-4 py-2 text-sm font-medium text-white hover:bg-[#5a3ad4] transition-colors"
+                  >
+                    Connect {label}
+                  </Link>
+                )}
               </div>
-            }
-            title="Slack"
-            description="Get real-time notifications and updates in your Slack workspace"
-            connected={slackConnected}
-            onConnect={() => setShowModal("slack")}
-          />
+            );
+          })}
         </div>
       </div>
 
-      {/* Modals */}
-      {showModal === "hubspot" && (
-        <IntegrationModal
-          title="Connect HubSpot CRM"
-          description="Sync contacts, deals and activities with HubSpot CRM."
-          inputLabel="API Key"
-          inputPlaceholder="Enter your HubSpot API key"
-          connectLabel="Connect"
-          oauthLabel="Or connect with OAuth"
-          onClose={() => setShowModal(null)}
-          onConnect={() => {
-            setHubspotConnected(true);
-            setShowModal(null);
-            toast.success("HubSpot connected!");
-          }}
-        />
-      )}
-      {showModal === "salesforce" && (
-        <IntegrationModal
-          title="Connect Salesforce CRM"
-          description="Sync contacts, leads and opportunities with Salesforce CRM."
-          inputLabel="API Key"
-          inputPlaceholder="Enter your Salesforce API key"
-          connectLabel="Connect"
-          oauthLabel="Or connect with OAuth"
-          onClose={() => setShowModal(null)}
-          onConnect={() => {
-            setSalesforceConnected(true);
-            setShowModal(null);
-            toast.success("Salesforce connected!");
-          }}
-        />
-      )}
-      {showModal === "slack" && (
-        <IntegrationModal
-          title="Connect Slack workspace"
-          description="Get notifications and updates in your Slack workspace."
-          inputLabel="Workspace URL"
-          inputPlaceholder="your-workspace.slack.com"
-          connectLabel="Connect with Slack"
-          onClose={() => setShowModal(null)}
-          onConnect={() => {
-            setSlackConnected(true);
-            setShowModal(null);
-            toast.success("Slack connected!");
-          }}
-        />
-      )}
+      {/* Coming soon */}
+      <div className="space-y-4">
+        <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">
+          More integrations
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {COMING_SOON.map(({ label, description, icon }) => (
+            <div
+              key={label}
+              className="bg-white border border-gray-200 rounded-xl p-6 flex items-start gap-4"
+            >
+              <div className="shrink-0">{icon}</div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="text-sm font-semibold text-gray-900">{label}</h3>
+                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-xs text-amber-700">
+                    <Clock className="h-3 w-3" />
+                    Coming soon
+                  </span>
+                </div>
+                <p className="text-xs text-gray-500 mt-1">{description}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }

@@ -4,8 +4,10 @@ import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { campaigns } from "@aisdr/db/schema";
 import { eq, and } from "drizzle-orm";
+import { ensureCampaignsColumns } from "@/lib/db/ensure-schema";
 
 async function getCampaignOrFail(userId: string, id: string) {
+  await ensureCampaignsColumns();
   const result = await db
     .select()
     .from(campaigns)
@@ -73,6 +75,7 @@ export async function PATCH(
 ) {
   try {
     const user = await requireUser();
+    await ensureCampaignsColumns();
     const body = await req.json() as { action: string };
     const { action } = body;
 

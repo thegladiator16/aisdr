@@ -4,6 +4,7 @@ import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { campaigns } from "@aisdr/db/schema";
 import { eq, desc } from "drizzle-orm";
+import { ensureCampaignsColumns } from "@/lib/db/ensure-schema";
 
 const createCampaignSchema = z.object({
   name: z.string().min(1).max(500),
@@ -29,6 +30,7 @@ const createCampaignSchema = z.object({
 export async function GET() {
   try {
     const user = await requireUser();
+    await ensureCampaignsColumns();
     const result = await db
       .select()
       .from(campaigns)
@@ -43,6 +45,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   try {
     const user = await requireUser();
+    await ensureCampaignsColumns();
     const body = await req.json() as unknown;
     const parsed = createCampaignSchema.parse(body);
 

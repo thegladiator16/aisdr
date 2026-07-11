@@ -209,8 +209,17 @@ export function ChangePlanModal({ onClose }: { onClose: () => void }) {
     [selectedPlanKey]
   );
 
+  // selectedPlan.yearly is the PER-MONTH equivalent price when billed
+  // annually (e.g. "₹14,999/mo billed yearly") — matches how it's displayed
+  // on the plan-selection card. The actual charge for yearly billing is 12x
+  // that, matching lib/payments/razorpay.ts's PLAN_PRICES_INR.yearly (which
+  // is literally `pricePerMonth * 12`). This was previously missing here,
+  // showing e.g. "Pay ₹17,699" while Razorpay's checkout actually demanded
+  // ~₹212,382 (12x more) — a real billing/trust bug, not just cosmetic.
   const subtotal = selectedPlan
-    ? (billing === "monthly" ? selectedPlan.monthly : selectedPlan.yearly) ?? 0
+    ? billing === "monthly"
+      ? selectedPlan.monthly ?? 0
+      : (selectedPlan.yearly ?? 0) * 12
     : 0;
   const tax = Math.round(subtotal * GST_RATE);
   const total = subtotal + tax;

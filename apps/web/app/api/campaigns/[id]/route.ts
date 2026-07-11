@@ -4,6 +4,7 @@ import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { campaigns, leads } from "@aisdr/db/schema";
 import { eq, and, count } from "drizzle-orm";
+import { ensureCampaignsColumns } from "@/lib/db/ensure-schema";
 
 const updateCampaignSchema = z.object({
   name: z.string().min(1).optional(),
@@ -20,6 +21,7 @@ export async function GET(
 ) {
   try {
     const user = await requireUser();
+    await ensureCampaignsColumns();
 
     const result = await db
       .select()
@@ -115,6 +117,7 @@ export async function DELETE(
 ) {
   try {
     const user = await requireUser();
+    await ensureCampaignsColumns();
 
     const result = await db
       .delete(campaigns)

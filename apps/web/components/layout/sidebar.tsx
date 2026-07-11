@@ -74,6 +74,9 @@ export function Sidebar({ onChatOpen }: SidebarProps) {
   const { data: subscription } = useSubscription();
 
   const credits = subscription?.credits ?? 10000;
+  const creditsUsed = subscription?.creditsUsed ?? 0;
+  const creditsRemaining = Math.max(0, credits - creditsUsed);
+  const creditsUsagePct = credits > 0 ? Math.min(100, Math.round((creditsUsed / credits) * 100)) : 0;
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -223,11 +226,14 @@ export function Sidebar({ onChatOpen }: SidebarProps) {
             <div className="flex items-center justify-between text-sm">
               <span className="text-gray-500">Credits</span>
               <span className="font-semibold text-gray-900">
-                {credits.toLocaleString()}
+                {creditsRemaining.toLocaleString()}
               </span>
             </div>
             <div className="mt-1.5 w-full h-1 bg-gray-200 rounded-full overflow-hidden">
-              <div className="h-full w-full bg-[#6C47FF] rounded-full" />
+              <div
+                className="h-full bg-[#6C47FF] rounded-full transition-all"
+                style={{ width: `${creditsUsagePct}%` }}
+              />
             </div>
           </button>
         )}

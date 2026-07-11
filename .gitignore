@@ -48,6 +48,15 @@ coverage/
 .pytest_cache/
 .coverage
 
+# Cypress (cypress.env.json holds CLERK_SECRET_KEY — never commit it)
+cypress.env.json
+cypress/videos/
+cypress/screenshots/
+cypress/downloads/
+# Persisted Clerk "trusted device" cookies — real session cookie values for
+# a real account, same sensitivity class as cypress.env.json.
+cypress/.auth/
+
 # Misc
 *.tsbuildinfo
 

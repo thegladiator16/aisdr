@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { campaigns, leads, outreachMessages, meetings } from "@aisdr/db/schema";
+import { campaigns, leads, outreachMessages, meetings, replies } from "@aisdr/db/schema";
 import { eq, and, count, sql } from "drizzle-orm";
 
 export async function GET() {
@@ -14,6 +14,8 @@ export async function GET() {
       emailsSentResult,
       ratesResult,
       meetingsBookedResult,
+      replySentimentResult,
+      bounceResult,
     ] = await Promise.all([
       db
         .select({ count: count() })
@@ -50,22 +52,43 @@ export async function GET() {
         .select({ count: count() })
         .from(meetings)
         .where(eq(meetings.userId, user.id)),
+      db
+        .select({
+          total: count(),
+          positive: sql<number>`sum(case when ${replies.sentiment} in ('positive', 'very_positive') or ${replies.intent} = 'interested' then 1 else 0 end)`,
+        })
+        .from(replies)
+        .where(eq(replies.userId, user.id)),
+      db
+        .select({
+          bounces: sql<number>`coalesce(sum(${campaigns.bounces}), 0)`,
+        })
+        .from(campaigns)
+        .where(eq(campaigns.userId, user.id)),
     ]);
 
     const totalSent = ratesResult[0]?.total ?? 0;
     const totalOpened = ratesResult[0]?.opened ?? 0;
     const totalReplied = ratesResult[0]?.replied ?? 0;
+    const totalReplies = replySentimentResult[0]?.total ?? 0;
+    const positiveReplies = replySentimentResult[0]?.positive ?? 0;
+    const emailsSent = emailsSentResult[0]?.count ?? 0;
+    const bounces = bounceResult[0]?.bounces ?? 0;
 
     return NextResponse.json({
       data: {
         totalCampaigns: totalCampaignsResult[0]?.count ?? 0,
         totalLeads: totalLeadsResult[0]?.count ?? 0,
-        emailsSent: emailsSentResult[0]?.count ?? 0,
+        emailsSent,
         avgOpenRate:
           totalSent > 0 ? Math.round((totalOpened / totalSent) * 100) : 0,
         avgReplyRate:
           totalSent > 0 ? Math.round((totalReplied / totalSent) * 100) : 0,
         meetingsBooked: meetingsBookedResult[0]?.count ?? 0,
+        totalReplies,
+        positiveReplies,
+        bounces,
+        bounceRate: emailsSent > 0 ? Math.round((bounces / emailsSent) * 100) : 0,
       },
     });
   } catch {

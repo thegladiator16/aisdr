@@ -36,6 +36,9 @@ export const replies = pgTable(
     isRead: boolean("is_read").default(false),
     isActedOn: boolean("is_acted_on").default(false),
 
+    externalMessageId: varchar("external_message_id", { length: 255 }),
+    threadId: varchar("thread_id", { length: 500 }),
+
     receivedAt: timestamp("received_at", { withTimezone: true }).defaultNow(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
@@ -45,6 +48,10 @@ export const replies = pgTable(
     userIdx: index("idx_replies_user").on(table.userId),
     leadIdx: index("idx_replies_lead").on(table.leadId),
     unreadIdx: index("idx_replies_unread").on(table.userId, table.isRead),
+    externalMessageIdx: index("idx_replies_external_message").on(
+      table.userId,
+      table.externalMessageId
+    ),
   })
 );
 

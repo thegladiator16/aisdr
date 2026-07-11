@@ -10,9 +10,11 @@ import {
   integrations,
   subscriptions,
 } from "@aisdr/db/schema";
+import { ensureCampaignsColumns, ensureUsersOnboardingColumns } from "./ensure-schema";
 
 export async function getUserByClerkId(clerkId: string) {
   try {
+    await ensureUsersOnboardingColumns();
     const result = await db
       .select()
       .from(users)
@@ -29,6 +31,7 @@ export async function createUser(data: {
   email: string;
   fullName?: string;
 }) {
+  await ensureUsersOnboardingColumns();
   const result = await db.insert(users).values(data).returning();
   try {
     await db.insert(subscriptions).values({
@@ -119,7 +122,8 @@ export async function getDashboardStats(userId: string) {
 
 export async function getCampaigns(userId: string) {
   try {
-    return db
+    await ensureCampaignsColumns();
+    return await db
       .select()
       .from(campaigns)
       .where(eq(campaigns.userId, userId))

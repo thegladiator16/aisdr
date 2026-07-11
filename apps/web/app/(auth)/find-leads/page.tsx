@@ -1,63 +1,54 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Briefcase, User, Database, Sparkles, SlidersHorizontal } from "lucide-react";
 
-const professionalSuggestions = [
-  "B2B SaaS founders in India with 10-50 employees",
-  "CTOs at funded Indian startups Series A+",
-  "VP Sales at EdTech companies in Bangalore",
-  "Founders of D2C brands doing B2B outreach",
-];
-
-const businessSuggestions = [
-  "Coffee shops in Koramangala Bangalore",
-  "CA firms in Mumbai with 10+ employees",
-  "Export companies in Surat Gujarat",
-  "IT companies in Noida with 50+ employees",
+// Real external lead-database search (250M professionals/local businesses)
+// needs a paid third-party data provider (Apollo/ZoomInfo/Clearbit-style)
+// that isn't connected here — so those two tabs stay honestly marked
+// "Coming soon" rather than faking a search. What IS real and searchable
+// right now is the leads already saved in this account ("Your CRM").
+const crmSuggestions = [
+  "Search by job title, e.g. CTO or Founder",
+  "Search by company name",
+  "Search by location, e.g. Bangalore",
+  "Search by email domain",
 ];
 
 const tabConfig = [
-  { id: "professionals", label: "Professionals", icon: Briefcase, enabled: true },
-  { id: "local", label: "Local businesses", icon: User, enabled: true },
-  { id: "crm", label: "Your CRM", icon: Database, enabled: false },
+  { id: "crm", label: "Your CRM", icon: Database, enabled: true },
+  { id: "professionals", label: "Professionals", icon: Briefcase, enabled: false },
+  { id: "local", label: "Local businesses", icon: User, enabled: false },
 ] as const;
 
 type TabId = "professionals" | "local" | "crm";
 
 export default function FindLeadsPage() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<TabId>("professionals");
+  const [activeTab, setActiveTab] = useState<TabId>("crm");
   const [searchQuery, setSearchQuery] = useState("");
-  const [toast, setToast] = useState<string | null>(null);
 
-  const suggestions =
-    activeTab === "professionals" ? professionalSuggestions : businessSuggestions;
-  const placeholder =
-    activeTab === "professionals"
-      ? "Search professionals, e.g. Jeff Bezos"
-      : "Search local businesses, e.g. Le Jolie MedSpa";
+  const placeholder = "Search your saved leads by name, title, or company...";
 
-  const showToast = useCallback((message: string) => {
-    setToast(message);
-    setTimeout(() => setToast(null), 2500);
-  }, []);
+  const goToResults = () => {
+    const params = new URLSearchParams();
+    if (searchQuery.trim()) params.set("q", searchQuery.trim());
+    router.push(`/find-leads/results${params.toString() ? `?${params}` : ""}`);
+  };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter" && searchQuery.trim()) {
-      showToast(`Searching for '${searchQuery.trim()}'...`);
-    }
+    if (e.key === "Enter") goToResults();
   };
 
   const handleSuggestionClick = (suggestion: string) => {
-    setSearchQuery(suggestion);
+    setSearchQuery(suggestion.replace(/^Search by [a-z ]+, e\.g\.\s?/i, "").replace(/^Search by /i, ""));
   };
 
   return (
     <div className="flex flex-col items-center px-6 py-12">
       <h1 className="text-2xl font-bold text-center text-gray-900">
-        Search over 250M professional leads
+        Search your saved leads
       </h1>
 
       {/* Tabs */}
@@ -70,6 +61,7 @@ export default function FindLeadsPage() {
               key={tab.id}
               onClick={() => tab.enabled && setActiveTab(tab.id)}
               disabled={!tab.enabled}
+              title={!tab.enabled ? "Needs a connected external lead-data provider" : undefined}
               className={`flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition ${
                 !tab.enabled
                   ? "border border-gray-200 text-gray-400 cursor-not-allowed opacity-50"
@@ -100,9 +92,9 @@ export default function FindLeadsPage() {
         className="mt-8 w-full max-w-2xl rounded-xl border-2 border-gray-200 h-14 px-5 text-base outline-none focus:border-violet-500 transition"
       />
 
-      {/* AI Suggestions */}
+      {/* Suggestions */}
       <div className="mt-4 w-full max-w-2xl space-y-2">
-        {suggestions.map((suggestion) => (
+        {crmSuggestions.map((suggestion) => (
           <button
             key={suggestion}
             onClick={() => handleSuggestionClick(suggestion)}
@@ -118,19 +110,12 @@ export default function FindLeadsPage() {
 
       {/* Search with filters button */}
       <button
-        onClick={() => router.push("/find-leads/results")}
+        onClick={goToResults}
         className="mt-4 flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition"
       >
         <SlidersHorizontal className="h-4 w-4" />
         Search with filters
       </button>
-
-      {/* Toast */}
-      {toast && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 rounded-lg bg-gray-900 px-5 py-3 text-sm text-white shadow-lg animate-[fadeIn_0.2s_ease-out]">
-          {toast}
-        </div>
-      )}
     </div>
   );
 }

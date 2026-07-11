@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { replies, integrations, leads, outreachMessages } from "@aisdr/db/schema";
 import { eq, and } from "drizzle-orm";
 import { GmailClient } from "@/lib/integrations/gmail";
+import { ensureRepliesColumns } from "@/lib/db/ensure-schema";
 
 export async function PUT(
   req: NextRequest,
@@ -11,6 +12,7 @@ export async function PUT(
 ) {
   try {
     const user = await requireUser();
+    await ensureRepliesColumns();
     const body = await req.json() as { action: "read" | "acted" | "reply"; replyBody?: string };
 
     if (body.action === "read") {

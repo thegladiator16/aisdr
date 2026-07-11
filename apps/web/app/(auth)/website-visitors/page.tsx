@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { toast } from "sonner";
 import {
   Globe,
   Search,
@@ -13,18 +14,56 @@ import {
   Loader2,
   ChevronDown,
   AlertTriangle,
+  Trash2,
 } from "lucide-react";
 
 const tabs = ["People", "Companies"] as const;
 type Tab = (typeof tabs)[number];
 
+type TrackedDomain = {
+  id: string;
+  domain: string;
+  identifyPeople: boolean;
+  identifyCompanies: boolean;
+  budgetEnabled: boolean;
+  verificationToken: string;
+  verified: boolean;
+  createdAt: string;
+};
+
+type Visitor = {
+  id: string;
+  domain: string;
+  visitorEmail: string | null;
+  company: string | null;
+  jobTitle: string | null;
+  pagesViewed: string[] | null;
+  sessions: number | null;
+  source: string | null;
+  medium: string | null;
+  campaign: string | null;
+  qualified: boolean | null;
+  seniority: string | null;
+  department: string | null;
+  location: string | null;
+  phone: string | null;
+  firstSeenAt: string | null;
+  lastSeenAt: string | null;
+};
+
 export default function WebsiteVisitorsPage() {
   const [activeTab, setActiveTab] = useState<Tab>("People");
 
   // Domain state
-  const [domains, setDomains] = useState<string[]>([]);
+  const [domains, setDomains] = useState<TrackedDomain[]>([]);
   const [selectedDomain, setSelectedDomain] = useState("");
   const [domainDropdownOpen, setDomainDropdownOpen] = useState(false);
+  const [loadingDomains, setLoadingDomains] = useState(true);
+
+  // Visitors state
+  const [visitors, setVisitors] = useState<Visitor[]>([]);
+  const [loadingVisitors, setLoadingVisitors] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Wizard state
   const [wizardOpen, setWizardOpen] = useState(false);
@@ -34,10 +73,13 @@ export default function WebsiteVisitorsPage() {
   const [identifyCompanies, setIdentifyCompanies] = useState(true);
   const [budgetEnabled, setBudgetEnabled] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [verifying, setVerifying] = useState(true);
+  const [creating, setCreating] = useState(false);
+  const [createdDomain, setCreatedDomain] = useState<TrackedDomain | null>(null);
+  const [verifying, setVerifying] = useState(false);
+  const [verifyError, setVerifyError] = useState<string | null>(null);
   const [verified, setVerified] = useState(false);
 
-  // Filter panel
+  // Filter panel (draft state — committed to appliedFilters on "Apply filters")
   const [filterOpen, setFilterOpen] = useState(false);
   const [lastSeen, setLastSeen] = useState("any");
   const [firstSeen, setFirstSeen] = useState("any");
@@ -56,9 +98,31 @@ export default function WebsiteVisitorsPage() {
   const [departmentFilter, setDepartmentFilter] = useState("any");
   const [locationFilter, setLocationFilter] = useState("");
   const [emailFilter, setEmailFilter] = useState("");
-  const [phoneFilter, setPhoneFilter] = useState("");
+  const [phoneFilter, setPhoneFilter] = useState(false);
+  const [appliedFilters, setAppliedFilters] = useState({
+    lastSeen: "any",
+    firstSeen: "any",
+    pageviewsMin: "",
+    pageviewsMax: "",
+    sessionsMin: "",
+    sessionsMax: "",
+    repeatOnly: false,
+    keyPages: "",
+    source: "",
+    medium: "",
+    campaign: "",
+    qualified: "all",
+    titleFilter: "",
+    seniority: "any",
+    departmentFilter: "any",
+    locationFilter: "",
+    emailFilter: "",
+    phoneFilter: false,
+  });
 
-  const snippetCode = `<script src="https://aryasdr.in/tracker.js" data-domain="${domain || "example.com"}"></script>`;
+  const snippetCode = createdDomain
+    ? `<script src="https://aryasdr.in/tracker.js" data-domain="${createdDomain.domain}" data-token="${createdDomain.verificationToken}"></script>`
+    : `<script src="https://aryasdr.in/tracker.js" data-domain="${domain || "example.com"}"></script>`;
 
   const handleCopy = async () => {
     try {
@@ -70,6 +134,69 @@ export default function WebsiteVisitorsPage() {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const loadDomains = useCallback(async () => {
+    setLoadingDomains(true);
+    try {
+      const res = await fetch("/api/website-visitors/domains", { cache: "no-store" });
+      if (res.ok) {
+        const json = await res.json();
+        setDomains(json.domains ?? []);
+      }
+    } catch {
+      toast.error("Could not load tracked domains");
+    } finally {
+      setLoadingDomains(false);
+    }
+  }, []);
+
+  const loadVisitors = useCallback(async () => {
+    setLoadingVisitors(true);
+    try {
+      const params = new URLSearchParams();
+      if (selectedDomain) params.set("domain", selectedDomain);
+      if (searchQuery) params.set("search", searchQuery);
+      if (appliedFilters.lastSeen !== "any") params.set("lastSeen", appliedFilters.lastSeen);
+      if (appliedFilters.firstSeen !== "any") params.set("firstSeen", appliedFilters.firstSeen);
+      if (appliedFilters.pageviewsMin) params.set("pageviewsMin", appliedFilters.pageviewsMin);
+      if (appliedFilters.pageviewsMax) params.set("pageviewsMax", appliedFilters.pageviewsMax);
+      if (appliedFilters.sessionsMin) params.set("sessionsMin", appliedFilters.sessionsMin);
+      if (appliedFilters.sessionsMax) params.set("sessionsMax", appliedFilters.sessionsMax);
+      if (appliedFilters.repeatOnly) params.set("repeatOnly", "true");
+      if (appliedFilters.keyPages) params.set("keyPages", appliedFilters.keyPages);
+      if (appliedFilters.source) params.set("source", appliedFilters.source);
+      if (appliedFilters.medium) params.set("medium", appliedFilters.medium);
+      if (appliedFilters.campaign) params.set("campaign", appliedFilters.campaign);
+      if (appliedFilters.qualified !== "all") params.set("qualified", appliedFilters.qualified);
+      if (appliedFilters.titleFilter) params.set("title", appliedFilters.titleFilter);
+      if (appliedFilters.seniority !== "any") params.set("seniority", appliedFilters.seniority);
+      if (appliedFilters.departmentFilter !== "any")
+        params.set("department", appliedFilters.departmentFilter);
+      if (appliedFilters.locationFilter) params.set("location", appliedFilters.locationFilter);
+      if (appliedFilters.emailFilter) params.set("email", appliedFilters.emailFilter);
+      if (appliedFilters.phoneFilter) params.set("hasPhone", "true");
+
+      const res = await fetch(`/api/website-visitors?${params.toString()}`, {
+        cache: "no-store",
+      });
+      if (res.ok) {
+        const json = await res.json();
+        setVisitors(json.visitors ?? []);
+      }
+    } catch {
+      toast.error("Could not load visitors");
+    } finally {
+      setLoadingVisitors(false);
+    }
+  }, [selectedDomain, searchQuery, appliedFilters]);
+
+  useEffect(() => {
+    loadDomains();
+  }, [loadDomains]);
+
+  useEffect(() => {
+    loadVisitors();
+  }, [loadVisitors]);
+
   const openWizard = () => {
     setWizardOpen(true);
     setWizardStep(1);
@@ -78,7 +205,9 @@ export default function WebsiteVisitorsPage() {
     setIdentifyCompanies(true);
     setBudgetEnabled(false);
     setCopied(false);
-    setVerifying(true);
+    setCreatedDomain(null);
+    setVerifying(false);
+    setVerifyError(null);
     setVerified(false);
   };
 
@@ -86,34 +215,82 @@ export default function WebsiteVisitorsPage() {
     setWizardOpen(false);
   };
 
-  const goToStep2 = () => {
-    setWizardStep(2);
-    setCopied(false);
+  const handleCreateDomain = async () => {
+    if (!domain.trim()) return;
+    setCreating(true);
+    try {
+      const res = await fetch("/api/website-visitors/domains", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          domain: domain.trim(),
+          identifyPeople,
+          identifyCompanies,
+          budgetEnabled,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        toast.error(json.error ?? "Could not add domain");
+        return;
+      }
+      setCreatedDomain(json.domain);
+      setWizardStep(2);
+      setCopied(false);
+    } catch {
+      toast.error("Could not add domain");
+    } finally {
+      setCreating(false);
+    }
   };
 
   const goToStep3 = () => {
     setWizardStep(3);
-    setVerifying(true);
-    setVerified(false);
+    handleVerify();
   };
 
-  useEffect(() => {
-    if (wizardStep === 3 && verifying) {
-      const timer = setTimeout(() => {
-        setVerifying(false);
-        // Randomly decide verified or not (always succeed for demo)
-        setVerified(true);
-      }, 2000);
-      return () => clearTimeout(timer);
+  const handleVerify = async () => {
+    if (!createdDomain) return;
+    setVerifying(true);
+    setVerifyError(null);
+    try {
+      const res = await fetch(`/api/website-visitors/domains/${createdDomain.id}/verify`, {
+        method: "POST",
+      });
+      const json = await res.json();
+      setVerified(!!json.verified);
+      if (!json.verified) setVerifyError(json.error ?? "Snippet not detected yet");
+    } catch {
+      setVerified(false);
+      setVerifyError("Could not reach domain to verify");
+    } finally {
+      setVerifying(false);
     }
-  }, [wizardStep, verifying]);
+  };
 
   const handleDone = () => {
-    if (domain.trim()) {
-      setDomains((prev) => [...prev, domain.trim()]);
-      setSelectedDomain(domain.trim());
+    if (createdDomain) {
+      setSelectedDomain(createdDomain.domain);
     }
     closeWizard();
+    loadDomains();
+  };
+
+  const handleDeleteDomain = async (id: string) => {
+    try {
+      const res = await fetch(`/api/website-visitors/domains/${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        toast.error("Could not remove domain");
+        return;
+      }
+      setDomains((prev) => prev.filter((d) => d.id !== id));
+      if (domains.find((d) => d.id === id)?.domain === selectedDomain) {
+        setSelectedDomain("");
+      }
+      toast.success("Domain removed");
+    } catch {
+      toast.error("Could not remove domain");
+    }
   };
 
   const clearAllFilters = () => {
@@ -134,8 +311,50 @@ export default function WebsiteVisitorsPage() {
     setDepartmentFilter("any");
     setLocationFilter("");
     setEmailFilter("");
-    setPhoneFilter("");
+    setPhoneFilter(false);
   };
+
+  const applyFilters = () => {
+    setAppliedFilters({
+      lastSeen,
+      firstSeen,
+      pageviewsMin,
+      pageviewsMax,
+      sessionsMin,
+      sessionsMax,
+      repeatOnly,
+      keyPages,
+      source,
+      medium,
+      campaign,
+      qualified,
+      titleFilter,
+      seniority,
+      departmentFilter,
+      locationFilter,
+      emailFilter,
+      phoneFilter,
+    });
+    setFilterOpen(false);
+  };
+
+  const now = Date.now();
+  const identifiedToday = visitors.filter(
+    (v) => v.firstSeenAt && now - new Date(v.firstSeenAt).getTime() < 24 * 60 * 60 * 1000
+  ).length;
+  const identified7d = visitors.filter(
+    (v) => v.firstSeenAt && now - new Date(v.firstSeenAt).getTime() < 7 * 24 * 60 * 60 * 1000
+  ).length;
+  const identified30d = visitors.filter(
+    (v) => v.firstSeenAt && now - new Date(v.firstSeenAt).getTime() < 30 * 24 * 60 * 60 * 1000
+  ).length;
+
+  const displayedVisitors =
+    activeTab === "Companies"
+      ? Array.from(new Set(visitors.map((v) => v.company).filter(Boolean))).map(
+          (company) => visitors.find((v) => v.company === company)!
+        )
+      : visitors;
 
   const stepIndicator = (currentStep: 1 | 2 | 3) => (
     <div className="flex items-center justify-center gap-2 mb-6">
@@ -175,27 +394,53 @@ export default function WebsiteVisitorsPage() {
             className="flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 transition"
           >
             <Globe className="h-4 w-4" />
-            {selectedDomain || "Select domain"}
+            {selectedDomain || "All domains"}
             <ChevronDown className="h-3 w-3 text-gray-400" />
           </button>
           {domainDropdownOpen && (
-            <div className="absolute right-0 top-full mt-1 w-56 rounded-lg border border-gray-200 bg-white py-1 shadow-lg z-20">
-              {domains.length === 0 ? (
+            <div className="absolute right-0 top-full mt-1 w-64 rounded-lg border border-gray-200 bg-white py-1 shadow-lg z-20">
+              <button
+                onClick={() => {
+                  setSelectedDomain("");
+                  setDomainDropdownOpen(false);
+                }}
+                className={`w-full px-4 py-2 text-left text-sm hover:bg-violet-50 transition ${
+                  !selectedDomain ? "text-[#6C47FF] font-medium" : "text-gray-700"
+                }`}
+              >
+                All domains
+              </button>
+              {loadingDomains ? (
+                <div className="px-4 py-3 text-sm text-gray-400">Loading…</div>
+              ) : domains.length === 0 ? (
                 <div className="px-4 py-3 text-sm text-gray-400">No domains added</div>
               ) : (
                 domains.map((d) => (
-                  <button
-                    key={d}
-                    onClick={() => {
-                      setSelectedDomain(d);
-                      setDomainDropdownOpen(false);
-                    }}
-                    className={`w-full px-4 py-2 text-left text-sm hover:bg-violet-50 transition ${
-                      selectedDomain === d ? "text-[#6C47FF] font-medium" : "text-gray-700"
-                    }`}
+                  <div
+                    key={d.id}
+                    className="flex items-center justify-between px-4 py-2 hover:bg-violet-50 transition group"
                   >
-                    {d}
-                  </button>
+                    <button
+                      onClick={() => {
+                        setSelectedDomain(d.domain);
+                        setDomainDropdownOpen(false);
+                      }}
+                      className={`flex-1 text-left text-sm ${
+                        selectedDomain === d.domain ? "text-[#6C47FF] font-medium" : "text-gray-700"
+                      }`}
+                    >
+                      {d.domain}
+                      {!d.verified && (
+                        <span className="ml-2 text-[10px] text-amber-600">unverified</span>
+                      )}
+                    </button>
+                    <button
+                      onClick={() => handleDeleteDomain(d.id)}
+                      className="text-gray-300 opacity-0 group-hover:opacity-100 hover:text-red-600 transition"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
                 ))
               )}
               <div className="border-t border-gray-100 mt-1 pt-1">
@@ -235,13 +480,13 @@ export default function WebsiteVisitorsPage() {
       {/* Stats Row */}
       <div className="flex gap-6 mt-4 text-sm text-gray-500">
         <span>
-          Identified today <span className="font-medium text-gray-900">0</span>
+          Identified today <span className="font-medium text-gray-900">{identifiedToday}</span>
         </span>
         <span>
-          Identified (7d) <span className="font-medium text-gray-900">0</span>
+          Identified (7d) <span className="font-medium text-gray-900">{identified7d}</span>
         </span>
         <span>
-          Identified (30d) <span className="font-medium text-gray-900">0</span>
+          Identified (30d) <span className="font-medium text-gray-900">{identified30d}</span>
         </span>
       </div>
 
@@ -251,6 +496,8 @@ export default function WebsiteVisitorsPage() {
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
           <input
             type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search visitors..."
             className="w-full rounded-lg border border-gray-200 py-2 pl-10 pr-4 text-sm outline-none focus:border-violet-500 transition"
           />
@@ -264,35 +511,86 @@ export default function WebsiteVisitorsPage() {
         </button>
       </div>
 
-      {/* Empty State */}
-      <div className="flex flex-col items-center justify-center py-20">
-        {/* Stacked card illustrations */}
-        <div className="relative h-24 w-32 mb-6">
-          <div className="absolute top-0 left-0 flex h-16 w-28 items-center justify-center rounded-lg border-2 border-gray-200 bg-white opacity-30">
-            <User className="h-6 w-6 text-gray-300" />
-          </div>
-          <div className="absolute top-[-5px] left-[5px] flex h-16 w-28 items-center justify-center rounded-lg border-2 border-gray-200 bg-white opacity-50">
-            <User className="h-6 w-6 text-gray-300" />
-          </div>
-          <div className="absolute top-[-10px] left-[10px] flex h-16 w-28 items-center justify-center rounded-lg border-2 border-gray-200 bg-white opacity-70">
-            <User className="h-6 w-6 text-gray-300" />
-          </div>
+      {loadingVisitors ? (
+        <div className="flex justify-center py-20">
+          <Loader2 className="h-6 w-6 text-gray-300 animate-spin" />
         </div>
+      ) : displayedVisitors.length > 0 ? (
+        <div className="mt-6 overflow-x-auto rounded-xl border border-gray-200">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 border-b border-gray-200">
+              <tr>
+                <th className="text-left px-4 py-2.5 font-medium text-gray-500">
+                  {activeTab === "Companies" ? "Company" : "Visitor"}
+                </th>
+                <th className="text-left px-4 py-2.5 font-medium text-gray-500">Title</th>
+                <th className="text-left px-4 py-2.5 font-medium text-gray-500">Domain</th>
+                <th className="text-left px-4 py-2.5 font-medium text-gray-500">Sessions</th>
+                <th className="text-left px-4 py-2.5 font-medium text-gray-500">Source</th>
+                <th className="text-left px-4 py-2.5 font-medium text-gray-500">Last seen</th>
+              </tr>
+            </thead>
+            <tbody>
+              {displayedVisitors.map((v) => (
+                <tr key={v.id} className="border-b border-gray-100 last:border-0">
+                  <td className="px-4 py-2.5 text-gray-900">
+                    {activeTab === "Companies" ? v.company ?? "Unknown" : v.visitorEmail ?? "Anonymous"}
+                  </td>
+                  <td className="px-4 py-2.5 text-gray-600">{v.jobTitle ?? "-"}</td>
+                  <td className="px-4 py-2.5 text-gray-600">{v.domain}</td>
+                  <td className="px-4 py-2.5 text-gray-600">{v.sessions ?? 1}</td>
+                  <td className="px-4 py-2.5 text-gray-600">{v.source ?? "-"}</td>
+                  <td className="px-4 py-2.5 text-gray-600">
+                    {v.lastSeenAt ? new Date(v.lastSeenAt).toLocaleDateString() : "-"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        /* Empty State */
+        <div className="flex flex-col items-center justify-center py-20">
+          <div className="relative h-24 w-32 mb-6">
+            <div className="absolute top-0 left-0 flex h-16 w-28 items-center justify-center rounded-lg border-2 border-gray-200 bg-white opacity-30">
+              <User className="h-6 w-6 text-gray-300" />
+            </div>
+            <div className="absolute top-[-5px] left-[5px] flex h-16 w-28 items-center justify-center rounded-lg border-2 border-gray-200 bg-white opacity-50">
+              <User className="h-6 w-6 text-gray-300" />
+            </div>
+            <div className="absolute top-[-10px] left-[10px] flex h-16 w-28 items-center justify-center rounded-lg border-2 border-gray-200 bg-white opacity-70">
+              <User className="h-6 w-6 text-gray-300" />
+            </div>
+          </div>
 
-        <h2 className="text-lg font-bold text-gray-900">
-          Add your first domain to start tracking visitors
-        </h2>
-        <p className="mt-2 text-sm text-gray-500">
-          Add a domain to identify visitors and enable automated outreach.
-        </p>
-        <button
-          onClick={openWizard}
-          className="mt-6 flex items-center gap-2 rounded-lg bg-[#6C47FF] px-6 py-2.5 text-white hover:bg-[#5a38e0] transition"
-        >
-          <Plus className="h-4 w-4" />
-          Add domain
-        </button>
-      </div>
+          {domains.length === 0 ? (
+            <>
+              <h2 className="text-lg font-bold text-gray-900">
+                Add your first domain to start tracking visitors
+              </h2>
+              <p className="mt-2 text-sm text-gray-500">
+                Add a domain to identify visitors and enable automated outreach.
+              </p>
+              <button
+                onClick={openWizard}
+                className="mt-6 flex items-center gap-2 rounded-lg bg-[#6C47FF] px-6 py-2.5 text-white hover:bg-[#5a38e0] transition"
+              >
+                <Plus className="h-4 w-4" />
+                Add domain
+              </button>
+            </>
+          ) : (
+            <>
+              <h2 className="text-lg font-bold text-gray-900">No visitors identified yet</h2>
+              <p className="mt-2 max-w-md text-center text-sm text-gray-500">
+                Domain tracking and snippet verification are live, but matching an anonymous
+                pageview to a real person or company needs a reverse-IP identity data provider,
+                which isn&apos;t connected yet — so this list stays empty until that&apos;s wired up.
+              </p>
+            </>
+          )}
+        </div>
+      )}
 
       {/* Add Domain Wizard Modal */}
       {wizardOpen && (
@@ -331,22 +629,6 @@ export default function WebsiteVisitorsPage() {
                       Don&apos;t include &apos;https://&apos; or &apos;www&apos;
                     </p>
                   </div>
-
-                  {domain.trim() && (
-                    <div className="rounded-lg border border-gray-200 p-4">
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-100">
-                          <Globe className="h-4 w-4 text-[#6C47FF]" />
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-gray-900">
-                            Website visitors - {domain}
-                          </p>
-                          <p className="text-xs text-gray-400">Auto-created campaign</p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
 
                   <div className="space-y-3">
                     <label className="flex items-center gap-3 cursor-pointer">
@@ -443,7 +725,7 @@ export default function WebsiteVisitorsPage() {
                         Domain added successfully!
                       </h3>
                       <p className="mt-1 text-sm text-gray-500">
-                        We&apos;ll start identifying visitors on {domain} right away.
+                        The snippet was found on {createdDomain?.domain}.
                       </p>
                     </>
                   ) : (
@@ -455,8 +737,14 @@ export default function WebsiteVisitorsPage() {
                         Snippet not detected yet
                       </h3>
                       <p className="mt-1 text-sm text-gray-500">
-                        We&apos;ll keep checking &mdash; it may take a few minutes.
+                        {verifyError ?? "We checked your homepage and couldn't find the snippet."}
                       </p>
+                      <button
+                        onClick={handleVerify}
+                        className="mt-4 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition"
+                      >
+                        Check again
+                      </button>
                     </>
                   )}
                 </div>
@@ -474,10 +762,11 @@ export default function WebsiteVisitorsPage() {
                     Cancel
                   </button>
                   <button
-                    onClick={goToStep2}
-                    disabled={!domain.trim()}
-                    className="rounded-lg bg-[#6C47FF] px-5 py-2 text-sm font-medium text-white hover:bg-[#5a38e0] transition disabled:opacity-50 disabled:cursor-not-allowed"
+                    onClick={handleCreateDomain}
+                    disabled={!domain.trim() || creating}
+                    className="inline-flex items-center gap-2 rounded-lg bg-[#6C47FF] px-5 py-2 text-sm font-medium text-white hover:bg-[#5a38e0] transition disabled:opacity-50 disabled:cursor-not-allowed"
                   >
+                    {creating && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
                     Continue to install snippet
                   </button>
                 </>
@@ -768,15 +1057,20 @@ export default function WebsiteVisitorsPage() {
                       className="mt-1 w-full rounded-lg border border-gray-300 py-2 px-3 text-sm outline-none focus:border-[#6C47FF] transition"
                     />
                   </div>
-                  <div>
-                    <label className="text-xs text-gray-500">Phone</label>
-                    <input
-                      type="text"
-                      value={phoneFilter}
-                      onChange={(e) => setPhoneFilter(e.target.value)}
-                      placeholder="Has phone number"
-                      className="mt-1 w-full rounded-lg border border-gray-300 py-2 px-3 text-sm outline-none focus:border-[#6C47FF] transition"
-                    />
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">Has phone number</span>
+                    <button
+                      onClick={() => setPhoneFilter(!phoneFilter)}
+                      className={`relative h-5 w-9 rounded-full transition ${
+                        phoneFilter ? "bg-[#6C47FF]" : "bg-gray-300"
+                      }`}
+                    >
+                      <span
+                        className={`absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${
+                          phoneFilter ? "translate-x-4" : ""
+                        }`}
+                      />
+                    </button>
                   </div>
                 </div>
               </div>
@@ -791,7 +1085,7 @@ export default function WebsiteVisitorsPage() {
                 Clear all
               </button>
               <button
-                onClick={() => setFilterOpen(false)}
+                onClick={applyFilters}
                 className="rounded-lg bg-[#6C47FF] px-5 py-2 text-sm font-medium text-white hover:bg-[#5a38e0] transition"
               >
                 Apply filters

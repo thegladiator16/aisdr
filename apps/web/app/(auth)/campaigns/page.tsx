@@ -132,19 +132,31 @@ export default function CampaignsPage() {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [filterStatuses, setFilterStatuses] = useState<Set<string>>(new Set(["all"]));
   const [filterTypes, setFilterTypes] = useState<Set<string>>(new Set());
-  const [filterDateRange, setFilterDateRange] = useState("last-30");
+  const [filterDateRange, setFilterDateRange] = useState("all-time");
   const [filterMinReplies, setFilterMinReplies] = useState("");
   const [filterMaxReplies, setFilterMaxReplies] = useState("");
   const [filterMinMeetings, setFilterMinMeetings] = useState("");
   const [filterMaxMeetings, setFilterMaxMeetings] = useState("");
   const [appliedFilterCount, setAppliedFilterCount] = useState(0);
+  const [appliedFilters, setAppliedFilters] = useState({
+    statuses: new Set<string>(["all"]),
+    types: new Set<string>(),
+    dateRange: "all-time",
+    minReplies: "",
+    maxReplies: "",
+    minMeetings: "",
+    maxMeetings: "",
+  });
 
   /* ---- data fetching ---- */
 
   const loadCampaigns = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/campaigns");
+      // Fetch everything (including archived) once and apply status/type/
+      // date/performance filtering client-side — matches how the other
+      // filter dimensions already work in this page.
+      const res = await fetch("/api/campaigns?status=all");
       if (!res.ok) throw new Error("Failed to load campaigns");
       const json = await res.json();
       setCampaigns(json.data);
@@ -206,7 +218,11 @@ export default function CampaignsPage() {
       const res = await fetch("/api/campaigns", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: campaignName.trim(), status: "draft" }),
+        body: JSON.stringify({
+          name: campaignName.trim(),
+          status: "draft",
+          type: selectedType?.id,
+        }),
       });
       if (!res.ok) throw new Error("Failed to create campaign");
       toast.success("Campaign created");
@@ -226,13 +242,8 @@ export default function CampaignsPage() {
   async function handleDuplicate(c: Campaign) {
     setOpenMenuId(null);
     try {
-      const res = await fetch("/api/campaigns", {
+      const res = await fetch(`/api/campaigns/${c.id}/duplicate`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: `${c.name} (copy)`,
-          status: "draft",
-        }),
       });
       if (!res.ok) throw new Error("Failed to duplicate campaign");
       toast.success("Campaign duplicated");
@@ -272,11 +283,55 @@ export default function CampaignsPage() {
   }
 
   /* ---- filtering ---- */
+  const DATE_RANGE_DAYS: Record<string, number> = {
+    "last-7": 7,
+    "last-30": 30,
+    "last-90": 90,
+  };
+
   const filteredCampaigns = campaigns.filter((c) => {
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       if (!c.name.toLowerCase().includes(q)) return false;
     }
+
+    const status = c.status ?? "draft";
+    if (appliedFilters.statuses.has("all")) {
+      // "All" mirrors every mailbox-style UI (e.g. Gmail's "All Mail"
+      // excludes Trash) — archived campaigns only show when explicitly
+      // selected below, so they don't silently reappear in the main view.
+      if (status === "archived") return false;
+    } else if (!appliedFilters.statuses.has(status)) {
+      return false;
+    }
+
+    if (appliedFilters.types.size > 0 && !appliedFilters.types.has(c.type ?? ""))
+      return false;
+
+    const days = DATE_RANGE_DAYS[appliedFilters.dateRange];
+    if (days && c.createdAt) {
+      const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
+      if (new Date(c.createdAt).getTime() < cutoff) return false;
+    }
+
+    const replies = c.totalReplies ?? 0;
+    if (appliedFilters.minReplies && replies < Number(appliedFilters.minReplies))
+      return false;
+    if (appliedFilters.maxReplies && replies > Number(appliedFilters.maxReplies))
+      return false;
+
+    const meetings = c.meetingsBooked ?? 0;
+    if (
+      appliedFilters.minMeetings &&
+      meetings < Number(appliedFilters.minMeetings)
+    )
+      return false;
+    if (
+      appliedFilters.maxMeetings &&
+      meetings > Number(appliedFilters.maxMeetings)
+    )
+      return false;
+
     return true;
   });
 
@@ -284,22 +339,40 @@ export default function CampaignsPage() {
     let count = 0;
     if (!filterStatuses.has("all")) count += filterStatuses.size;
     if (filterTypes.size > 0) count += filterTypes.size;
-    if (filterDateRange !== "last-30") count += 1;
+    if (filterDateRange !== "all-time") count += 1;
     if (filterMinReplies || filterMaxReplies) count += 1;
     if (filterMinMeetings || filterMaxMeetings) count += 1;
     setAppliedFilterCount(count);
+    setAppliedFilters({
+      statuses: new Set(filterStatuses),
+      types: new Set(filterTypes),
+      dateRange: filterDateRange,
+      minReplies: filterMinReplies,
+      maxReplies: filterMaxReplies,
+      minMeetings: filterMinMeetings,
+      maxMeetings: filterMaxMeetings,
+    });
     setFiltersOpen(false);
   }
 
   function clearFilters() {
     setFilterStatuses(new Set(["all"]));
     setFilterTypes(new Set());
-    setFilterDateRange("last-30");
+    setFilterDateRange("all-time");
     setFilterMinReplies("");
     setFilterMaxReplies("");
     setFilterMinMeetings("");
     setFilterMaxMeetings("");
     setAppliedFilterCount(0);
+    setAppliedFilters({
+      statuses: new Set(["all"]),
+      types: new Set(),
+      dateRange: "all-time",
+      minReplies: "",
+      maxReplies: "",
+      minMeetings: "",
+      maxMeetings: "",
+    });
   }
 
   function toggleFilterStatus(id: string) {

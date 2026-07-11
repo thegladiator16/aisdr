@@ -21,6 +21,7 @@ export const campaigns = pgTable(
 
     name: varchar("name", { length: 500 }).notNull(),
     description: text("description"),
+    type: varchar("type", { length: 100 }),
 
     subject: varchar("subject", { length: 1000 }),
     body: text("body"),

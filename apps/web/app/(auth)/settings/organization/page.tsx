@@ -1,42 +1,98 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
-import { Pencil, Plus, Copy, Check } from "lucide-react";
-
-const ORG_ID = "f47ac10b-58cc-4372-a567-0e02b2c3d479";
+import { Pencil, Plus, Copy, Check, Loader2 } from "lucide-react";
 
 export default function OrganizationPage() {
-  const [orgName, setOrgName] = useState("AryaSDR's organization");
+  const [loading, setLoading] = useState(true);
+  const [accountId, setAccountId] = useState("");
+
+  const [orgName, setOrgName] = useState("");
   const [editingName, setEditingName] = useState(false);
-  const [nameDraft, setNameDraft] = useState(orgName);
+  const [nameDraft, setNameDraft] = useState("");
+  const [savingName, setSavingName] = useState(false);
 
   const [domain, setDomain] = useState("");
   const [savedDomains, setSavedDomains] = useState<string[]>([]);
+  const [savingDomain, setSavingDomain] = useState(false);
 
   const [copied, setCopied] = useState(false);
 
-  const handleSaveName = () => {
-    if (nameDraft.trim()) {
+  useEffect(() => {
+    fetch("/api/user/profile", { cache: "no-store" })
+      .then((res) => res.json())
+      .then((json) => {
+        setAccountId(json.id ?? "");
+        setOrgName(json.companyName || "AryaSDR's organization");
+        setSavedDomains(json.companyDomains ?? []);
+      })
+      .catch(() => toast.error("Could not load organization details"))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const persist = async (fields: Record<string, unknown>) => {
+    const res = await fetch("/api/user/profile", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(fields),
+    });
+    return res.ok;
+  };
+
+  const handleSaveName = async () => {
+    if (!nameDraft.trim()) return;
+    setSavingName(true);
+    try {
+      const ok = await persist({ companyName: nameDraft.trim() });
+      if (!ok) {
+        toast.error("Could not update organization name");
+        return;
+      }
       setOrgName(nameDraft.trim());
       setEditingName(false);
       toast.success("Organization name updated");
+    } finally {
+      setSavingName(false);
     }
   };
 
-  const handleAddDomain = () => {
+  const handleAddDomain = async () => {
     if (!domain.trim()) {
       toast.error("Please enter a domain");
       return;
     }
-    setSavedDomains((prev) => [...prev, domain.trim()]);
-    setDomain("");
-    toast.success("Domain added");
+    const cleaned = domain.trim().replace(/^https?:\/\//, "").replace(/\/$/, "");
+    const next = [...savedDomains, cleaned];
+    setSavingDomain(true);
+    try {
+      const ok = await persist({ companyDomains: next });
+      if (!ok) {
+        toast.error("Could not add domain");
+        return;
+      }
+      setSavedDomains(next);
+      setDomain("");
+      toast.success("Domain added");
+    } finally {
+      setSavingDomain(false);
+    }
+  };
+
+  const handleRemoveDomain = async (idx: number) => {
+    const next = savedDomains.filter((_, i) => i !== idx);
+    const ok = await persist({ companyDomains: next });
+    if (!ok) {
+      toast.error("Could not remove domain");
+      return;
+    }
+    setSavedDomains(next);
+    toast.success("Domain removed");
   };
 
   const handleCopyId = async () => {
     try {
-      await navigator.clipboard.writeText(ORG_ID);
+      await navigator.clipboard.writeText(accountId);
       setCopied(true);
       toast.success("Copied to clipboard");
       setTimeout(() => setCopied(false), 2000);
@@ -44,6 +100,14 @@ export default function OrganizationPage() {
       toast.error("Failed to copy");
     }
   };
+
+  if (loading) {
+    return (
+      <div className="flex justify-center py-20">
+        <Loader2 className="h-6 w-6 text-gray-300 animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-3xl space-y-6">
@@ -77,9 +141,10 @@ export default function OrganizationPage() {
             <div className="flex items-center gap-2">
               <button
                 onClick={handleSaveName}
-                className="px-4 py-2 text-sm font-medium text-white bg-[#6C47FF] rounded-lg hover:bg-[#5a3ad4] transition-colors"
+                disabled={savingName}
+                className="px-4 py-2 text-sm font-medium text-white bg-[#6C47FF] rounded-lg hover:bg-[#5a3ad4] transition-colors disabled:opacity-50"
               >
-                Save
+                {savingName ? "Saving..." : "Save"}
               </button>
               <button
                 onClick={() => {
@@ -133,7 +198,8 @@ export default function OrganizationPage() {
           </div>
           <button
             onClick={handleAddDomain}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+            disabled={savingDomain}
+            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
           >
             <Plus className="h-3.5 w-3.5" />
             Add
@@ -142,13 +208,10 @@ export default function OrganizationPage() {
         {savedDomains.length > 0 && (
           <div className="mt-3 space-y-2">
             {savedDomains.map((d, idx) => (
-              <div key={idx} className="flex items-center justify-between px-3 py-2 bg-gray-50 rounded-lg">
+              <div key={d} className="flex items-center justify-between px-3 py-2 bg-gray-50 rounded-lg">
                 <span className="text-sm text-gray-700">https://{d}</span>
                 <button
-                  onClick={() => {
-                    setSavedDomains((prev) => prev.filter((_, i) => i !== idx));
-                    toast.success("Domain removed");
-                  }}
+                  onClick={() => handleRemoveDomain(idx)}
                   className="text-xs text-red-500 hover:text-red-700 font-medium"
                 >
                   Remove
@@ -159,15 +222,18 @@ export default function OrganizationPage() {
         )}
       </div>
 
-      {/* Organization ID */}
+      {/* Account ID */}
       <div className="bg-white border border-gray-200 rounded-xl p-6">
-        <h2 className="text-sm font-medium text-gray-500 mb-1">Organization ID</h2>
+        <h2 className="text-sm font-medium text-gray-500 mb-1">Account ID</h2>
+        <p className="text-xs text-gray-400 mb-2">
+          Reference this ID when contacting support
+        </p>
         <div className="flex items-center gap-2">
           <button
             onClick={handleCopyId}
             className="flex items-center gap-2 text-sm text-gray-700 font-mono hover:text-violet-600 transition-colors group"
           >
-            {ORG_ID}
+            {accountId}
             {copied ? (
               <Check className="h-4 w-4 text-green-500" />
             ) : (

@@ -3,6 +3,7 @@ import { auth, clerkClient } from "@clerk/nextjs/server";
 import { eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { users, subscriptions } from "@/lib/db/schema";
+import { getPlanAmountInPaise } from "@/lib/payments/razorpay";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -96,6 +97,7 @@ export async function GET() {
           leadsLimit: subscriptions.leadsLimit,
           leadsUsed: subscriptions.leadsUsed,
           trialEndsAt: subscriptions.trialEndsAt,
+          currentPeriodEnd: subscriptions.currentPeriodEnd,
         })
         .from(subscriptions)
         .where(eq(subscriptions.userId, user.id))
@@ -120,6 +122,7 @@ export async function GET() {
           leadsLimit: subscriptions.leadsLimit,
           leadsUsed: subscriptions.leadsUsed,
           trialEndsAt: subscriptions.trialEndsAt,
+          currentPeriodEnd: subscriptions.currentPeriodEnd,
         });
       subscription = inserted[0]!;
     }
@@ -132,12 +135,21 @@ export async function GET() {
     const isTrialing =
       subscription.tier === "trial" && (daysLeft ?? 0) > 0;
 
+    const monthlyCostPaise =
+      subscription.tier === "starter" ||
+      subscription.tier === "growth" ||
+      subscription.tier === "scale"
+        ? getPlanAmountInPaise(subscription.tier, "monthly") ?? 0
+        : 0;
+
     return NextResponse.json({
       tier: subscription.tier,
       status: subscription.status,
       credits: subscription.leadsLimit ?? 0,
       creditsUsed: subscription.leadsUsed ?? 0,
       trialEndsAt,
+      currentPeriodEnd: subscription.currentPeriodEnd ?? null,
+      monthlyCostPaise,
       daysLeft,
       isTrialing,
     });
@@ -152,6 +164,8 @@ export async function GET() {
       credits: TRIAL_LEADS_LIMIT,
       creditsUsed: 0,
       trialEndsAt,
+      currentPeriodEnd: null,
+      monthlyCostPaise: 0,
       daysLeft: TRIAL_DAYS,
       isTrialing: true,
       warning: "degraded",

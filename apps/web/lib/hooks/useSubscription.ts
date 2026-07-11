@@ -8,6 +8,9 @@ export interface SubscriptionData {
   tier: string;
   isTrialing: boolean;
   daysLeft: number | null;
+  trialEndsAt: string | null;
+  currentPeriodEnd: string | null;
+  monthlyCostPaise: number;
 }
 
 interface UseSubscriptionResult {
@@ -47,6 +50,16 @@ export function useSubscription(): UseSubscriptionResult {
           isTrialing: Boolean(json.isTrialing),
           daysLeft:
             typeof json.daysLeft === "number" ? json.daysLeft : null,
+          trialEndsAt:
+            typeof json.trialEndsAt === "string" ? json.trialEndsAt : null,
+          currentPeriodEnd:
+            typeof json.currentPeriodEnd === "string"
+              ? json.currentPeriodEnd
+              : null,
+          monthlyCostPaise:
+            typeof json.monthlyCostPaise === "number"
+              ? json.monthlyCostPaise
+              : 0,
         });
       } catch (err) {
         if (cancelled) return;

@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import toast from "react-hot-toast";
 import {
   ChevronRight,
@@ -10,6 +11,7 @@ import {
   Search,
   Loader2,
   UserPlus,
+  ListPlus,
 } from "lucide-react";
 
 interface Lead {
@@ -29,11 +31,20 @@ interface Lead {
 }
 
 export default function FindLeadsResultsPage() {
+  const searchParams = useSearchParams();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedLeads, setSelectedLeads] = useState<Set<string>>(new Set());
-  const [searchQuery, setSearchQuery] = useState("");
-  const [saving, setSaving] = useState(false);
+  const [searchQuery, setSearchQuery] = useState(searchParams.get("q") ?? "");
+
+  /* add-to-list menu */
+  const [listsMenuOpen, setListsMenuOpen] = useState(false);
+  const [availableLists, setAvailableLists] = useState<
+    { id: string; name: string }[]
+  >([]);
+  const [loadingLists, setLoadingLists] = useState(false);
+  const [addingToList, setAddingToList] = useState<string | null>(null);
+  const listsMenuRef = useRef<HTMLDivElement | null>(null);
 
   const [roleOpen, setRoleOpen] = useState(true);
   const [locationOpen, setLocationOpen] = useState(false);
@@ -62,6 +73,62 @@ export default function FindLeadsResultsPage() {
   useEffect(() => {
     loadLeads();
   }, [loadLeads]);
+
+  /* close "Add to list" menu on outside click */
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (listsMenuRef.current && !listsMenuRef.current.contains(e.target as Node)) {
+        setListsMenuOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  async function loadAvailableLists() {
+    setLoadingLists(true);
+    try {
+      const res = await fetch("/api/lists");
+      if (!res.ok) throw new Error("Failed to load lists");
+      const json = await res.json();
+      setAvailableLists(json.data ?? []);
+    } catch {
+      toast.error("Failed to load lists");
+    } finally {
+      setLoadingLists(false);
+    }
+  }
+
+  function toggleListsMenu() {
+    setListsMenuOpen((prev) => {
+      const next = !prev;
+      if (next) loadAvailableLists();
+      return next;
+    });
+  }
+
+  async function handleAddToList(listId: string, listName: string) {
+    if (selectedLeads.size === 0) return;
+    setAddingToList(listId);
+    try {
+      const res = await fetch(`/api/lists/${listId}/leads`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ leadIds: Array.from(selectedLeads) }),
+      });
+      if (!res.ok) throw new Error("Failed to add leads to list");
+      const count = selectedLeads.size;
+      toast.success(`Added ${count} lead${count === 1 ? "" : "s"} to "${listName}"`);
+      setListsMenuOpen(false);
+      setSelectedLeads(new Set());
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Failed to add leads to list"
+      );
+    } finally {
+      setAddingToList(null);
+    }
+  }
 
   const getDisplayName = (lead: Lead) =>
     lead.fullName ?? ([lead.firstName, lead.lastName].filter(Boolean).join(" ") || "—");
@@ -121,23 +188,6 @@ export default function FindLeadsResultsPage() {
     setLocationFilter("");
     setCompanyFilter("");
     setIndustryFilter("");
-  };
-
-  const handleSaveLeads = async () => {
-    if (selectedLeads.size === 0) {
-      toast.error("Select at least one lead");
-      return;
-    }
-    setSaving(true);
-    try {
-      const count = selectedLeads.size;
-      toast.success(`${count} lead${count > 1 ? "s" : ""} saved to your pipeline`);
-      setSelectedLeads(new Set());
-    } catch {
-      toast.error("Failed to save leads");
-    } finally {
-      setSaving(false);
-    }
   };
 
   return (
@@ -287,16 +337,43 @@ export default function FindLeadsResultsPage() {
           <p className="text-sm text-gray-500">
             {selectedLeads.size > 0
               ? `${selectedLeads.size} lead${selectedLeads.size > 1 ? "s" : ""} selected`
-              : "Select leads to add to your pipeline"}
+              : "Select leads to add to a list"}
           </p>
-          <button
-            onClick={handleSaveLeads}
-            disabled={selectedLeads.size === 0 || saving}
-            className="rounded-lg bg-[#6C47FF] px-5 py-2 text-sm font-medium text-white hover:bg-[#5a38e0] transition disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
-          >
-            {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-            Save {selectedLeads.size > 0 ? `${selectedLeads.size} lead${selectedLeads.size > 1 ? "s" : ""}` : "leads"}
-          </button>
+          <div className="relative" ref={listsMenuRef}>
+            <button
+              onClick={toggleListsMenu}
+              disabled={selectedLeads.size === 0}
+              className="rounded-lg bg-[#6C47FF] px-5 py-2 text-sm font-medium text-white hover:bg-[#5a38e0] transition disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
+            >
+              <ListPlus className="h-4 w-4" />
+              Add {selectedLeads.size > 0 ? `${selectedLeads.size} lead${selectedLeads.size > 1 ? "s" : ""}` : "leads"} to list
+            </button>
+            {listsMenuOpen && (
+              <div className="absolute right-0 bottom-full mb-2 w-56 rounded-lg border border-gray-200 bg-white py-1 shadow-lg max-h-64 overflow-y-auto">
+                {loadingLists ? (
+                  <div className="px-3 py-2 text-sm text-gray-400">Loading...</div>
+                ) : availableLists.length === 0 ? (
+                  <div className="px-3 py-2 text-sm text-gray-400">
+                    No lists yet. Create one from the Lists page.
+                  </div>
+                ) : (
+                  availableLists.map((l) => (
+                    <button
+                      key={l.id}
+                      onClick={() => handleAddToList(l.id, l.name)}
+                      disabled={addingToList === l.id}
+                      className="flex w-full items-center justify-between gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
+                    >
+                      <span className="truncate">{l.name}</span>
+                      {addingToList === l.id && (
+                        <Loader2 className="h-3.5 w-3.5 flex-shrink-0 animate-spin" />
+                      )}
+                    </button>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </main>
     </div>

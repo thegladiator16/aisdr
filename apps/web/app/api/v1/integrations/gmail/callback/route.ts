@@ -22,19 +22,19 @@ export async function GET(req: NextRequest) {
   if (errorParam) {
     console.error(`[gmail:callback] Google returned error: ${errorParam}`);
     return NextResponse.redirect(
-      `${APP_URL}/integrations?error=${encodeURIComponent(errorParam)}`
+      `${APP_URL}/settings/integrations?error=${encodeURIComponent(errorParam)}`
     );
   }
 
   if (!code) {
     return NextResponse.redirect(
-      `${APP_URL}/integrations?error=missing_code`
+      `${APP_URL}/settings/integrations?error=missing_code`
     );
   }
 
   if (!GmailClient.isConfigured()) {
     return NextResponse.redirect(
-      `${APP_URL}/integrations?error=google_not_configured`
+      `${APP_URL}/settings/integrations?error=google_not_configured`
     );
   }
 
@@ -80,9 +80,9 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    return NextResponse.redirect(`${APP_URL}/integrations?connected=Gmail`);
+    return NextResponse.redirect(`${APP_URL}/settings/integrations?connected=Gmail`);
   } catch (err) {
     console.error("[gmail:callback] token exchange or DB write failed:", err);
-    return NextResponse.redirect(`${APP_URL}/integrations?error=gmail_failed`);
+    return NextResponse.redirect(`${APP_URL}/settings/integrations?error=gmail_failed`);
   }
 }

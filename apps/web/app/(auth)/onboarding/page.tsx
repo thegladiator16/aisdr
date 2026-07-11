@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { AryaAvatar } from "@/components/arya/AryaAvatar";
 
 /* ------------------------------------------------------------------ */
@@ -185,13 +186,19 @@ export default function OnboardingPage() {
   const handleComplete = async () => {
     setSubmitting(true);
     try {
-      await fetch("/api/onboarding/complete", {
+      const res = await fetch("/api/onboarding/complete", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       });
+      if (!res.ok) {
+        toast.error("Could not save your setup. Please try again.");
+        setSubmitting(false);
+        return;
+      }
       router.push("/dashboard");
     } catch {
+      toast.error("Could not save your setup. Please try again.");
       setSubmitting(false);
     }
   };

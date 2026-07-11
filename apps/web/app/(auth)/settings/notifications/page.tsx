@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
@@ -10,13 +10,14 @@ type NotificationRow = {
   timing: string;
   timingStyle: "violet" | "gray";
   description?: string;
-  hasDropdown?: boolean;
-  dropdownOptions?: string[];
-  defaultRecipient?: string;
   comingSoon?: boolean;
   defaultEmailEnabled?: boolean;
 };
 
+// Row ids for the 4 non-comingSoon rows double as the `notificationType`
+// keys sent to /api/user/notifications (kept consistent with the API route's
+// NOTIFICATION_TYPES). The other 5 rows are honestly marked "coming soon"
+// and have no backend, so they stay purely local/disabled.
 const notifications: NotificationRow[] = [
   {
     id: "urgent",
@@ -24,40 +25,24 @@ const notifications: NotificationRow[] = [
     timing: "Real-time",
     timingStyle: "violet",
     description: "Get notified when something critical needs your attention",
-    hasDropdown: true,
-    dropdownOptions: ["All members", "Admins only", "Billing admin", "Custom"],
-    defaultRecipient: "All members",
-    defaultEmailEnabled: true,
   },
   {
     id: "billing",
     label: "Billing and access",
     timing: "Real-time",
     timingStyle: "violet",
-    hasDropdown: true,
-    dropdownOptions: ["All members", "Admins only", "Billing admin", "Custom"],
-    defaultRecipient: "Billing admin",
-    defaultEmailEnabled: true,
   },
   {
     id: "replies",
     label: "Message reply alerts",
     timing: "Real-time",
     timingStyle: "violet",
-    hasDropdown: true,
-    dropdownOptions: ["All members", "Admins only", "Billing admin", "Custom"],
-    defaultRecipient: "All members",
-    defaultEmailEnabled: true,
   },
   {
     id: "escalated",
     label: "Escalated replies",
     timing: "Real-time",
     timingStyle: "violet",
-    hasDropdown: true,
-    dropdownOptions: ["All members", "Admins only", "Billing admin", "Custom"],
-    defaultRecipient: "All members",
-    defaultEmailEnabled: true,
   },
   {
     id: "meetings",
@@ -101,6 +86,10 @@ const notifications: NotificationRow[] = [
   },
 ];
 
+const REAL_NOTIFICATION_IDS = new Set(
+  notifications.filter((n) => !n.comingSoon).map((n) => n.id)
+);
+
 /* ------------------------------------------------------------------ */
 /*  Toggle                                                             */
 /* ------------------------------------------------------------------ */
@@ -135,32 +124,82 @@ function Toggle({
 export default function NotificationsPage() {
   const router = useRouter();
 
-  // State for recipient dropdowns
-  const [recipients, setRecipients] = useState<Record<string, string>>(() => {
-    const initial: Record<string, string> = {};
-    notifications.forEach((n) => {
-      if (n.defaultRecipient) initial[n.id] = n.defaultRecipient;
-    });
-    return initial;
-  });
+  const [loading, setLoading] = useState(true);
 
   // State for email toggles
   const [emailEnabled, setEmailEnabled] = useState<Record<string, boolean>>(() => {
     const initial: Record<string, boolean> = {};
     notifications.forEach((n) => {
-      initial[n.id] = n.defaultEmailEnabled ?? false;
+      initial[n.id] = n.defaultEmailEnabled ?? true;
     });
     return initial;
   });
 
-  const handleRecipientChange = (id: string, value: string) => {
-    setRecipients((prev) => ({ ...prev, [id]: value }));
-    toast.success("Notification preference updated");
-  };
+  // Tracks in-flight PUTs per row so the toggle can be disabled while saving.
+  const [savingIds, setSavingIds] = useState<Record<string, boolean>>({});
 
-  const handleToggleEmail = (id: string) => {
-    setEmailEnabled((prev) => ({ ...prev, [id]: !prev[id] }));
-    toast.success("Notification preference updated");
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const res = await fetch("/api/user/notifications");
+        if (!res.ok) throw new Error("Failed to load notification preferences");
+        const json = await res.json();
+        if (cancelled) return;
+
+        const data = json?.data as
+          | Record<string, { emailEnabled: boolean }>
+          | undefined;
+        if (data) {
+          setEmailEnabled((prev) => {
+            const next = { ...prev };
+            for (const id of Object.keys(data)) {
+              if (REAL_NOTIFICATION_IDS.has(id)) {
+                next[id] = !!data[id]?.emailEnabled;
+              }
+            }
+            return next;
+          });
+        }
+      } catch (err) {
+        if (!cancelled) {
+          toast.error("Could not load notification preferences");
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const handleToggleEmail = async (id: string) => {
+    if (!REAL_NOTIFICATION_IDS.has(id) || savingIds[id]) return;
+
+    const nextValue = !emailEnabled[id];
+    setEmailEnabled((prev) => ({ ...prev, [id]: nextValue }));
+    setSavingIds((prev) => ({ ...prev, [id]: true }));
+
+    try {
+      const res = await fetch("/api/user/notifications", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ notificationType: id, emailEnabled: nextValue }),
+      });
+
+      if (!res.ok) throw new Error("Failed to update notification preference");
+
+      toast.success("Notification preference updated");
+    } catch (err) {
+      // Revert the optimistic update on failure.
+      setEmailEnabled((prev) => ({ ...prev, [id]: !nextValue }));
+      toast.error("Failed to update notification preference");
+    } finally {
+      setSavingIds((prev) => ({ ...prev, [id]: false }));
+    }
   };
 
   return (
@@ -192,62 +231,54 @@ export default function NotificationsPage() {
           </div>
         </div>
 
-        {/* Rows */}
-        {notifications.map((row, idx) => (
-          <div
-            key={row.id}
-            className={`flex items-center justify-between px-6 py-4 ${
-              idx < notifications.length - 1 ? "border-b border-gray-100" : ""
-            } ${row.comingSoon ? "opacity-60" : ""}`}
-          >
-            <div className="flex items-center gap-3 flex-1">
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-gray-700">{row.label}</span>
-                  <span
-                    className={`px-2 py-0.5 text-xs font-medium rounded-full ${
-                      row.timingStyle === "violet"
-                        ? "bg-violet-50 text-violet-700"
-                        : "bg-gray-100 text-gray-500"
-                    }`}
-                  >
-                    {row.timing}
-                  </span>
-                  {row.comingSoon && row.timingStyle !== "gray" && (
-                    <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-gray-100 text-gray-500">
-                      Coming soon
+        {loading ? (
+          <div className="px-6 py-10 text-center text-sm text-gray-500">
+            Loading notification preferences…
+          </div>
+        ) : (
+          /* Rows */
+          notifications.map((row, idx) => (
+            <div
+              key={row.id}
+              className={`flex items-center justify-between px-6 py-4 ${
+                idx < notifications.length - 1 ? "border-b border-gray-100" : ""
+              } ${row.comingSoon ? "opacity-60" : ""}`}
+            >
+              <div className="flex items-center gap-3 flex-1">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-gray-700">{row.label}</span>
+                    <span
+                      className={`px-2 py-0.5 text-xs font-medium rounded-full ${
+                        row.timingStyle === "violet"
+                          ? "bg-violet-50 text-violet-700"
+                          : "bg-gray-100 text-gray-500"
+                      }`}
+                    >
+                      {row.timing}
                     </span>
+                    {row.comingSoon && row.timingStyle !== "gray" && (
+                      <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-gray-100 text-gray-500">
+                        Coming soon
+                      </span>
+                    )}
+                  </div>
+                  {row.description && (
+                    <p className="text-xs text-gray-500 mt-0.5">{row.description}</p>
                   )}
                 </div>
-                {row.description && (
-                  <p className="text-xs text-gray-500 mt-0.5">{row.description}</p>
-                )}
+              </div>
+
+              <div className="flex items-center gap-4">
+                <Toggle
+                  enabled={emailEnabled[row.id] ?? false}
+                  onToggle={() => handleToggleEmail(row.id)}
+                  disabled={row.comingSoon || savingIds[row.id]}
+                />
               </div>
             </div>
-
-            <div className="flex items-center gap-4">
-              {row.hasDropdown && row.dropdownOptions && (
-                <select
-                  value={recipients[row.id] || row.dropdownOptions[0]}
-                  onChange={(e) => handleRecipientChange(row.id, e.target.value)}
-                  disabled={row.comingSoon}
-                  className="text-xs text-gray-600 border border-gray-200 rounded-md px-2 py-1 bg-white focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {row.dropdownOptions.map((opt) => (
-                    <option key={opt} value={opt}>
-                      {opt}
-                    </option>
-                  ))}
-                </select>
-              )}
-              <Toggle
-                enabled={emailEnabled[row.id] ?? false}
-                onToggle={() => handleToggleEmail(row.id)}
-                disabled={row.comingSoon}
-              />
-            </div>
-          </div>
-        ))}
+          ))
+        )}
       </div>
     </div>
   );

@@ -13,6 +13,21 @@ async function ensureColumn() {
   );
 }
 
+export async function GET() {
+  const { userId: clerkId } = auth();
+  if (!clerkId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  await ensureColumn();
+
+  const [row] = await db
+    .select({ signature: users.emailSignature })
+    .from(users)
+    .where(eq(users.clerkId, clerkId))
+    .limit(1);
+
+  return NextResponse.json({ signature: row?.signature ?? "" });
+}
+
 export async function POST(req: Request) {
   const { userId: clerkId } = auth();
   if (!clerkId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

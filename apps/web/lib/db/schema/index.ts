@@ -15,3 +15,5 @@ export * from "./tasks";
 export * from "./lists";
 export * from "./website-visitors";
 export * from "./notifications-config";
+export * from "./team";
+export * from "./agent-config";

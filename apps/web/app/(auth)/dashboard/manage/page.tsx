@@ -18,11 +18,13 @@ import {
   Search,
   Pencil,
   Trash2,
-  Coins,
   X,
   Plus,
   Minus,
   Check,
+  Loader2,
+  Info,
+  UserCheck,
 } from "lucide-react";
 
 type MainTab = "overview" | "outbound" | "replies" | "guardrails";
@@ -35,30 +37,148 @@ type ModalType =
   | null
   | "connectMailbox"
   | "setupSignature"
-  | "buyMailboxes"
-  | "enableAutopilot"
   | "addCoachingPoint"
-  | "addProof"
+  | "addProofHighlight"
+  | "addProofCustomer"
+  | "addProofCaseStudy"
   | "addEscalationRule"
   | "addKnowledge"
-  | "addCoachingItem"
+  | "addReplyCoaching"
   | "addQualification"
-  | "manageLists"
   | "addDncEmail"
   | "addDncDomain"
   | "addDncPhone"
-  | "addBannedPhrase";
+  | "addBannedPhrase"
+  | { kind: "editItem"; item: AgentItem };
 
-interface ListItem {
+interface AgentItem {
   id: string;
+  category: string;
   title: string;
-  content?: string;
+  content: string | null;
+  createdAt: string;
 }
+
+interface AnalyticsData {
+  totalLeads: number;
+  emailsSent: number;
+  positiveReplies: number;
+  meetingsBooked: number;
+}
+
+interface TaskRow {
+  id: string;
+  taskType: string;
+  status: string;
+  message: string | null;
+  leadFirstName: string | null;
+  leadLastName: string | null;
+  leadFullName: string | null;
+  leadCompanyName: string | null;
+  campaignName: string | null;
+  createdAt: string;
+}
+
+interface CampaignRow {
+  id: string;
+  name: string;
+  status: string;
+  totalLeads: number | null;
+  emailsSent: number | null;
+  totalReplies: number | null;
+  // `/api/campaigns` doesn't currently select this column, but the audit
+  // notes it exists on the row and other routes (`/api/analytics`) do
+  // return it. Optional here so the ranking survives whichever payload
+  // shape the campaigns endpoint returns.
+  positiveReplies?: number | null;
+  meetingsBooked: number | null;
+}
+
+interface ActivityItem {
+  id: string;
+  type: "reply" | "meeting" | "lead";
+  title: string;
+  subtitle?: string;
+  timestamp: string;
+  href?: string;
+}
+
+// Non-deletable defaults rendered at the top of the escalation list.
+const DEFAULT_ESCALATION_RULES = [
+  "If the lead asks to unsubscribe or opt out",
+  "If Arya is unsure or missing required context",
+  "If the lead expresses strong displeasure, hostility, or directly criticizes the quality of the outreach",
+];
+
+const genLocalId = () => Math.random().toString(36).slice(2, 10);
+
+async function fetchCategory(category: string): Promise<AgentItem[]> {
+  const res = await fetch(`/api/agent-config?category=${category}`, {
+    cache: "no-store",
+  });
+  if (!res.ok) return [];
+  const json = await res.json();
+  return (json.data ?? []) as AgentItem[];
+}
+
+async function createItem(
+  category: string,
+  title: string,
+  content?: string
+): Promise<AgentItem | null> {
+  const res = await fetch("/api/agent-config", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      category,
+      title,
+      ...(content ? { content } : {}),
+    }),
+  });
+  if (!res.ok) return null;
+  const json = await res.json();
+  return json.data as AgentItem;
+}
+
+async function patchItem(
+  id: string,
+  patch: { title?: string; content?: string | null }
+): Promise<AgentItem | null> {
+  const res = await fetch(`/api/agent-config/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(patch),
+  });
+  if (!res.ok) return null;
+  const json = await res.json();
+  return json.data as AgentItem;
+}
+
+async function deleteItem(id: string): Promise<boolean> {
+  const res = await fetch(`/api/agent-config/${id}`, { method: "DELETE" });
+  return res.ok;
+}
+
+// Category slugs, kept in sync with the backend schema.
+const CAT = {
+  coaching: "coaching_point",
+  proofHighlight: "proof_highlight",
+  proofCustomer: "proof_customer",
+  proofCaseStudy: "proof_case_study",
+  escalation: "escalation_rule",
+  knowledge: "knowledge_item",
+  replyCoaching: "reply_coaching",
+  qualification: "qualification_criterion",
+  dncEmail: "dnc_email",
+  dncDomain: "dnc_domain",
+  dncPhone: "dnc_phone",
+  bannedPhrase: "banned_phrase",
+} as const;
 
 export default function ManageAryaPage() {
   const router = useRouter();
 
-  // -- Tab state --
+  // Tab state
   const [activeTab, setActiveTab] = useState<MainTab>("overview");
   const [showRemaining, setShowRemaining] = useState(true);
   const [outboundSub, setOutboundSub] = useState<OutboundSubTab>("knowledge");
@@ -66,217 +186,194 @@ export default function ManageAryaPage() {
   const [guardrailsSub, setGuardrailsSub] = useState<GuardrailsSubTab>("dnc");
   const [dncSub, setDncSub] = useState<DncSubTab>("emails");
 
-  // -- 1. Hide quests card --
   const [isQuestsHidden, setIsQuestsHidden] = useState(false);
-
-  // -- 2. Load more quests --
-  const [showMore, setShowMore] = useState(false);
-
-  // -- 3. Quest checkboxes --
-  const [completedQuests, setCompletedQuests] = useState<Set<string>>(new Set());
-
-  // -- 4. Modals --
   const [activeModal, setActiveModal] = useState<ModalType>(null);
-
-  // -- 5. Time period dropdown --
-  const [timePeriod, setTimePeriod] = useState("Last month");
-  const [timePeriodOpen, setTimePeriodOpen] = useState(false);
-  const timePeriodRef = useRef<HTMLDivElement>(null);
-
-  // -- 6. Senders dropdown --
-  const [sender, setSender] = useState("All senders");
-  const [senderOpen, setSenderOpen] = useState(false);
-  const senderRef = useRef<HTMLDivElement>(null);
-
-  // -- 8. Coaching points --
-  const [coachingPoints, setCoachingPoints] = useState<ListItem[]>([]);
-  const [coachingInput, setCoachingInput] = useState("");
-
-  // -- 9 & 10. Highlights --
-  const [highlightsList, setHighlightsList] = useState<string[]>([
-    "3x more meetings",
-    "80% cost savings vs human SDR",
-    "Setup in 30 minutes",
-    "WhatsApp + Email outreach",
-  ]);
-  const [editingHighlightIndex, setEditingHighlightIndex] = useState<number | null>(null);
-  const [editingHighlightValue, setEditingHighlightValue] = useState("");
-
-  // -- 11. Proof items --
-  const [proofItems, setProofItems] = useState<ListItem[]>([]);
-  const [proofTitleInput, setProofTitleInput] = useState("");
-  const [proofDescInput, setProofDescInput] = useState("");
-
-  // -- 12. Escalation rules --
-  const defaultEscalationRules = [
-    "If the lead asks to unsubscribe or opt out",
-    "If Arya is unsure or missing required context",
-    "If the lead expresses strong displeasure, hostility, or directly criticizes the quality of the outreach",
-  ];
-  const [customEscalationRules, setCustomEscalationRules] = useState<string[]>([]);
-  const [escalationInput, setEscalationInput] = useState("");
-
-  // -- 13. Past conversations toggle --
-  const [pastConversationsEnabled, setPastConversationsEnabled] = useState(false);
-
-  // -- 14. Knowledge, Coaching items, Qualification --
-  const [knowledgeItems, setKnowledgeItems] = useState<ListItem[]>([]);
-  const [knowledgeTitleInput, setKnowledgeTitleInput] = useState("");
-  const [knowledgeContentInput, setKnowledgeContentInput] = useState("");
-
-  const [replyCoachingItems, setReplyCoachingItems] = useState<ListItem[]>([]);
-  const [replyCoachingTitleInput, setReplyCoachingTitleInput] = useState("");
-  const [replyCoachingContentInput, setReplyCoachingContentInput] = useState("");
-
-  const [qualificationItems, setQualificationItems] = useState<ListItem[]>([]);
-  const [qualificationTitleInput, setQualificationTitleInput] = useState("");
-  const [qualificationContentInput, setQualificationContentInput] = useState("");
-
-  // -- 16. DNC Add dropdown --
   const [dncAddOpen, setDncAddOpen] = useState(false);
   const dncAddRef = useRef<HTMLDivElement>(null);
 
-  // -- DNC lists --
-  const [dncEmails, setDncEmails] = useState<string[]>([]);
-  const [dncDomains, setDncDomains] = useState<string[]>([]);
-  const [dncPhones, setDncPhones] = useState<string[]>([]);
-  const [dncInput, setDncInput] = useState("");
+  // Derived onboarding-quest state (real, from account state)
+  const [questsLoading, setQuestsLoading] = useState(true);
+  const [gmailConnected, setGmailConnected] = useState(false);
+  const [signatureConfigured, setSignatureConfigured] = useState(false);
+  const [savedSignature, setSavedSignature] = useState("");
+  const [hasSignalSubscription, setHasSignalSubscription] = useState(false);
 
-  // -- 17. Banned phrases --
-  const [bannedPhrases, setBannedPhrases] = useState<string[]>([]);
-  const [bannedPhraseInput, setBannedPhraseInput] = useState("");
+  // Overview data
+  const [analyticsLoading, setAnalyticsLoading] = useState(true);
+  const [analytics, setAnalytics] = useState<AnalyticsData>({
+    totalLeads: 0,
+    emailsSent: 0,
+    positiveReplies: 0,
+    meetingsBooked: 0,
+  });
+  const [tasksLoading, setTasksLoading] = useState(true);
+  const [tasks, setTasks] = useState<TaskRow[]>([]);
+  const [campaignsLoading, setCampaignsLoading] = useState(true);
+  const [topCampaigns, setTopCampaigns] = useState<CampaignRow[]>([]);
+  const [activityLoading, setActivityLoading] = useState(true);
+  const [activity, setActivity] = useState<ActivityItem[]>([]);
 
-  // -- 18. Search bars --
+  // Agent-config lists (all backed by /api/agent-config)
+  const [coachingPoints, setCoachingPoints] = useState<AgentItem[]>([]);
+  const [proofHighlights, setProofHighlights] = useState<AgentItem[]>([]);
+  const [proofCustomers, setProofCustomers] = useState<AgentItem[]>([]);
+  const [proofCaseStudies, setProofCaseStudies] = useState<AgentItem[]>([]);
+  const [customEscalationRules, setCustomEscalationRules] = useState<AgentItem[]>([]);
+  const [knowledgeItems, setKnowledgeItems] = useState<AgentItem[]>([]);
+  const [replyCoachingItems, setReplyCoachingItems] = useState<AgentItem[]>([]);
+  const [qualificationItems, setQualificationItems] = useState<AgentItem[]>([]);
+  const [dncEmails, setDncEmails] = useState<AgentItem[]>([]);
+  const [dncDomains, setDncDomains] = useState<AgentItem[]>([]);
+  const [dncPhones, setDncPhones] = useState<AgentItem[]>([]);
+  const [bannedPhrases, setBannedPhrases] = useState<AgentItem[]>([]);
+
+  // Search bars
   const [dncSearchQuery, setDncSearchQuery] = useState("");
   const [bannedSearchQuery, setBannedSearchQuery] = useState("");
 
-  // -- Modal form state --
-  const [mailboxEmail, setMailboxEmail] = useState("");
+  // Modal form state
   const [signatureHtml, setSignatureHtml] = useState("");
-  const [mailboxQuantity, setMailboxQuantity] = useState(1);
+  const [savingSignature, setSavingSignature] = useState(false);
+  const [modalTitleInput, setModalTitleInput] = useState("");
+  const [modalContentInput, setModalContentInput] = useState("");
+  const [modalSaving, setModalSaving] = useState(false);
 
-  // -- Quests data --
-  const baseQuests = [
-    {
-      title: "Connect your primary mailbox",
-      next: true,
-      description: "Enable email sending, reply forwarding, and meeting tracking",
-      credits: 200,
-      action: "Connect mailbox",
-    },
-    {
-      title: "Set up email signature",
-      next: false,
-      description: "Add the signature Arya should use when sending from your mailbox",
-      credits: 200,
-      action: "Set up signature",
-    },
-    {
-      title: "Launch a signal-based campaign",
-      next: false,
-      description: "Reach prospects the moment they hit a buying-intent trigger",
-      credits: 200,
-      action: "Set up signals",
-    },
-    {
-      title: "Add secondary mailboxes",
-      next: false,
-      description: "Scale daily send volume across multiple inboxes without hurting deliverability",
-      credits: 1000,
-      action: "Buy mailboxes",
-    },
-    {
-      title: "Turn on autopilot",
-      next: false,
-      description: "Hand Arya the wheel to run outbound end-to-end without your approval",
-      credits: 400,
-      action: "Enable autopilot",
-    },
-  ];
+  // ---- Refresh helpers ----
 
-  const extraQuests = [
-    {
-      title: "Set up A/B testing",
-      next: false,
-      description: "Test different email variations to optimize open and reply rates",
-      credits: 300,
-      action: "Set up signals",
-    },
-    {
-      title: "Configure lead scoring",
-      next: false,
-      description: "Prioritize outreach based on lead engagement and fit signals",
-      credits: 250,
-      action: "Set up signals",
-    },
-    {
-      title: "Set up CRM integration",
-      next: false,
-      description: "Sync leads, activities, and deals with your CRM automatically",
-      credits: 500,
-      action: "Set up signals",
-    },
-    {
-      title: "Enable WhatsApp outreach",
-      next: false,
-      description: "Reach prospects on WhatsApp for higher engagement rates",
-      credits: 400,
-      action: "Set up signals",
-    },
-    {
-      title: "Customize email templates",
-      next: false,
-      description: "Create branded email templates Arya can use across campaigns",
-      credits: 200,
-      action: "Set up signals",
-    },
-    {
-      title: "Set up meeting booking",
-      next: false,
-      description: "Connect your calendar so Arya can book meetings directly",
-      credits: 300,
-      action: "Set up signals",
-    },
-    {
-      title: "Configure follow-up rules",
-      next: false,
-      description: "Set how and when Arya should follow up with unresponsive leads",
-      credits: 200,
-      action: "Set up signals",
-    },
-    {
-      title: "Enable LinkedIn outreach",
-      next: false,
-      description: "Connect LinkedIn to add multi-channel touchpoints to sequences",
-      credits: 400,
-      action: "Set up signals",
-    },
-  ];
+  const refreshQuests = useCallback(async () => {
+    setQuestsLoading(true);
+    try {
+      const [integ, sig, signals] = await Promise.all([
+        fetch("/api/v1/integrations/status", { cache: "no-store" })
+          .then((r) => r.json())
+          .catch(() => ({ gmail: false })),
+        fetch("/api/user/signature", { cache: "no-store" })
+          .then((r) => r.json())
+          .catch(() => ({ signature: "" })),
+        fetch("/api/signals", { cache: "no-store" })
+          .then((r) => r.json())
+          .catch(() => ({ subscriptions: [] })),
+      ]);
+      setGmailConnected(Boolean(integ.gmail));
+      const sigStr: string = typeof sig.signature === "string" ? sig.signature : "";
+      setSavedSignature(sigStr);
+      setSignatureConfigured(sigStr.trim().length > 0);
+      const subs: Array<{ enabled?: boolean }> = signals.subscriptions ?? [];
+      setHasSignalSubscription(subs.some((s) => s.enabled !== false));
+    } finally {
+      setQuestsLoading(false);
+    }
+  }, []);
 
-  const allQuests = showMore ? [...baseQuests, ...extraQuests] : baseQuests;
-  const totalQuests = baseQuests.length + extraQuests.length;
+  const refreshAnalytics = useCallback(async () => {
+    setAnalyticsLoading(true);
+    try {
+      const res = await fetch("/api/analytics", { cache: "no-store" });
+      if (!res.ok) throw new Error("analytics failed");
+      const json = await res.json();
+      const d = json.data ?? {};
+      setAnalytics({
+        totalLeads: d.totalLeads ?? 0,
+        emailsSent: d.emailsSent ?? 0,
+        positiveReplies: d.positiveReplies ?? 0,
+        meetingsBooked: d.meetingsBooked ?? 0,
+      });
+    } catch {
+      // Leave zeros — analytics is best-effort. No fake toast.
+    } finally {
+      setAnalyticsLoading(false);
+    }
+  }, []);
 
-  // -- Main tabs --
-  const mainTabs: { key: MainTab; label: string }[] = [
-    { key: "overview", label: "Overview" },
-    { key: "outbound", label: "Outbound sequences" },
-    { key: "replies", label: "Autonomous replies" },
-    { key: "guardrails", label: "Guardrails" },
-  ];
+  const refreshTasks = useCallback(async () => {
+    setTasksLoading(true);
+    try {
+      const res = await fetch("/api/tasks?status=pending", { cache: "no-store" });
+      const json = await res.json();
+      setTasks((json.data ?? []) as TaskRow[]);
+    } catch {
+      setTasks([]);
+    } finally {
+      setTasksLoading(false);
+    }
+  }, []);
 
-  // -- Time period options --
-  const timePeriodOptions = ["Last 7 days", "Last 30 days", "Last month", "Last 3 months", "Last year"];
-  const senderOptions = ["All senders", "Shashank Kumar"];
+  const refreshCampaigns = useCallback(async () => {
+    setCampaignsLoading(true);
+    try {
+      const res = await fetch("/api/campaigns", { cache: "no-store" });
+      const json = await res.json();
+      const rows = (json.data ?? []) as CampaignRow[];
+      const sorted = [...rows].sort((a, b) => {
+        const scoreA = (a.positiveReplies ?? 0) + (a.meetingsBooked ?? 0) * 2 + (a.totalReplies ?? 0);
+        const scoreB = (b.positiveReplies ?? 0) + (b.meetingsBooked ?? 0) * 2 + (b.totalReplies ?? 0);
+        return scoreB - scoreA;
+      });
+      setTopCampaigns(sorted.slice(0, 5));
+    } catch {
+      setTopCampaigns([]);
+    } finally {
+      setCampaignsLoading(false);
+    }
+  }, []);
 
-  // -- Click outside handler for dropdowns --
+  const refreshActivity = useCallback(async () => {
+    setActivityLoading(true);
+    try {
+      const res = await fetch("/api/dashboard/activity", { cache: "no-store" });
+      const json = await res.json();
+      setActivity((json.data ?? []) as ActivityItem[]);
+    } catch {
+      setActivity([]);
+    } finally {
+      setActivityLoading(false);
+    }
+  }, []);
+
+  const refreshCategory = useCallback(
+    async (
+      category: string,
+      setter: React.Dispatch<React.SetStateAction<AgentItem[]>>
+    ) => {
+      const rows = await fetchCategory(category);
+      setter(rows);
+    },
+    []
+  );
+
+  // Positive-reply campaign score — expose the field TS thinks may be missing.
+  // (`positiveReplies` isn't on the /api/campaigns response — the calling
+  // agent's audit noted these fields but the current route doesn't select
+  // it; fall back to totalReplies. Kept in a type-safe extension:)
+  // (No-op; the sort above already handles undefined.)
+
+  // ---- Initial load ----
+  useEffect(() => {
+    refreshQuests();
+    refreshAnalytics();
+    refreshTasks();
+    refreshCampaigns();
+    refreshActivity();
+    // Kick off configuration list fetches in parallel — a single grouped
+    // /api/agent-config call would work too, but per-category keeps the
+    // wire types trivial and lets each section reload independently.
+    fetchCategory(CAT.coaching).then(setCoachingPoints);
+    fetchCategory(CAT.proofHighlight).then(setProofHighlights);
+    fetchCategory(CAT.proofCustomer).then(setProofCustomers);
+    fetchCategory(CAT.proofCaseStudy).then(setProofCaseStudies);
+    fetchCategory(CAT.escalation).then(setCustomEscalationRules);
+    fetchCategory(CAT.knowledge).then(setKnowledgeItems);
+    fetchCategory(CAT.replyCoaching).then(setReplyCoachingItems);
+    fetchCategory(CAT.qualification).then(setQualificationItems);
+    fetchCategory(CAT.dncEmail).then(setDncEmails);
+    fetchCategory(CAT.dncDomain).then(setDncDomains);
+    fetchCategory(CAT.dncPhone).then(setDncPhones);
+    fetchCategory(CAT.bannedPhrase).then(setBannedPhrases);
+  }, [refreshQuests, refreshAnalytics, refreshTasks, refreshCampaigns, refreshActivity]);
+
+  // Click-outside for the DNC "+ Add" dropdown
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
-      if (timePeriodRef.current && !timePeriodRef.current.contains(e.target as Node)) {
-        setTimePeriodOpen(false);
-      }
-      if (senderRef.current && !senderRef.current.contains(e.target as Node)) {
-        setSenderOpen(false);
-      }
       if (dncAddRef.current && !dncAddRef.current.contains(e.target as Node)) {
         setDncAddOpen(false);
       }
@@ -285,177 +382,383 @@ export default function ManageAryaPage() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // -- ESC key handler for modals --
+  // ESC closes modals
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
       if (e.key === "Escape") {
         setActiveModal(null);
-        setEditingHighlightIndex(null);
       }
     }
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  // -- Quest checkbox toggle --
-  const toggleQuest = useCallback((title: string) => {
-    setCompletedQuests((prev) => {
-      const next = new Set(prev);
-      if (next.has(title)) {
-        next.delete(title);
-      } else {
-        next.add(title);
-      }
-      return next;
-    });
-  }, []);
+  // ---- Quest definitions (real, derived from account state) ----
 
-  // -- Quest action handler --
+  interface Quest {
+    key: string;
+    title: string;
+    description: string;
+    action: string;
+    completed: boolean;
+    disabled?: boolean;
+    disabledReason?: string;
+    next?: boolean;
+  }
+
+  const questList: Quest[] = (() => {
+    const list: Quest[] = [
+      {
+        key: "connect_mailbox",
+        title: "Connect your primary mailbox",
+        description: "Enable email sending, reply forwarding, and meeting tracking",
+        action: "Connect mailbox",
+        completed: gmailConnected,
+      },
+      {
+        key: "signature",
+        title: "Set up email signature",
+        description: "Add the signature Arya should use when sending from your mailbox",
+        action: "Set up signature",
+        completed: signatureConfigured,
+      },
+      {
+        key: "signals",
+        title: "Launch a signal-based campaign",
+        description: "Reach prospects the moment they hit a buying-intent trigger",
+        action: "Set up signals",
+        completed: hasSignalSubscription,
+      },
+      {
+        key: "secondary_mailboxes",
+        title: "Add secondary mailboxes",
+        description:
+          "Scale daily send volume across multiple inboxes without hurting deliverability",
+        action: "Coming soon",
+        completed: false,
+        disabled: true,
+        disabledReason: "Not available yet — get in touch to enable multi-mailbox sending",
+      },
+      {
+        key: "autopilot",
+        title: "Turn on autopilot",
+        description:
+          "Hand Arya the wheel to run outbound end-to-end without your approval",
+        action: "Coming soon",
+        completed: false,
+        disabled: true,
+        disabledReason: "Autopilot is currently in closed beta",
+      },
+    ];
+    // Mark the first uncompleted, non-disabled quest as "Next"
+    const nextIdx = list.findIndex((q) => !q.completed && !q.disabled);
+    if (nextIdx >= 0) list[nextIdx].next = true;
+    return list;
+  })();
+
+  const completedCount = questList.filter((q) => q.completed).length;
+  const totalQuests = questList.length;
+  const progressPercent = totalQuests > 0 ? Math.round((completedCount / totalQuests) * 100) : 0;
+
   const handleQuestAction = useCallback(
-    (action: string) => {
-      switch (action) {
+    (quest: Quest) => {
+      if (quest.disabled) {
+        toast(quest.disabledReason ?? "Coming soon", { icon: "🛠️" });
+        return;
+      }
+      switch (quest.action) {
         case "Connect mailbox":
           setActiveModal("connectMailbox");
           break;
         case "Set up signature":
+          setSignatureHtml(savedSignature);
           setActiveModal("setupSignature");
           break;
         case "Set up signals":
           router.push("/signals");
           break;
-        case "Buy mailboxes":
-          setMailboxQuantity(1);
-          setActiveModal("buyMailboxes");
-          break;
-        case "Enable autopilot":
-          setActiveModal("enableAutopilot");
-          break;
       }
     },
-    [router]
+    [router, savedSignature]
   );
 
-  // -- Progress calculation --
-  const progressPercent = totalQuests > 0 ? Math.round((completedQuests.size / totalQuests) * 100) : 0;
+  // ---- Filtered lists ----
 
-  // -- Generate unique ID --
-  const genId = () => Math.random().toString(36).slice(2, 10);
+  const filterByTitle = (rows: AgentItem[], q: string) =>
+    q.trim() === ""
+      ? rows
+      : rows.filter((r) => r.title.toLowerCase().includes(q.toLowerCase()));
 
-  // -- DNC filtered lists --
-  const filteredDncEmails = dncEmails.filter((e) => e.toLowerCase().includes(dncSearchQuery.toLowerCase()));
-  const filteredDncDomains = dncDomains.filter((d) => d.toLowerCase().includes(dncSearchQuery.toLowerCase()));
-  const filteredDncPhones = dncPhones.filter((p) => p.toLowerCase().includes(dncSearchQuery.toLowerCase()));
-  const filteredBannedPhrases = bannedPhrases.filter((p) => p.toLowerCase().includes(bannedSearchQuery.toLowerCase()));
+  const dncCurrentList: AgentItem[] =
+    dncSub === "emails"
+      ? filterByTitle(dncEmails, dncSearchQuery)
+      : dncSub === "domains"
+        ? filterByTitle(dncDomains, dncSearchQuery)
+        : dncSub === "phones"
+          ? filterByTitle(dncPhones, dncSearchQuery)
+          : []; // "crm" — intentionally empty, handled as its own message below
 
-  // -- Get current DNC list by sub-tab --
-  const getCurrentDncList = () => {
-    switch (dncSub) {
-      case "emails":
-        return filteredDncEmails;
-      case "domains":
-        return filteredDncDomains;
-      case "phones":
-        return filteredDncPhones;
-      default:
-        return [];
-    }
+  const filteredBannedPhrases = filterByTitle(bannedPhrases, bannedSearchQuery);
+
+  // ---- Item CRUD helpers with real toasts ----
+
+  const addAgentItem = useCallback(
+    async (
+      category: string,
+      title: string,
+      content: string | undefined,
+      setter: React.Dispatch<React.SetStateAction<AgentItem[]>>,
+      successLabel = "Added"
+    ) => {
+      // Optimistic-ish: show loading, then swap in real row
+      const created = await createItem(category, title, content);
+      if (!created) {
+        toast.error("Could not save. Please try again.");
+        return false;
+      }
+      setter((prev) => [...prev, created]);
+      toast.success(successLabel);
+      // For the mailbox-connect / signature quests: quests refresh happens
+      // via handleModalSave callers; nothing else to poke here.
+      return true;
+    },
+    []
+  );
+
+  const removeAgentItem = useCallback(
+    async (
+      item: AgentItem,
+      setter: React.Dispatch<React.SetStateAction<AgentItem[]>>
+    ) => {
+      const ok = await deleteItem(item.id);
+      if (!ok) {
+        toast.error("Could not delete. Please try again.");
+        return;
+      }
+      setter((prev) => prev.filter((r) => r.id !== item.id));
+      toast.success("Deleted");
+    },
+    []
+  );
+
+  const updateAgentItem = useCallback(
+    async (
+      itemId: string,
+      patch: { title?: string; content?: string | null },
+      setter: React.Dispatch<React.SetStateAction<AgentItem[]>>
+    ) => {
+      const updated = await patchItem(itemId, patch);
+      if (!updated) {
+        toast.error("Could not update. Please try again.");
+        return false;
+      }
+      setter((prev) => prev.map((r) => (r.id === itemId ? updated : r)));
+      toast.success("Updated");
+      return true;
+    },
+    []
+  );
+
+  // Map: which setter belongs to which category — used by the shared edit modal.
+  const setterForCategory = useCallback(
+    (category: string): React.Dispatch<React.SetStateAction<AgentItem[]>> => {
+      switch (category) {
+        case CAT.coaching:
+          return setCoachingPoints;
+        case CAT.proofHighlight:
+          return setProofHighlights;
+        case CAT.proofCustomer:
+          return setProofCustomers;
+        case CAT.proofCaseStudy:
+          return setProofCaseStudies;
+        case CAT.escalation:
+          return setCustomEscalationRules;
+        case CAT.knowledge:
+          return setKnowledgeItems;
+        case CAT.replyCoaching:
+          return setReplyCoachingItems;
+        case CAT.qualification:
+          return setQualificationItems;
+        case CAT.dncEmail:
+          return setDncEmails;
+        case CAT.dncDomain:
+          return setDncDomains;
+        case CAT.dncPhone:
+          return setDncPhones;
+        case CAT.bannedPhrase:
+          return setBannedPhrases;
+        default:
+          return setKnowledgeItems;
+      }
+    },
+    []
+  );
+
+  // Which categories support a `content` body (for the edit modal)
+  const categoryHasContent = (cat: string): boolean =>
+    cat === CAT.proofCustomer ||
+    cat === CAT.proofCaseStudy ||
+    cat === CAT.knowledge ||
+    cat === CAT.replyCoaching ||
+    cat === CAT.qualification;
+
+  const closeModal = () => {
+    setActiveModal(null);
+    setSignatureHtml("");
+    setModalTitleInput("");
+    setModalContentInput("");
+    setModalSaving(false);
   };
 
-  const removeDncItem = (item: string) => {
-    switch (dncSub) {
-      case "emails":
-        setDncEmails((prev) => prev.filter((e) => e !== item));
-        break;
-      case "domains":
-        setDncDomains((prev) => prev.filter((d) => d !== item));
-        break;
-      case "phones":
-        setDncPhones((prev) => prev.filter((p) => p !== item));
-        break;
-    }
+  const openAdd = (kind: Exclude<ModalType, null | { kind: "editItem"; item: AgentItem }>) => {
+    setModalTitleInput("");
+    setModalContentInput("");
+    setActiveModal(kind);
   };
 
-  // -- Modal renderer --
-  const renderModal = () => {
-    if (!activeModal) return null;
+  const openEdit = (item: AgentItem) => {
+    setModalTitleInput(item.title);
+    setModalContentInput(item.content ?? "");
+    setActiveModal({ kind: "editItem", item });
+  };
 
-    const closeModal = () => {
-      setActiveModal(null);
-      setMailboxEmail("");
-      setSignatureHtml("");
-      setCoachingInput("");
-      setProofTitleInput("");
-      setProofDescInput("");
-      setEscalationInput("");
-      setKnowledgeTitleInput("");
-      setKnowledgeContentInput("");
-      setReplyCoachingTitleInput("");
-      setReplyCoachingContentInput("");
-      setQualificationTitleInput("");
-      setQualificationContentInput("");
-      setDncInput("");
-      setBannedPhraseInput("");
-    };
+  // ---- Modal renderer ----
 
-    const modalWrapper = (title: string, content: React.ReactNode, footer: React.ReactNode) => (
+  const modalWrapper = (
+    title: string,
+    content: React.ReactNode,
+    footer: React.ReactNode
+  ) => (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+      onClick={closeModal}
+    >
       <div
-        className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
-        onClick={closeModal}
+        className="w-full max-w-md rounded-2xl bg-white shadow-xl mx-4 overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
       >
-        <div
-          className="w-full max-w-md rounded-2xl bg-white shadow-xl mx-4 overflow-hidden"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
-            <h3 className="font-semibold text-gray-900">{title}</h3>
-            <button onClick={closeModal} className="p-1 text-gray-400 hover:text-gray-600">
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-          <div className="px-6 py-4">{content}</div>
-          <div className="flex justify-end gap-3 px-6 py-4 border-t border-gray-100">{footer}</div>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+          <h3 className="font-semibold text-gray-900">{title}</h3>
+          <button onClick={closeModal} className="p-1 text-gray-400 hover:text-gray-600">
+            <X className="h-4 w-4" />
+          </button>
         </div>
+        <div className="px-6 py-4">{content}</div>
+        <div className="flex justify-end gap-3 px-6 py-4 border-t border-gray-100">{footer}</div>
       </div>
-    );
+    </div>
+  );
 
-    const cancelBtn = (
-      <button
-        onClick={closeModal}
-        className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-      >
-        Cancel
-      </button>
+  const cancelBtn = (
+    <button
+      onClick={closeModal}
+      className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+    >
+      Cancel
+    </button>
+  );
+
+  const saveBtn = (label: string, onClick: () => void, disabled = false) => (
+    <button
+      onClick={onClick}
+      disabled={disabled || modalSaving}
+      className="rounded-lg bg-[#6C47FF] px-4 py-2 text-sm font-medium text-white hover:bg-[#5A38E0] disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
+    >
+      {modalSaving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+      {label}
+    </button>
+  );
+
+  const runAdd = async (
+    category: string,
+    setter: React.Dispatch<React.SetStateAction<AgentItem[]>>,
+    includeContent: boolean,
+    successLabel: string
+  ) => {
+    const t = modalTitleInput.trim();
+    if (!t) return;
+    setModalSaving(true);
+    const ok = await addAgentItem(
+      category,
+      t,
+      includeContent ? (modalContentInput.trim() || undefined) : undefined,
+      setter,
+      successLabel
     );
+    setModalSaving(false);
+    if (ok) closeModal();
+  };
+
+  const runEdit = async (item: AgentItem) => {
+    const t = modalTitleInput.trim();
+    if (!t) return;
+    const patch: { title?: string; content?: string | null } = { title: t };
+    if (categoryHasContent(item.category)) {
+      const c = modalContentInput.trim();
+      patch.content = c === "" ? null : c;
+    }
+    setModalSaving(true);
+    const ok = await updateAgentItem(item.id, patch, setterForCategory(item.category));
+    setModalSaving(false);
+    if (ok) closeModal();
+  };
+
+  const renderModal = () => {
+    if (activeModal === null) return null;
+
+    if (typeof activeModal === "object" && activeModal.kind === "editItem") {
+      const item = activeModal.item;
+      const hasContent = categoryHasContent(item.category);
+      const isSimple = !hasContent; // e.g. banned phrase, DNC row, escalation rule, coaching, highlight
+      const titleLabel = isSimple ? "Value" : "Title";
+      return modalWrapper(
+        "Edit item",
+        <div className="space-y-3">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">{titleLabel}</label>
+            <input
+              type="text"
+              value={modalTitleInput}
+              onChange={(e) => setModalTitleInput(e.target.value)}
+              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+              autoFocus
+            />
+          </div>
+          {hasContent && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Content</label>
+              <textarea
+                value={modalContentInput}
+                onChange={(e) => setModalContentInput(e.target.value)}
+                rows={4}
+                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent resize-none"
+              />
+            </div>
+          )}
+        </div>,
+        <>
+          {cancelBtn}
+          {saveBtn("Save", () => runEdit(item), modalTitleInput.trim() === "")}
+        </>
+      );
+    }
 
     switch (activeModal) {
       case "connectMailbox":
         return modalWrapper(
           "Connect your primary mailbox",
           <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Email address</label>
-              <input
-                type="email"
-                value={mailboxEmail}
-                onChange={(e) => setMailboxEmail(e.target.value)}
-                placeholder="you@company.com"
-                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
-              />
-            </div>
+            <p className="text-sm text-gray-600">
+              Connect Gmail so Arya can send from your inbox and forward replies back to you. You&apos;ll be redirected to Google to authorize access.
+            </p>
             <button
-              onClick={() => { window.location.href = "/api/v1/integrations/gmail"; }}
+              onClick={() => {
+                window.location.href = "/api/v1/integrations/gmail";
+              }}
               className="w-full rounded-lg bg-[#6C47FF] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#5A38E0] transition-colors"
             >
               Connect with Google
             </button>
-            <div className="text-center">
-              <button
-                onClick={() => { window.location.href = "/api/v1/integrations/gmail"; }}
-                className="text-sm text-violet-600 hover:text-violet-700 font-medium"
-              >
-                Connect manually
-              </button>
-            </div>
           </div>,
           <>{cancelBtn}</>
         );
@@ -477,6 +780,7 @@ export default function ManageAryaPage() {
             {cancelBtn}
             <button
               onClick={async () => {
+                setSavingSignature(true);
                 try {
                   const res = await fetch("/api/user/signature", {
                     method: "POST",
@@ -484,78 +788,21 @@ export default function ManageAryaPage() {
                     body: JSON.stringify({ signature: signatureHtml }),
                   });
                   if (!res.ok) throw new Error("Failed");
-                  toast.success("Signature saved!");
+                  toast.success("Signature saved");
+                  setSavedSignature(signatureHtml);
+                  setSignatureConfigured(signatureHtml.trim().length > 0);
                   closeModal();
                 } catch {
                   toast.error("Failed to save signature");
+                } finally {
+                  setSavingSignature(false);
                 }
               }}
-              className="rounded-lg bg-[#6C47FF] px-4 py-2 text-sm font-medium text-white hover:bg-[#5A38E0]"
+              disabled={savingSignature}
+              className="rounded-lg bg-[#6C47FF] px-4 py-2 text-sm font-medium text-white hover:bg-[#5A38E0] disabled:opacity-50 inline-flex items-center gap-2"
             >
+              {savingSignature && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
               Save
-            </button>
-          </>
-        );
-
-      case "buyMailboxes":
-        return modalWrapper(
-          "Purchase additional mailboxes",
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Quantity</label>
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={() => setMailboxQuantity((q) => Math.max(1, q - 1))}
-                  className="flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50"
-                >
-                  <Minus className="h-4 w-4" />
-                </button>
-                <span className="text-lg font-semibold text-gray-900 min-w-[2rem] text-center">
-                  {mailboxQuantity}
-                </span>
-                <button
-                  onClick={() => setMailboxQuantity((q) => q + 1)}
-                  className="flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50"
-                >
-                  <Plus className="h-4 w-4" />
-                </button>
-              </div>
-            </div>
-            <div className="rounded-lg bg-gray-50 px-4 py-3">
-              <div className="flex justify-between text-sm text-gray-600">
-                <span>Price per mailbox</span>
-                <span>$7/mo</span>
-              </div>
-              <div className="flex justify-between text-sm font-semibold text-gray-900 mt-2 pt-2 border-t border-gray-200">
-                <span>Total</span>
-                <span>${(7 * mailboxQuantity).toLocaleString("en-US")}/mo</span>
-              </div>
-            </div>
-          </div>,
-          <>
-            {cancelBtn}
-            <button
-              onClick={closeModal}
-              className="rounded-lg bg-[#6C47FF] px-4 py-2 text-sm font-medium text-white hover:bg-[#5A38E0]"
-            >
-              Purchase
-            </button>
-          </>
-        );
-
-      case "enableAutopilot":
-        return modalWrapper(
-          "Enable autopilot mode?",
-          <p className="text-sm text-gray-600">
-            Arya will run outbound end-to-end without your approval. You can disable this at any time.
-          </p>,
-          <>
-            {cancelBtn}
-            <button
-              onClick={closeModal}
-              className="rounded-lg bg-[#6C47FF] px-4 py-2 text-sm font-medium text-white hover:bg-[#5A38E0]"
-            >
-              Enable autopilot
             </button>
           </>
         );
@@ -566,49 +813,69 @@ export default function ManageAryaPage() {
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Coaching instruction</label>
             <textarea
-              value={coachingInput}
-              onChange={(e) => setCoachingInput(e.target.value)}
+              value={modalTitleInput}
+              onChange={(e) => setModalTitleInput(e.target.value)}
               placeholder="Enter coaching instruction for Arya..."
               rows={4}
+              autoFocus
               className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent resize-none"
             />
           </div>,
           <>
             {cancelBtn}
-            <button
-              onClick={() => {
-                if (coachingInput.trim()) {
-                  setCoachingPoints((prev) => [...prev, { id: genId(), title: coachingInput.trim() }]);
-                  closeModal();
-                }
-              }}
-              className="rounded-lg bg-[#6C47FF] px-4 py-2 text-sm font-medium text-white hover:bg-[#5A38E0]"
-            >
-              Save
-            </button>
+            {saveBtn(
+              "Save",
+              () => runAdd(CAT.coaching, setCoachingPoints, false, "Coaching point added"),
+              modalTitleInput.trim() === ""
+            )}
           </>
         );
 
-      case "addProof":
+      case "addProofHighlight":
         return modalWrapper(
-          "Add proof",
+          "Add proof highlight",
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Headline</label>
+            <input
+              type="text"
+              value={modalTitleInput}
+              onChange={(e) => setModalTitleInput(e.target.value)}
+              placeholder="e.g. 3x more meetings"
+              autoFocus
+              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+            />
+          </div>,
+          <>
+            {cancelBtn}
+            {saveBtn(
+              "Save",
+              () => runAdd(CAT.proofHighlight, setProofHighlights, false, "Highlight added"),
+              modalTitleInput.trim() === ""
+            )}
+          </>
+        );
+
+      case "addProofCustomer":
+        return modalWrapper(
+          "Add customer",
           <div className="space-y-3">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Customer name / logo caption</label>
               <input
                 type="text"
-                value={proofTitleInput}
-                onChange={(e) => setProofTitleInput(e.target.value)}
-                placeholder="e.g. 50% conversion rate increase"
+                value={modalTitleInput}
+                onChange={(e) => setModalTitleInput(e.target.value)}
+                placeholder="e.g. Acme Corp"
+                autoFocus
                 className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Notes (optional)</label>
               <textarea
-                value={proofDescInput}
-                onChange={(e) => setProofDescInput(e.target.value)}
-                placeholder="Describe the proof point..."
+                value={modalContentInput}
+                onChange={(e) => setModalContentInput(e.target.value)}
+                placeholder="Segment, use case, or a short quote Arya can reference..."
                 rows={3}
                 className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent resize-none"
               />
@@ -616,20 +883,47 @@ export default function ManageAryaPage() {
           </div>,
           <>
             {cancelBtn}
-            <button
-              onClick={() => {
-                if (proofTitleInput.trim()) {
-                  setProofItems((prev) => [
-                    ...prev,
-                    { id: genId(), title: proofTitleInput.trim(), content: proofDescInput.trim() },
-                  ]);
-                  closeModal();
-                }
-              }}
-              className="rounded-lg bg-[#6C47FF] px-4 py-2 text-sm font-medium text-white hover:bg-[#5A38E0]"
-            >
-              Save
-            </button>
+            {saveBtn(
+              "Save",
+              () => runAdd(CAT.proofCustomer, setProofCustomers, true, "Customer added"),
+              modalTitleInput.trim() === ""
+            )}
+          </>
+        );
+
+      case "addProofCaseStudy":
+        return modalWrapper(
+          "Add case study",
+          <div className="space-y-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
+              <input
+                type="text"
+                value={modalTitleInput}
+                onChange={(e) => setModalTitleInput(e.target.value)}
+                placeholder="e.g. How Acme cut sales cycle by 40%"
+                autoFocus
+                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Summary</label>
+              <textarea
+                value={modalContentInput}
+                onChange={(e) => setModalContentInput(e.target.value)}
+                placeholder="The problem, what changed, and the outcome Arya can cite..."
+                rows={4}
+                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent resize-none"
+              />
+            </div>
+          </div>,
+          <>
+            {cancelBtn}
+            {saveBtn(
+              "Save",
+              () => runAdd(CAT.proofCaseStudy, setProofCaseStudies, true, "Case study added"),
+              modalTitleInput.trim() === ""
+            )}
           </>
         );
 
@@ -639,26 +933,21 @@ export default function ManageAryaPage() {
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Rule</label>
             <textarea
-              value={escalationInput}
-              onChange={(e) => setEscalationInput(e.target.value)}
+              value={modalTitleInput}
+              onChange={(e) => setModalTitleInput(e.target.value)}
               placeholder="Describe when Arya should escalate..."
               rows={4}
+              autoFocus
               className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent resize-none"
             />
           </div>,
           <>
             {cancelBtn}
-            <button
-              onClick={() => {
-                if (escalationInput.trim()) {
-                  setCustomEscalationRules((prev) => [...prev, escalationInput.trim()]);
-                  closeModal();
-                }
-              }}
-              className="rounded-lg bg-[#6C47FF] px-4 py-2 text-sm font-medium text-white hover:bg-[#5A38E0]"
-            >
-              Save
-            </button>
+            {saveBtn(
+              "Save",
+              () => runAdd(CAT.escalation, setCustomEscalationRules, false, "Rule added"),
+              modalTitleInput.trim() === ""
+            )}
           </>
         );
 
@@ -670,17 +959,18 @@ export default function ManageAryaPage() {
               <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
               <input
                 type="text"
-                value={knowledgeTitleInput}
-                onChange={(e) => setKnowledgeTitleInput(e.target.value)}
+                value={modalTitleInput}
+                onChange={(e) => setModalTitleInput(e.target.value)}
                 placeholder="e.g. Product pricing FAQ"
+                autoFocus
                 className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
               />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Content</label>
               <textarea
-                value={knowledgeContentInput}
-                onChange={(e) => setKnowledgeContentInput(e.target.value)}
+                value={modalContentInput}
+                onChange={(e) => setModalContentInput(e.target.value)}
                 placeholder="Enter knowledge content..."
                 rows={4}
                 className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent resize-none"
@@ -689,24 +979,15 @@ export default function ManageAryaPage() {
           </div>,
           <>
             {cancelBtn}
-            <button
-              onClick={() => {
-                if (knowledgeTitleInput.trim()) {
-                  setKnowledgeItems((prev) => [
-                    ...prev,
-                    { id: genId(), title: knowledgeTitleInput.trim(), content: knowledgeContentInput.trim() },
-                  ]);
-                  closeModal();
-                }
-              }}
-              className="rounded-lg bg-[#6C47FF] px-4 py-2 text-sm font-medium text-white hover:bg-[#5A38E0]"
-            >
-              Save
-            </button>
+            {saveBtn(
+              "Save",
+              () => runAdd(CAT.knowledge, setKnowledgeItems, true, "Knowledge item added"),
+              modalTitleInput.trim() === ""
+            )}
           </>
         );
 
-      case "addCoachingItem":
+      case "addReplyCoaching":
         return modalWrapper(
           "Add coaching item",
           <div className="space-y-3">
@@ -714,17 +995,18 @@ export default function ManageAryaPage() {
               <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
               <input
                 type="text"
-                value={replyCoachingTitleInput}
-                onChange={(e) => setReplyCoachingTitleInput(e.target.value)}
+                value={modalTitleInput}
+                onChange={(e) => setModalTitleInput(e.target.value)}
                 placeholder="e.g. Tone of voice"
+                autoFocus
                 className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
               />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Content</label>
               <textarea
-                value={replyCoachingContentInput}
-                onChange={(e) => setReplyCoachingContentInput(e.target.value)}
+                value={modalContentInput}
+                onChange={(e) => setModalContentInput(e.target.value)}
                 placeholder="Enter coaching content..."
                 rows={4}
                 className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent resize-none"
@@ -733,20 +1015,11 @@ export default function ManageAryaPage() {
           </div>,
           <>
             {cancelBtn}
-            <button
-              onClick={() => {
-                if (replyCoachingTitleInput.trim()) {
-                  setReplyCoachingItems((prev) => [
-                    ...prev,
-                    { id: genId(), title: replyCoachingTitleInput.trim(), content: replyCoachingContentInput.trim() },
-                  ]);
-                  closeModal();
-                }
-              }}
-              className="rounded-lg bg-[#6C47FF] px-4 py-2 text-sm font-medium text-white hover:bg-[#5A38E0]"
-            >
-              Save
-            </button>
+            {saveBtn(
+              "Save",
+              () => runAdd(CAT.replyCoaching, setReplyCoachingItems, true, "Coaching item added"),
+              modalTitleInput.trim() === ""
+            )}
           </>
         );
 
@@ -758,17 +1031,18 @@ export default function ManageAryaPage() {
               <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
               <input
                 type="text"
-                value={qualificationTitleInput}
-                onChange={(e) => setQualificationTitleInput(e.target.value)}
+                value={modalTitleInput}
+                onChange={(e) => setModalTitleInput(e.target.value)}
                 placeholder="e.g. Minimum company size"
+                autoFocus
                 className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
               />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Content</label>
               <textarea
-                value={qualificationContentInput}
-                onChange={(e) => setQualificationContentInput(e.target.value)}
+                value={modalContentInput}
+                onChange={(e) => setModalContentInput(e.target.value)}
                 placeholder="Enter criterion details..."
                 rows={4}
                 className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent resize-none"
@@ -777,51 +1051,12 @@ export default function ManageAryaPage() {
           </div>,
           <>
             {cancelBtn}
-            <button
-              onClick={() => {
-                if (qualificationTitleInput.trim()) {
-                  setQualificationItems((prev) => [
-                    ...prev,
-                    {
-                      id: genId(),
-                      title: qualificationTitleInput.trim(),
-                      content: qualificationContentInput.trim(),
-                    },
-                  ]);
-                  closeModal();
-                }
-              }}
-              className="rounded-lg bg-[#6C47FF] px-4 py-2 text-sm font-medium text-white hover:bg-[#5A38E0]"
-            >
-              Save
-            </button>
+            {saveBtn(
+              "Save",
+              () => runAdd(CAT.qualification, setQualificationItems, true, "Criterion added"),
+              modalTitleInput.trim() === ""
+            )}
           </>
-        );
-
-      case "manageLists":
-        return modalWrapper(
-          "Manage DNC Lists",
-          <div className="space-y-3">
-            <div className="rounded-lg border border-gray-100 px-4 py-3">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-700">Email addresses</span>
-                <span className="text-xs text-gray-500">{dncEmails.length} entries</span>
-              </div>
-            </div>
-            <div className="rounded-lg border border-gray-100 px-4 py-3">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-700">Company domains</span>
-                <span className="text-xs text-gray-500">{dncDomains.length} entries</span>
-              </div>
-            </div>
-            <div className="rounded-lg border border-gray-100 px-4 py-3">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-700">Phone numbers</span>
-                <span className="text-xs text-gray-500">{dncPhones.length} entries</span>
-              </div>
-            </div>
-          </div>,
-          <>{cancelBtn}</>
         );
 
       case "addDncEmail":
@@ -831,25 +1066,20 @@ export default function ManageAryaPage() {
             <label className="block text-sm font-medium text-gray-700 mb-1">Email address</label>
             <input
               type="email"
-              value={dncInput}
-              onChange={(e) => setDncInput(e.target.value)}
+              value={modalTitleInput}
+              onChange={(e) => setModalTitleInput(e.target.value)}
               placeholder="user@example.com"
+              autoFocus
               className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
             />
           </div>,
           <>
             {cancelBtn}
-            <button
-              onClick={() => {
-                if (dncInput.trim()) {
-                  setDncEmails((prev) => [...prev, dncInput.trim()]);
-                  closeModal();
-                }
-              }}
-              className="rounded-lg bg-[#6C47FF] px-4 py-2 text-sm font-medium text-white hover:bg-[#5A38E0]"
-            >
-              Save
-            </button>
+            {saveBtn(
+              "Save",
+              () => runAdd(CAT.dncEmail, setDncEmails, false, "Email added"),
+              modalTitleInput.trim() === ""
+            )}
           </>
         );
 
@@ -860,25 +1090,20 @@ export default function ManageAryaPage() {
             <label className="block text-sm font-medium text-gray-700 mb-1">Company domain</label>
             <input
               type="text"
-              value={dncInput}
-              onChange={(e) => setDncInput(e.target.value)}
+              value={modalTitleInput}
+              onChange={(e) => setModalTitleInput(e.target.value)}
               placeholder="example.com"
+              autoFocus
               className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
             />
           </div>,
           <>
             {cancelBtn}
-            <button
-              onClick={() => {
-                if (dncInput.trim()) {
-                  setDncDomains((prev) => [...prev, dncInput.trim()]);
-                  closeModal();
-                }
-              }}
-              className="rounded-lg bg-[#6C47FF] px-4 py-2 text-sm font-medium text-white hover:bg-[#5A38E0]"
-            >
-              Save
-            </button>
+            {saveBtn(
+              "Save",
+              () => runAdd(CAT.dncDomain, setDncDomains, false, "Domain added"),
+              modalTitleInput.trim() === ""
+            )}
           </>
         );
 
@@ -889,25 +1114,20 @@ export default function ManageAryaPage() {
             <label className="block text-sm font-medium text-gray-700 mb-1">Phone number</label>
             <input
               type="tel"
-              value={dncInput}
-              onChange={(e) => setDncInput(e.target.value)}
+              value={modalTitleInput}
+              onChange={(e) => setModalTitleInput(e.target.value)}
               placeholder="+91 98765 43210"
+              autoFocus
               className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
             />
           </div>,
           <>
             {cancelBtn}
-            <button
-              onClick={() => {
-                if (dncInput.trim()) {
-                  setDncPhones((prev) => [...prev, dncInput.trim()]);
-                  closeModal();
-                }
-              }}
-              className="rounded-lg bg-[#6C47FF] px-4 py-2 text-sm font-medium text-white hover:bg-[#5A38E0]"
-            >
-              Save
-            </button>
+            {saveBtn(
+              "Save",
+              () => runAdd(CAT.dncPhone, setDncPhones, false, "Phone added"),
+              modalTitleInput.trim() === ""
+            )}
           </>
         );
 
@@ -917,26 +1137,21 @@ export default function ManageAryaPage() {
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Phrase</label>
             <textarea
-              value={bannedPhraseInput}
-              onChange={(e) => setBannedPhraseInput(e.target.value)}
+              value={modalTitleInput}
+              onChange={(e) => setModalTitleInput(e.target.value)}
               placeholder="Enter a phrase Arya should never use..."
               rows={3}
+              autoFocus
               className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent resize-none"
             />
           </div>,
           <>
             {cancelBtn}
-            <button
-              onClick={() => {
-                if (bannedPhraseInput.trim()) {
-                  setBannedPhrases((prev) => [...prev, bannedPhraseInput.trim()]);
-                  closeModal();
-                }
-              }}
-              className="rounded-lg bg-[#6C47FF] px-4 py-2 text-sm font-medium text-white hover:bg-[#5A38E0]"
-            >
-              Save
-            </button>
+            {saveBtn(
+              "Save",
+              () => runAdd(CAT.bannedPhrase, setBannedPhrases, false, "Phrase added"),
+              modalTitleInput.trim() === ""
+            )}
           </>
         );
 
@@ -945,35 +1160,42 @@ export default function ManageAryaPage() {
     }
   };
 
-  // -- Reusable list item renderer with edit/delete --
+  // ---- Shared list-item renderer with real edit + delete ----
+
   const renderListItems = (
-    items: ListItem[],
-    setItems: React.Dispatch<React.SetStateAction<ListItem[]>>
+    items: AgentItem[],
+    setter: React.Dispatch<React.SetStateAction<AgentItem[]>>
   ) => {
     if (items.length === 0) return null;
     return (
       <div className="space-y-2 mt-4">
         {items.map((item) => (
-          <div key={item.id} className="flex items-center justify-between rounded-lg border border-gray-100 px-4 py-3">
+          <div
+            key={item.id}
+            className="flex items-start justify-between rounded-lg border border-gray-100 px-4 py-3"
+          >
             <div className="min-w-0 flex-1">
-              <span className="text-sm text-gray-700">{item.title}</span>
-              {item.content && <p className="text-xs text-gray-500 mt-0.5">{item.content}</p>}
+              <span className="text-sm text-gray-700 whitespace-pre-wrap break-words">
+                {item.title}
+              </span>
+              {item.content && (
+                <p className="text-xs text-gray-500 mt-1 whitespace-pre-wrap break-words">
+                  {item.content}
+                </p>
+              )}
             </div>
             <div className="flex items-center gap-2 ml-3 shrink-0">
               <button
-                onClick={() => {
-                  const newTitle = prompt("Edit item:", item.title);
-                  if (newTitle !== null && newTitle.trim()) {
-                    setItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, title: newTitle.trim() } : i)));
-                  }
-                }}
+                onClick={() => openEdit(item)}
                 className="p-1 text-gray-400 hover:text-gray-600"
+                aria-label="Edit"
               >
                 <Pencil className="h-4 w-4" />
               </button>
               <button
-                onClick={() => setItems((prev) => prev.filter((i) => i.id !== item.id))}
+                onClick={() => removeAgentItem(item, setter)}
                 className="p-1 text-red-400 hover:text-red-600"
+                aria-label="Delete"
               >
                 <Trash2 className="h-4 w-4" />
               </button>
@@ -983,6 +1205,80 @@ export default function ManageAryaPage() {
       </div>
     );
   };
+
+  // Compact renderer for value-only lists (DNC, banned phrases)
+  const renderSimpleList = (
+    items: AgentItem[],
+    setter: React.Dispatch<React.SetStateAction<AgentItem[]>>
+  ) => (
+    <div className="space-y-2">
+      {items.map((item) => (
+        <div
+          key={item.id}
+          className="flex items-center justify-between rounded-lg border border-gray-100 px-4 py-3"
+        >
+          <span className="text-sm text-gray-700 break-all">{item.title}</span>
+          <div className="flex items-center gap-2 ml-3 shrink-0">
+            <button
+              onClick={() => openEdit(item)}
+              className="p-1 text-gray-400 hover:text-gray-600"
+              aria-label="Edit"
+            >
+              <Pencil className="h-4 w-4" />
+            </button>
+            <button
+              onClick={() => removeAgentItem(item, setter)}
+              className="p-1 text-red-400 hover:text-red-600"
+              aria-label="Delete"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+
+  // ---- Overview helpers ----
+
+  const statTiles = [
+    { icon: UserPlus, label: "New leads enrolled", value: analytics.totalLeads },
+    { icon: Send, label: "Messages sent", value: analytics.emailsSent },
+    { icon: MessageCircle, label: "Positive responses", value: analytics.positiveReplies },
+    { icon: Calendar, label: "Meetings booked", value: analytics.meetingsBooked },
+  ];
+
+  const taskLeadName = (t: TaskRow) =>
+    t.leadFullName ||
+    [t.leadFirstName, t.leadLastName].filter(Boolean).join(" ") ||
+    t.leadCompanyName ||
+    "Lead";
+
+  const formatDateShort = (iso: string) => {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return "";
+    return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  };
+
+  const activityIcon = (t: ActivityItem["type"]) => {
+    switch (t) {
+      case "reply":
+        return <MessageCircle className="h-4 w-4 text-violet-500" />;
+      case "meeting":
+        return <Calendar className="h-4 w-4 text-emerald-500" />;
+      case "lead":
+        return <UserCheck className="h-4 w-4 text-sky-500" />;
+    }
+  };
+
+  const mainTabs: { key: MainTab; label: string }[] = [
+    { key: "overview", label: "Overview" },
+    { key: "outbound", label: "Outbound sequences" },
+    { key: "replies", label: "Autonomous replies" },
+    { key: "guardrails", label: "Guardrails" },
+  ];
+
+  // ---- Render ----
 
   return (
     <div className="space-y-6">
@@ -1016,7 +1312,7 @@ export default function ManageAryaPage() {
         </div>
       </div>
 
-      {/* ======================== OVERVIEW TAB ======================== */}
+      {/* ============================ OVERVIEW ============================ */}
       {activeTab === "overview" && (
         <div className="space-y-6">
           {/* Onboarding Quests */}
@@ -1026,7 +1322,7 @@ export default function ManageAryaPage() {
                 <div className="flex items-center gap-3">
                   <h2 className="font-bold text-gray-900">Onboarding quests</h2>
                   <span className="text-sm text-gray-500">
-                    {completedQuests.size}/{totalQuests} complete
+                    {questsLoading ? "Loading…" : `${completedCount}/${totalQuests} complete`}
                   </span>
                 </div>
                 <button
@@ -1037,7 +1333,6 @@ export default function ManageAryaPage() {
                 </button>
               </div>
 
-              {/* Progress bar */}
               <div className="h-1.5 bg-gray-100 rounded-full mb-5">
                 <div
                   className="h-full bg-violet-600 rounded-full transition-all duration-300"
@@ -1045,7 +1340,6 @@ export default function ManageAryaPage() {
                 />
               </div>
 
-              {/* Remaining toggle */}
               <button
                 onClick={() => setShowRemaining(!showRemaining)}
                 className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-4"
@@ -1056,73 +1350,57 @@ export default function ManageAryaPage() {
 
               {showRemaining && (
                 <div className="space-y-4">
-                  {allQuests.map((quest) => (
-                    <div key={quest.title} className="flex items-center gap-4 py-2">
-                      {/* Checkbox circle */}
-                      <button
-                        onClick={() => toggleQuest(quest.title)}
-                        className={`h-5 w-5 rounded-full border-2 shrink-0 flex items-center justify-center transition-colors ${
-                          completedQuests.has(quest.title)
+                  {questList.map((quest) => (
+                    <div key={quest.key} className="flex items-center gap-4 py-2">
+                      {/* Real completion indicator (not clickable) */}
+                      <div
+                        className={`h-5 w-5 rounded-full border-2 shrink-0 flex items-center justify-center ${
+                          quest.completed
                             ? "border-violet-600 bg-violet-600"
-                            : "border-gray-300 hover:border-violet-400"
+                            : "border-gray-300"
                         }`}
+                        title={quest.completed ? "Completed" : "Not yet complete"}
                       >
-                        {completedQuests.has(quest.title) && <Check className="h-3 w-3 text-white" />}
-                      </button>
+                        {quest.completed && <Check className="h-3 w-3 text-white" />}
+                      </div>
 
-                      {/* Content */}
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <span
                             className={`font-medium text-sm ${
-                              completedQuests.has(quest.title)
-                                ? "text-gray-400 line-through"
-                                : "text-gray-900"
+                              quest.completed ? "text-gray-400 line-through" : "text-gray-900"
                             }`}
                           >
                             {quest.title}
                           </span>
-                          {quest.next && !completedQuests.has(quest.title) && (
+                          {quest.next && (
                             <span className="bg-violet-100 text-violet-700 text-xs px-2 py-0.5 rounded-full font-medium">
                               Next
+                            </span>
+                          )}
+                          {quest.disabled && (
+                            <span className="bg-gray-100 text-gray-600 text-xs px-2 py-0.5 rounded-full font-medium">
+                              Coming soon
                             </span>
                           )}
                         </div>
                         <p className="text-xs text-gray-500 mt-0.5">{quest.description}</p>
                       </div>
 
-                      {/* Credits */}
-                      <div className="flex items-center gap-1 shrink-0">
-                        <Coins className="h-3.5 w-3.5 text-amber-500" />
-                        <span className="text-xs text-gray-600">Earn {quest.credits} credits</span>
-                      </div>
-
-                      {/* Action button */}
                       <button
-                        onClick={() => handleQuestAction(quest.action)}
-                        className="shrink-0 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                        onClick={() => handleQuestAction(quest)}
+                        disabled={quest.disabled || quest.completed}
+                        className="shrink-0 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        {quest.action}
+                        {quest.completed ? "Done" : quest.action}
                       </button>
                     </div>
                   ))}
-
-                  {!showMore && (
-                    <div className="flex justify-center pt-2">
-                      <button
-                        onClick={() => setShowMore(true)}
-                        className="text-sm font-medium text-violet-600 hover:text-violet-700"
-                      >
-                        Load more (8)
-                      </button>
-                    </div>
-                  )}
                 </div>
               )}
             </div>
           )}
 
-          {/* Show quests button when hidden */}
           {isQuestsHidden && (
             <button
               onClick={() => setIsQuestsHidden(false)}
@@ -1139,88 +1417,19 @@ export default function ManageAryaPage() {
                 <Sparkles className="h-5 w-5 text-violet-500" />
                 <h2 className="font-bold text-gray-900">Arya&apos;s recent progress</h2>
               </div>
-              <div className="flex items-center gap-3">
-                {/* Time period dropdown */}
-                <div className="relative" ref={timePeriodRef}>
-                  <button
-                    onClick={() => {
-                      setTimePeriodOpen(!timePeriodOpen);
-                      setSenderOpen(false);
-                    }}
-                    className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-gray-700 bg-white hover:bg-gray-50"
-                  >
-                    {timePeriod}
-                    <ChevronDown className="h-3.5 w-3.5 text-gray-400" />
-                  </button>
-                  {timePeriodOpen && (
-                    <div className="absolute right-0 top-full mt-1 z-40 w-44 rounded-lg border border-gray-200 bg-white shadow-lg py-1">
-                      {timePeriodOptions.map((option) => (
-                        <button
-                          key={option}
-                          onClick={() => {
-                            setTimePeriod(option);
-                            setTimePeriodOpen(false);
-                          }}
-                          className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 ${
-                            timePeriod === option ? "text-violet-600 font-medium" : "text-gray-700"
-                          }`}
-                        >
-                          {option}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {/* Senders dropdown */}
-                <div className="relative" ref={senderRef}>
-                  <button
-                    onClick={() => {
-                      setSenderOpen(!senderOpen);
-                      setTimePeriodOpen(false);
-                    }}
-                    className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-gray-700 bg-white hover:bg-gray-50"
-                  >
-                    {sender}
-                    <ChevronDown className="h-3.5 w-3.5 text-gray-400" />
-                  </button>
-                  {senderOpen && (
-                    <div className="absolute right-0 top-full mt-1 z-40 w-44 rounded-lg border border-gray-200 bg-white shadow-lg py-1">
-                      {senderOptions.map((option) => (
-                        <button
-                          key={option}
-                          onClick={() => {
-                            setSender(option);
-                            setSenderOpen(false);
-                          }}
-                          className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 ${
-                            sender === option ? "text-violet-600 font-medium" : "text-gray-700"
-                          }`}
-                        >
-                          {option}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                <Link href="/analytics" className="text-sm font-medium text-violet-600 hover:text-violet-700">
-                  View all
-                </Link>
-              </div>
+              <Link href="/analytics" className="text-sm font-medium text-violet-600 hover:text-violet-700">
+                View all
+              </Link>
             </div>
 
-            <div className="grid grid-cols-4 gap-4">
-              {[
-                { icon: UserPlus, label: "New leads enrolled", value: "0" },
-                { icon: Send, label: "Messages sent", value: "0" },
-                { icon: MessageCircle, label: "Positive responses", value: "0" },
-                { icon: Calendar, label: "Meetings booked", value: "0" },
-              ].map((stat) => (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {statTiles.map((stat) => (
                 <div key={stat.label} className="rounded-xl border border-gray-200 bg-white p-5">
                   <stat.icon className="h-5 w-5 text-gray-400 mb-3" />
                   <p className="text-sm text-gray-500">{stat.label}</p>
-                  <p className="text-2xl font-bold text-gray-900 mt-1">{stat.value}</p>
+                  <p className="text-2xl font-bold text-gray-900 mt-1">
+                    {analyticsLoading ? "…" : stat.value.toLocaleString()}
+                  </p>
                 </div>
               ))}
             </div>
@@ -1228,46 +1437,158 @@ export default function ManageAryaPage() {
 
           {/* Tasks Arya needs input on */}
           <div className="rounded-xl border border-gray-200 bg-white p-6">
-            <h2 className="font-bold text-gray-900 mb-6">Tasks Arya needs input on</h2>
-            <div className="flex flex-col items-center justify-center py-10 text-center">
-              <ClipboardList className="h-10 w-10 text-gray-300 mb-3" />
-              <p className="font-medium text-gray-900">No tasks right now</p>
-              <p className="text-sm text-gray-500 mt-1 max-w-sm">
-                When Arya needs your input on messages or approvals, they will show up here.
-              </p>
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="font-bold text-gray-900">Tasks Arya needs input on</h2>
+              {tasks.length > 0 && (
+                <Link
+                  href="/tasks"
+                  className="text-sm font-medium text-violet-600 hover:text-violet-700"
+                >
+                  View all
+                </Link>
+              )}
             </div>
+            {tasksLoading ? (
+              <div className="flex items-center justify-center py-10">
+                <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
+              </div>
+            ) : tasks.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-10 text-center">
+                <ClipboardList className="h-10 w-10 text-gray-300 mb-3" />
+                <p className="font-medium text-gray-900">No tasks right now</p>
+                <p className="text-sm text-gray-500 mt-1 max-w-sm">
+                  When Arya needs your input on messages or approvals, they will show up here.
+                </p>
+              </div>
+            ) : (
+              <div className="divide-y divide-gray-100">
+                {tasks.slice(0, 5).map((t) => (
+                  <Link
+                    href="/tasks"
+                    key={t.id}
+                    className="flex items-start gap-3 py-3 hover:bg-gray-50 -mx-2 px-2 rounded-lg"
+                  >
+                    <ClipboardList className="h-4 w-4 text-violet-500 mt-0.5 shrink-0" />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-gray-900 truncate">
+                        {taskLeadName(t)}
+                        {t.campaignName ? (
+                          <span className="text-gray-500 font-normal"> · {t.campaignName}</span>
+                        ) : null}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">
+                        {t.taskType.replaceAll("_", " ")}
+                        {t.message ? ` — ${t.message}` : ""}
+                      </p>
+                    </div>
+                    <span className="text-xs text-gray-400 shrink-0">
+                      {formatDateShort(t.createdAt)}
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Top Performing Campaigns */}
           <div className="rounded-xl border border-gray-200 bg-white p-6">
-            <h2 className="font-bold text-gray-900 mb-6">Arya&apos;s top performing campaigns</h2>
-            <div className="flex flex-col items-center justify-center py-10 text-center">
-              <Target className="h-10 w-10 text-gray-300 mb-3" />
-              <p className="font-medium text-gray-900">No campaigns yet</p>
-              <p className="text-sm text-gray-500 mt-1 max-w-sm">
-                Top performing campaigns will appear here once you have activity.
-              </p>
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="font-bold text-gray-900">Arya&apos;s top performing campaigns</h2>
+              {topCampaigns.length > 0 && (
+                <Link
+                  href="/campaigns"
+                  className="text-sm font-medium text-violet-600 hover:text-violet-700"
+                >
+                  View all
+                </Link>
+              )}
             </div>
+            {campaignsLoading ? (
+              <div className="flex items-center justify-center py-10">
+                <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
+              </div>
+            ) : topCampaigns.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-10 text-center">
+                <Target className="h-10 w-10 text-gray-300 mb-3" />
+                <p className="font-medium text-gray-900">No campaigns yet</p>
+                <p className="text-sm text-gray-500 mt-1 max-w-sm">
+                  Top performing campaigns will appear here once you have activity.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {topCampaigns.map((c) => (
+                  <Link
+                    href={`/campaigns/${c.id}`}
+                    key={c.id}
+                    className="flex items-center justify-between rounded-lg border border-gray-100 px-4 py-3 hover:bg-gray-50"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-gray-900 truncate">{c.name}</p>
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        {(c.emailsSent ?? 0).toLocaleString()} sent · {(c.totalReplies ?? 0).toLocaleString()} replies · {(c.meetingsBooked ?? 0).toLocaleString()} meetings
+                      </p>
+                    </div>
+                    <span className="text-xs text-gray-500 shrink-0 ml-3">{c.status}</span>
+                  </Link>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Latest Activity */}
           <div className="rounded-xl border border-gray-200 bg-white p-6">
             <h2 className="font-bold text-gray-900 mb-6">Arya&apos;s latest activity</h2>
-            <div className="flex flex-col items-center justify-center py-10 text-center">
-              <Sparkles className="h-10 w-10 text-gray-300 mb-3" />
-              <p className="font-medium text-gray-900">No activity yet</p>
-              <p className="text-sm text-gray-500 mt-1 max-w-sm">
-                Arya&apos;s recent emails, responses, and enrichments will show up here.
-              </p>
-            </div>
+            {activityLoading ? (
+              <div className="flex items-center justify-center py-10">
+                <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
+              </div>
+            ) : activity.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-10 text-center">
+                <Sparkles className="h-10 w-10 text-gray-300 mb-3" />
+                <p className="font-medium text-gray-900">No activity yet</p>
+                <p className="text-sm text-gray-500 mt-1 max-w-sm">
+                  Arya&apos;s recent emails, responses, and new leads will show up here.
+                </p>
+              </div>
+            ) : (
+              <div className="divide-y divide-gray-100">
+                {activity.map((a) => {
+                  const inner = (
+                    <div className="flex items-start gap-3 py-3">
+                      <div className="mt-0.5 shrink-0">{activityIcon(a.type)}</div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm text-gray-900 truncate">{a.title}</p>
+                        {a.subtitle && (
+                          <p className="text-xs text-gray-500 mt-0.5 truncate">{a.subtitle}</p>
+                        )}
+                      </div>
+                      <span className="text-xs text-gray-400 shrink-0">
+                        {formatDateShort(a.timestamp)}
+                      </span>
+                    </div>
+                  );
+                  return a.href ? (
+                    <Link
+                      href={a.href}
+                      key={a.id}
+                      className="block hover:bg-gray-50 -mx-2 px-2 rounded-lg"
+                    >
+                      {inner}
+                    </Link>
+                  ) : (
+                    <div key={a.id}>{inner}</div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
       )}
 
-      {/* ======================== OUTBOUND SEQUENCES TAB ======================== */}
+      {/* ============================ OUTBOUND ============================ */}
       {activeTab === "outbound" && (
         <div className="space-y-6">
-          {/* Sub-tabs */}
           <div className="border-b border-gray-200">
             <div className="flex gap-6">
               {(
@@ -1298,10 +1619,7 @@ export default function ManageAryaPage() {
                 <div className="flex items-start justify-between mb-1">
                   <h2 className="font-bold text-gray-900">Shared campaign coaching</h2>
                   <button
-                    onClick={() => {
-                      setCoachingInput("");
-                      setActiveModal("addCoachingPoint");
-                    }}
+                    onClick={() => openAdd("addCoachingPoint")}
                     className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
                   >
                     + Add coaching point
@@ -1319,10 +1637,7 @@ export default function ManageAryaPage() {
                     </div>
                     <div className="flex justify-center">
                       <button
-                        onClick={() => {
-                          setCoachingInput("");
-                          setActiveModal("addCoachingPoint");
-                        }}
+                        onClick={() => openAdd("addCoachingPoint")}
                         className="rounded-lg bg-[#6C47FF] px-4 py-2 text-sm font-medium text-white hover:bg-[#5A38E0] transition-colors"
                       >
                         + Add your first coaching point
@@ -1334,24 +1649,32 @@ export default function ManageAryaPage() {
                 )}
               </div>
 
-              {/* Shared proof & results */}
+              {/* Proof & results */}
               <div className="rounded-xl border border-gray-200 bg-white p-6">
                 <div className="flex items-start justify-between mb-1">
                   <h2 className="font-bold text-gray-900">Shared proof &amp; results</h2>
                   <button
-                    onClick={() => {
-                      setProofTitleInput("");
-                      setProofDescInput("");
-                      setActiveModal("addProof");
-                    }}
+                    onClick={() =>
+                      openAdd(
+                        proofSub === "highlights"
+                          ? "addProofHighlight"
+                          : proofSub === "customers"
+                            ? "addProofCustomer"
+                            : "addProofCaseStudy"
+                      )
+                    }
                     className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
                   >
-                    + Add proof
+                    +{" "}
+                    {proofSub === "highlights"
+                      ? "Add highlight"
+                      : proofSub === "customers"
+                        ? "Add customer"
+                        : "Add case study"}
                   </button>
                 </div>
                 <p className="text-sm text-gray-500 mb-4">Wins, customers, and case studies Arya can mention.</p>
 
-                {/* Proof sub-tabs */}
                 <div className="border-b border-gray-200 mb-4">
                   <div className="flex gap-6">
                     {(
@@ -1377,120 +1700,67 @@ export default function ManageAryaPage() {
                 </div>
 
                 {proofSub === "highlights" && (
-                  <div className="space-y-2">
-                    {highlightsList.map((item, index) => (
-                      <div
-                        key={index}
-                        className="flex items-center justify-between rounded-lg border border-gray-100 px-4 py-3"
-                      >
-                        {editingHighlightIndex === index ? (
-                          <input
-                            type="text"
-                            value={editingHighlightValue}
-                            onChange={(e) => setEditingHighlightValue(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter" && editingHighlightValue.trim()) {
-                                setHighlightsList((prev) =>
-                                  prev.map((h, i) => (i === index ? editingHighlightValue.trim() : h))
-                                );
-                                setEditingHighlightIndex(null);
-                              }
-                              if (e.key === "Escape") {
-                                setEditingHighlightIndex(null);
-                              }
-                            }}
-                            autoFocus
-                            className="flex-1 text-sm text-gray-700 border border-violet-300 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-violet-500"
-                          />
-                        ) : (
-                          <span className="text-sm text-gray-700">{item}</span>
-                        )}
-                        <div className="flex items-center gap-2 ml-3">
-                          <button
-                            onClick={() => {
-                              if (editingHighlightIndex === index) {
-                                setEditingHighlightIndex(null);
-                              } else {
-                                setEditingHighlightIndex(index);
-                                setEditingHighlightValue(item);
-                              }
-                            }}
-                            className="p-1 text-gray-400 hover:text-gray-600"
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => {
-                              setHighlightsList((prev) => prev.filter((_, i) => i !== index));
-                              if (editingHighlightIndex === index) setEditingHighlightIndex(null);
-                            }}
-                            className="p-1 text-red-400 hover:text-red-600"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
+                  <>
+                    {proofHighlights.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center py-10 text-center">
+                        <p className="text-sm text-gray-500">
+                          No highlights yet. Add wins Arya can drop into outreach — e.g.
+                          &quot;3x more meetings&quot;.
+                        </p>
                       </div>
-                    ))}
-                    {/* Show proof items added via modal */}
-                    {proofItems.map((item) => (
-                      <div
-                        key={item.id}
-                        className="flex items-center justify-between rounded-lg border border-gray-100 px-4 py-3"
-                      >
-                        <div className="min-w-0 flex-1">
-                          <span className="text-sm text-gray-700">{item.title}</span>
-                          {item.content && <p className="text-xs text-gray-500 mt-0.5">{item.content}</p>}
-                        </div>
-                        <div className="flex items-center gap-2 ml-3">
-                          <button
-                            onClick={() => {
-                              const newTitle = prompt("Edit proof:", item.title);
-                              if (newTitle !== null && newTitle.trim()) {
-                                setProofItems((prev) =>
-                                  prev.map((p) => (p.id === item.id ? { ...p, title: newTitle.trim() } : p))
-                                );
-                              }
-                            }}
-                            className="p-1 text-gray-400 hover:text-gray-600"
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => setProofItems((prev) => prev.filter((p) => p.id !== item.id))}
-                            className="p-1 text-red-400 hover:text-red-600"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                    ) : (
+                      renderListItems(proofHighlights, setProofHighlights)
+                    )}
+                  </>
                 )}
 
                 {proofSub === "customers" && (
-                  <div className="flex flex-col items-center justify-center py-10 text-center">
-                    <p className="text-sm text-gray-500">No customers added yet.</p>
-                  </div>
+                  <>
+                    {proofCustomers.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center py-10 text-center">
+                        <p className="text-sm text-gray-500">No customers added yet.</p>
+                      </div>
+                    ) : (
+                      renderListItems(proofCustomers, setProofCustomers)
+                    )}
+                  </>
                 )}
 
                 {proofSub === "case-studies" && (
-                  <div className="flex flex-col items-center justify-center py-10 text-center">
-                    <p className="text-sm text-gray-500">No case studies added yet.</p>
-                  </div>
+                  <>
+                    {proofCaseStudies.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center py-10 text-center">
+                        <p className="text-sm text-gray-500">No case studies added yet.</p>
+                      </div>
+                    ) : (
+                      renderListItems(proofCaseStudies, setProofCaseStudies)
+                    )}
+                  </>
                 )}
               </div>
             </div>
           )}
 
           {outboundSub === "defaults" && (
-            <div className="flex flex-col items-center justify-center py-16 text-center">
-              <p className="text-sm text-gray-500">Default settings will appear here.</p>
+            <div className="rounded-xl border border-gray-200 bg-white p-6">
+              <div className="flex flex-col items-center justify-center py-10 text-center">
+                <Info className="h-8 w-8 text-gray-300 mb-3" />
+                <p className="font-medium text-gray-900">Default settings</p>
+                <p className="text-sm text-gray-500 mt-1 max-w-md">
+                  Per-campaign settings (tone, send limits, channels) live inside each
+                  campaign for now. Account-wide defaults can be adjusted from{" "}
+                  <Link href="/settings" className="text-violet-600 hover:text-violet-700">
+                    Settings
+                  </Link>
+                  .
+                </p>
+              </div>
             </div>
           )}
         </div>
       )}
 
-      {/* ======================== AUTONOMOUS REPLIES TAB ======================== */}
+      {/* ========================= AUTONOMOUS REPLIES ========================= */}
       {activeTab === "replies" && (
         <div className="space-y-6">
           {/* Escalation rules */}
@@ -1502,37 +1772,44 @@ export default function ManageAryaPage() {
               Set the rules to escalate the lead to the sender for review.
             </p>
             <div className="space-y-3">
-              {/* Default locked rules */}
-              {defaultEscalationRules.map((rule) => (
+              {DEFAULT_ESCALATION_RULES.map((rule) => (
                 <div
                   key={rule}
                   className="flex items-center justify-between rounded-lg border border-gray-100 px-4 py-3"
                 >
                   <span className="text-sm text-gray-700">{rule}</span>
-                  <Lock className="h-4 w-4 text-gray-400 shrink-0 ml-4" />
+                  <span title="Default rule" aria-label="Default rule">
+                    <Lock className="h-4 w-4 text-gray-400 shrink-0 ml-4" />
+                  </span>
                 </div>
               ))}
-              {/* Custom rules (editable) */}
-              {customEscalationRules.map((rule, index) => (
+              {customEscalationRules.map((rule) => (
                 <div
-                  key={index}
+                  key={rule.id}
                   className="flex items-center justify-between rounded-lg border border-gray-100 px-4 py-3"
                 >
-                  <span className="text-sm text-gray-700">{rule}</span>
-                  <button
-                    onClick={() => setCustomEscalationRules((prev) => prev.filter((_, i) => i !== index))}
-                    className="p-1 text-red-400 hover:text-red-600 shrink-0 ml-4"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
+                  <span className="text-sm text-gray-700 break-words">{rule.title}</span>
+                  <div className="flex items-center gap-2 ml-3 shrink-0">
+                    <button
+                      onClick={() => openEdit(rule)}
+                      className="p-1 text-gray-400 hover:text-gray-600"
+                      aria-label="Edit"
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={() => removeAgentItem(rule, setCustomEscalationRules)}
+                      className="p-1 text-red-400 hover:text-red-600"
+                      aria-label="Delete"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
             <button
-              onClick={() => {
-                setEscalationInput("");
-                setActiveModal("addEscalationRule");
-              }}
+              onClick={() => openAdd("addEscalationRule")}
               className="mt-4 text-sm font-medium text-violet-600 hover:text-violet-700"
             >
               + Add escalation rule
@@ -1543,31 +1820,8 @@ export default function ManageAryaPage() {
           <div className="rounded-xl border border-gray-200 bg-white p-6">
             <h2 className="font-bold text-gray-900 mb-1">Knowledge base</h2>
             <p className="text-sm text-gray-500 mb-5">Give Arya more context about your campaigns.</p>
-            <div className="flex items-center justify-between rounded-lg border border-gray-100 px-4 py-3 mb-4">
-              <div>
-                <p className="text-sm font-medium text-gray-700">Learn from past conversations</p>
-                <p className="text-xs text-gray-500 mt-0.5">Allow Arya to learn from previous email threads</p>
-              </div>
-              {/* Toggle */}
-              <button
-                onClick={() => setPastConversationsEnabled(!pastConversationsEnabled)}
-                className={`h-5 w-9 rounded-full relative cursor-pointer transition-colors ${
-                  pastConversationsEnabled ? "bg-violet-600" : "bg-gray-200"
-                }`}
-              >
-                <div
-                  className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${
-                    pastConversationsEnabled ? "translate-x-4" : "translate-x-0.5"
-                  }`}
-                />
-              </button>
-            </div>
             <button
-              onClick={() => {
-                setKnowledgeTitleInput("");
-                setKnowledgeContentInput("");
-                setActiveModal("addKnowledge");
-              }}
+              onClick={() => openAdd("addKnowledge")}
               className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
             >
               + Add knowledge
@@ -1582,11 +1836,7 @@ export default function ManageAryaPage() {
               Guide Arya on what content to write to prospects when replying.
             </p>
             <button
-              onClick={() => {
-                setReplyCoachingTitleInput("");
-                setReplyCoachingContentInput("");
-                setActiveModal("addCoachingItem");
-              }}
+              onClick={() => openAdd("addReplyCoaching")}
               className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
             >
               + Add coaching item
@@ -1601,11 +1851,7 @@ export default function ManageAryaPage() {
               Arya will first do web research to confirm if the lead meets qualification criteria.
             </p>
             <button
-              onClick={() => {
-                setQualificationTitleInput("");
-                setQualificationContentInput("");
-                setActiveModal("addQualification");
-              }}
+              onClick={() => openAdd("addQualification")}
               className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
             >
               + Add qualification criterion
@@ -1615,10 +1861,9 @@ export default function ManageAryaPage() {
         </div>
       )}
 
-      {/* ======================== GUARDRAILS TAB ======================== */}
+      {/* ============================ GUARDRAILS ============================ */}
       {activeTab === "guardrails" && (
         <div className="space-y-6">
-          {/* Sub-tabs */}
           <div className="border-b border-gray-200">
             <div className="flex gap-6">
               {(
@@ -1646,14 +1891,7 @@ export default function ManageAryaPage() {
             <div className="rounded-xl border border-gray-200 bg-white p-6">
               <div className="flex items-start justify-between mb-4">
                 <p className="text-sm text-gray-500">Arya will never contact anyone on these lists.</p>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setActiveModal("manageLists")}
-                    className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
-                  >
-                    Manage lists
-                  </button>
-                  {/* + Add dropdown */}
+                {dncSub !== "crm" && (
                   <div className="relative" ref={dncAddRef}>
                     <button
                       onClick={() => setDncAddOpen(!dncAddOpen)}
@@ -1666,8 +1904,7 @@ export default function ManageAryaPage() {
                         <button
                           onClick={() => {
                             setDncAddOpen(false);
-                            setDncInput("");
-                            setActiveModal("addDncEmail");
+                            openAdd("addDncEmail");
                           }}
                           className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
                         >
@@ -1676,8 +1913,7 @@ export default function ManageAryaPage() {
                         <button
                           onClick={() => {
                             setDncAddOpen(false);
-                            setDncInput("");
-                            setActiveModal("addDncDomain");
+                            openAdd("addDncDomain");
                           }}
                           className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
                         >
@@ -1686,8 +1922,7 @@ export default function ManageAryaPage() {
                         <button
                           onClick={() => {
                             setDncAddOpen(false);
-                            setDncInput("");
-                            setActiveModal("addDncPhone");
+                            openAdd("addDncPhone");
                           }}
                           className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
                         >
@@ -1696,17 +1931,16 @@ export default function ManageAryaPage() {
                       </div>
                     )}
                   </div>
-                </div>
+                )}
               </div>
 
-              {/* DNC inner tabs */}
               <div className="border-b border-gray-200 mb-4">
                 <div className="flex gap-6">
                   {(
                     [
-                      { key: "emails", label: "Email addresses" },
-                      { key: "domains", label: "Company domains" },
-                      { key: "phones", label: "Phone numbers" },
+                      { key: "emails", label: `Email addresses (${dncEmails.length})` },
+                      { key: "domains", label: `Company domains (${dncDomains.length})` },
+                      { key: "phones", label: `Phone numbers (${dncPhones.length})` },
                       { key: "crm", label: "CRM" },
                     ] as { key: DncSubTab; label: string }[]
                   ).map((tab) => (
@@ -1728,70 +1962,67 @@ export default function ManageAryaPage() {
                 </div>
               </div>
 
-              {/* Search bar */}
-              <div className="relative mb-6">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <input
-                  type="text"
-                  value={dncSearchQuery}
-                  onChange={(e) => setDncSearchQuery(e.target.value)}
-                  placeholder={`Search ${
-                    dncSub === "emails"
-                      ? "email addresses"
-                      : dncSub === "domains"
-                        ? "company domains"
-                        : dncSub === "phones"
-                          ? "phone numbers"
-                          : "CRM entries"
-                  }...`}
-                  className="w-full rounded-lg border border-gray-200 pl-10 pr-4 py-2 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
-                />
-              </div>
-
-              {/* DNC list items or empty state */}
-              {dncSub !== "crm" && getCurrentDncList().length > 0 ? (
-                <div className="space-y-2">
-                  {getCurrentDncList().map((item, index) => (
-                    <div
-                      key={index}
-                      className="flex items-center justify-between rounded-lg border border-gray-100 px-4 py-3"
-                    >
-                      <span className="text-sm text-gray-700">{item}</span>
-                      <button
-                        onClick={() => removeDncItem(item)}
-                        className="p-1 text-red-400 hover:text-red-600"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  ))}
+              {dncSub === "crm" ? (
+                <div className="flex flex-col items-center justify-center py-10 text-center">
+                  <Info className="h-10 w-10 text-gray-300 mb-3" />
+                  <p className="font-medium text-gray-900">CRM sync not available yet</p>
+                  <p className="text-sm text-gray-500 mt-1 max-w-md">
+                    Connect a CRM integration to sync do-not-contact entries automatically. This is on
+                    the roadmap — for now, add DNC entries directly to the Email, Domain, or Phone tabs.
+                  </p>
                 </div>
               ) : (
-                <div className="flex flex-col items-center justify-center py-10 text-center">
-                  <Search className="h-10 w-10 text-gray-300 mb-3" />
-                  <p className="font-medium text-gray-900">
-                    No{" "}
-                    {dncSub === "emails"
-                      ? "email addresses"
-                      : dncSub === "domains"
-                        ? "company domains"
-                        : dncSub === "phones"
-                          ? "phone numbers"
-                          : "CRM entries"}{" "}
-                    in DNC list
-                  </p>
-                  <p className="text-sm text-gray-500 mt-1 max-w-sm">
-                    Add{" "}
-                    {dncSub === "emails"
-                      ? "email addresses"
-                      : dncSub === "domains"
-                        ? "company domains"
-                        : dncSub === "phones"
-                          ? "phone numbers"
-                          : "CRM entries"}{" "}
-                    to prevent contacting them
-                  </p>
-                </div>
+                <>
+                  <div className="relative mb-6">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <input
+                      type="text"
+                      value={dncSearchQuery}
+                      onChange={(e) => setDncSearchQuery(e.target.value)}
+                      placeholder={`Search ${
+                        dncSub === "emails"
+                          ? "email addresses"
+                          : dncSub === "domains"
+                            ? "company domains"
+                            : "phone numbers"
+                      }...`}
+                      className="w-full rounded-lg border border-gray-200 pl-10 pr-4 py-2 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+                    />
+                  </div>
+
+                  {dncCurrentList.length > 0 ? (
+                    renderSimpleList(
+                      dncCurrentList,
+                      dncSub === "emails"
+                        ? setDncEmails
+                        : dncSub === "domains"
+                          ? setDncDomains
+                          : setDncPhones
+                    )
+                  ) : (
+                    <div className="flex flex-col items-center justify-center py-10 text-center">
+                      <Search className="h-10 w-10 text-gray-300 mb-3" />
+                      <p className="font-medium text-gray-900">
+                        No{" "}
+                        {dncSub === "emails"
+                          ? "email addresses"
+                          : dncSub === "domains"
+                            ? "company domains"
+                            : "phone numbers"}{" "}
+                        in DNC list
+                      </p>
+                      <p className="text-sm text-gray-500 mt-1 max-w-sm">
+                        Add{" "}
+                        {dncSub === "emails"
+                          ? "email addresses"
+                          : dncSub === "domains"
+                            ? "company domains"
+                            : "phone numbers"}{" "}
+                        to prevent contacting them.
+                      </p>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           )}
@@ -1801,17 +2032,13 @@ export default function ManageAryaPage() {
               <div className="flex items-start justify-between mb-4">
                 <p className="text-sm text-gray-500">Arya will never use these phrases in outreach.</p>
                 <button
-                  onClick={() => {
-                    setBannedPhraseInput("");
-                    setActiveModal("addBannedPhrase");
-                  }}
+                  onClick={() => openAdd("addBannedPhrase")}
                   className="rounded-lg bg-[#6C47FF] px-3 py-1.5 text-sm font-medium text-white hover:bg-[#5A38E0] transition-colors"
                 >
                   + Add phrase
                 </button>
               </div>
 
-              {/* Search bar */}
               <div className="relative mb-6">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <input
@@ -1823,24 +2050,8 @@ export default function ManageAryaPage() {
                 />
               </div>
 
-              {/* Banned phrases list or empty state */}
               {filteredBannedPhrases.length > 0 ? (
-                <div className="space-y-2">
-                  {filteredBannedPhrases.map((phrase, index) => (
-                    <div
-                      key={index}
-                      className="flex items-center justify-between rounded-lg border border-gray-100 px-4 py-3"
-                    >
-                      <span className="text-sm text-gray-700">{phrase}</span>
-                      <button
-                        onClick={() => setBannedPhrases((prev) => prev.filter((p) => p !== phrase))}
-                        className="p-1 text-red-400 hover:text-red-600"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
+                renderSimpleList(filteredBannedPhrases, setBannedPhrases)
               ) : (
                 <div className="flex flex-col items-center justify-center py-10 text-center">
                   <Search className="h-10 w-10 text-gray-300 mb-3" />
@@ -1855,7 +2066,6 @@ export default function ManageAryaPage() {
         </div>
       )}
 
-      {/* ======================== MODALS ======================== */}
       {renderModal()}
     </div>
   );

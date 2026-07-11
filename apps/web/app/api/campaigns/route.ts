@@ -6,15 +6,17 @@ import { z } from "zod";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { campaigns } from "@aisdr/db/schema";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and, ne } from "drizzle-orm";
+import { ensureCampaignsColumns } from "@/lib/db/ensure-schema";
 
 const createCampaignSchema = z.object({
   name: z.string().min(1),
   description: z.string().optional(),
   status: z.string().optional(),
+  type: z.string().optional(),
 });
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
     const user = await requireUser().catch((e) => {
       console.error("[campaigns:GET] auth failed:", e);
@@ -24,11 +26,30 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    await ensureCampaignsColumns();
+
+    const { searchParams } = new URL(req.url);
+    const status = searchParams.get("status");
+    // Archived campaigns are excluded unless explicitly requested via
+    // ?status=archived or ?status=all — mirrors every mailbox-style UI
+    // (e.g. Gmail's "All Mail" excludes Trash) and is what the Campaigns
+    // page's own Archive action implies: an archived campaign should stay
+    // out of the main list, not silently reappear. ?status=all lets the
+    // frontend fetch everything once and apply its own multi-select status
+    // filter client-side.
+    const conditions =
+      status === "all"
+        ? [eq(campaigns.userId, user.id)]
+        : status
+        ? [eq(campaigns.userId, user.id), eq(campaigns.status, status)]
+        : [eq(campaigns.userId, user.id), ne(campaigns.status, "archived")];
+
     const data = await db
       .select({
         id: campaigns.id,
         name: campaigns.name,
         description: campaigns.description,
+        type: campaigns.type,
         status: campaigns.status,
         totalLeads: campaigns.totalLeads,
         emailsSent: campaigns.emailsSent,
@@ -37,7 +58,7 @@ export async function GET() {
         createdAt: campaigns.createdAt,
       })
       .from(campaigns)
-      .where(eq(campaigns.userId, user.id))
+      .where(and(...conditions))
       .orderBy(desc(campaigns.createdAt));
 
     return NextResponse.json({ data });
@@ -60,12 +81,15 @@ export async function POST(req: NextRequest) {
     const body = (await req.json()) as unknown;
     const parsed = createCampaignSchema.parse(body);
 
+    await ensureCampaignsColumns();
+
     const result = await db
       .insert(campaigns)
       .values({
         userId: user.id,
         name: parsed.name,
         description: parsed.description,
+        type: parsed.type,
         status: parsed.status ?? "draft",
       })
       .returning();

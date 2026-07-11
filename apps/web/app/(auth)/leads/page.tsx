@@ -19,6 +19,8 @@ import {
   UserPlus,
   ArrowUpDown,
   Sparkles,
+  ListPlus,
+  Loader2,
 } from "lucide-react";
 import { cn, STATUS_COLOR } from "@/lib/utils";
 import { Spinner } from "@/components/ui/spinner";
@@ -131,6 +133,15 @@ export default function LeadsPage() {
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [notes, setNotes] = useState("");
 
+  /* ---------- add-to-list menu state ---------- */
+  const [listsMenuOpen, setListsMenuOpen] = useState(false);
+  const [availableLists, setAvailableLists] = useState<
+    { id: string; name: string }[]
+  >([]);
+  const [loadingLists, setLoadingLists] = useState(false);
+  const [addingToList, setAddingToList] = useState<string | null>(null);
+  const listsMenuRef = useRef<HTMLDivElement | null>(null);
+
   /* ---------------------------------------------------------------- */
   /*  Data fetching                                                    */
   /* ---------------------------------------------------------------- */
@@ -159,6 +170,20 @@ export default function LeadsPage() {
     loadLeads();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [statusFilter]);
+
+  /* close "Add to list" menu on outside click */
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (
+        listsMenuRef.current &&
+        !listsMenuRef.current.contains(e.target as Node)
+      ) {
+        setListsMenuOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   /* ---------------------------------------------------------------- */
   /*  Create lead                                                      */
@@ -279,18 +304,81 @@ export default function LeadsPage() {
     if (selectedIds.size === 0) return;
     const ids = Array.from(selectedIds);
     try {
-      await Promise.all(
-        ids.map((id) =>
-          fetch(`/api/leads?id=${id}`, { method: "DELETE" })
-        )
+      const results = await Promise.all(
+        ids.map(async (id) => {
+          const res = await fetch(`/api/leads?id=${id}`, { method: "DELETE" });
+          return { id, ok: res.ok };
+        })
       );
-      setLeads((prev) => prev.filter((l) => !selectedIds.has(l.id)));
-      if (selectedLead && selectedIds.has(selectedLead.id))
+      const deletedIds = new Set(results.filter((r) => r.ok).map((r) => r.id));
+      const failedCount = results.length - deletedIds.size;
+
+      setLeads((prev) => prev.filter((l) => !deletedIds.has(l.id)));
+      if (selectedLead && deletedIds.has(selectedLead.id))
         setSelectedLead(null);
-      setSelectedIds(new Set());
-      toast.success(`Deleted ${ids.length} lead(s)`);
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        deletedIds.forEach((id) => next.delete(id));
+        return next;
+      });
+
+      if (deletedIds.size > 0) {
+        toast.success(`Deleted ${deletedIds.size} lead(s)`);
+      }
+      if (failedCount > 0) {
+        toast.error(`Failed to delete ${failedCount} lead(s)`);
+      }
     } catch {
       toast.error("Failed to delete some leads");
+    }
+  }
+
+  /* ---------------------------------------------------------------- */
+  /*  Add to list                                                      */
+  /* ---------------------------------------------------------------- */
+
+  async function loadAvailableLists() {
+    setLoadingLists(true);
+    try {
+      const res = await fetch("/api/lists");
+      if (!res.ok) throw new Error("Failed to load lists");
+      const json = await res.json();
+      setAvailableLists(json.data ?? []);
+    } catch {
+      toast.error("Failed to load lists");
+    } finally {
+      setLoadingLists(false);
+    }
+  }
+
+  function toggleListsMenu() {
+    setListsMenuOpen((prev) => {
+      const next = !prev;
+      if (next) loadAvailableLists();
+      return next;
+    });
+  }
+
+  async function handleAddToList(listId: string, listName: string) {
+    if (selectedIds.size === 0) return;
+    setAddingToList(listId);
+    try {
+      const res = await fetch(`/api/lists/${listId}/leads`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ leadIds: Array.from(selectedIds) }),
+      });
+      if (!res.ok) throw new Error("Failed to add leads to list");
+      const json = await res.json();
+      const added = json.data?.added ?? selectedIds.size;
+      toast.success(`Added ${added} lead${added === 1 ? "" : "s"} to "${listName}"`);
+      setListsMenuOpen(false);
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Failed to add leads to list"
+      );
+    } finally {
+      setAddingToList(null);
     }
   }
 
@@ -572,6 +660,45 @@ export default function LeadsPage() {
             </option>
           ))}
         </select>
+
+        {selectedIds.size > 0 && (
+          <div className="relative" ref={listsMenuRef}>
+            <button
+              onClick={toggleListsMenu}
+              className="inline-flex items-center gap-2 rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-sm font-medium text-[#6C47FF] hover:bg-violet-100 transition-colors"
+            >
+              <ListPlus className="h-4 w-4" />
+              Add to List
+            </button>
+            {listsMenuOpen && (
+              <div className="absolute left-0 top-10 z-20 w-56 rounded-lg border border-gray-200 bg-white py-1 shadow-lg max-h-64 overflow-y-auto">
+                {loadingLists ? (
+                  <div className="px-3 py-2 text-sm text-gray-400">
+                    Loading...
+                  </div>
+                ) : availableLists.length === 0 ? (
+                  <div className="px-3 py-2 text-sm text-gray-400">
+                    No lists yet. Create one from the Lists page.
+                  </div>
+                ) : (
+                  availableLists.map((l) => (
+                    <button
+                      key={l.id}
+                      onClick={() => handleAddToList(l.id, l.name)}
+                      disabled={addingToList === l.id}
+                      className="flex w-full items-center justify-between gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
+                    >
+                      <span className="truncate">{l.name}</span>
+                      {addingToList === l.id && (
+                        <Loader2 className="h-3.5 w-3.5 flex-shrink-0 animate-spin" />
+                      )}
+                    </button>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         {selectedIds.size > 0 && (
           <button

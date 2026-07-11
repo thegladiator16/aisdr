@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { toast } from "sonner";
 import {
   DollarSign,
   Trophy,
@@ -13,12 +14,15 @@ import {
   Users,
   Rocket,
   X,
+  Loader2,
+  CheckCircle2,
 } from "lucide-react";
 
 type FilterTab = "All" | "Hiring" | "Funding" | "Other";
 
 interface Signal {
   id: number;
+  key: string;
   icon: React.ElementType;
   iconBg: string;
   title: string;
@@ -27,9 +31,14 @@ interface Signal {
   categories: FilterTab[];
 }
 
+// Static catalog of signal *types* Arya can detect — this is a fixed product
+// catalog (like the campaign-type picker on the Campaigns page), not fetched
+// data. What IS real and persisted is which of these a user has subscribed
+// to, and for which campaign — see `signalSubscriptions` below.
 const signals: Signal[] = [
   {
     id: 1,
+    key: "funding_announcement",
     icon: DollarSign,
     iconBg: "bg-green-100",
     title: "Funding announcement",
@@ -40,6 +49,7 @@ const signals: Signal[] = [
   },
   {
     id: 2,
+    key: "new_leadership_hire",
     icon: Trophy,
     iconBg: "bg-blue-100",
     title: "New leadership hire",
@@ -50,6 +60,7 @@ const signals: Signal[] = [
   },
   {
     id: 3,
+    key: "first_hire_department",
     icon: UserPlus,
     iconBg: "bg-pink-100",
     title: "First hire in department",
@@ -60,6 +71,7 @@ const signals: Signal[] = [
   },
   {
     id: 4,
+    key: "first_hire_role",
     icon: UserPlus,
     iconBg: "bg-orange-100",
     title: "First hire in role",
@@ -70,6 +82,7 @@ const signals: Signal[] = [
   },
   {
     id: 5,
+    key: "actively_hiring_role",
     icon: MapPin,
     iconBg: "bg-red-100",
     title: "Actively hiring for role",
@@ -80,6 +93,7 @@ const signals: Signal[] = [
   },
   {
     id: 6,
+    key: "hiring_tech_stack",
     icon: Layers,
     iconBg: "bg-gray-100",
     title: "Hiring for tech stack",
@@ -90,6 +104,7 @@ const signals: Signal[] = [
   },
   {
     id: 7,
+    key: "topic_intent",
     icon: Grid3X3,
     iconBg: "bg-gray-100",
     title: "Topic intent",
@@ -100,6 +115,7 @@ const signals: Signal[] = [
   },
   {
     id: 8,
+    key: "named_investor_backing",
     icon: Trophy,
     iconBg: "bg-gray-100",
     title: "Named investor backing",
@@ -110,6 +126,7 @@ const signals: Signal[] = [
   },
   {
     id: 9,
+    key: "top_customer_investors",
     icon: Building2,
     iconBg: "bg-gray-100",
     title: "Top customer's investors",
@@ -120,6 +137,7 @@ const signals: Signal[] = [
   },
   {
     id: 10,
+    key: "webhook",
     icon: Webhook,
     iconBg: "bg-gray-100",
     title: "Webhook",
@@ -130,6 +148,7 @@ const signals: Signal[] = [
   },
   {
     id: 11,
+    key: "first_hire_country",
     icon: UserPlus,
     iconBg: "bg-gray-100",
     title: "First hire in country",
@@ -140,6 +159,7 @@ const signals: Signal[] = [
   },
   {
     id: 12,
+    key: "multiple_open_jobs",
     icon: Users,
     iconBg: "bg-gray-100",
     title: "Multiple open jobs",
@@ -152,36 +172,137 @@ const signals: Signal[] = [
 
 const filterTabs: FilterTab[] = ["All", "Hiring", "Funding", "Other"];
 
-const campaignOptions = [
-  "Q2 Fintech Outreach",
-  "SaaS Founders - April Batch",
-];
+type Campaign = { id: string; name: string };
+type Subscription = {
+  id: string;
+  signalType: string;
+  campaignId: string;
+  campaignName: string | null;
+  enabled: boolean;
+};
 
 export default function SignalsPage() {
   const [activeFilter, setActiveFilter] = useState<FilterTab>("All");
   const [signalModalOpen, setSignalModalOpen] = useState(false);
   const [selectedSignal, setSelectedSignal] = useState<Signal | null>(null);
   const [selectedCampaign, setSelectedCampaign] = useState("");
-  const [toast, setToast] = useState<string | null>(null);
+  const [newCampaignName, setNewCampaignName] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      const [campaignsRes, signalsRes] = await Promise.all([
+        fetch("/api/campaigns", { cache: "no-store" }),
+        fetch("/api/signals", { cache: "no-store" }),
+      ]);
+      if (campaignsRes.ok) {
+        const json = await campaignsRes.json();
+        setCampaigns((json.data ?? []).map((c: any) => ({ id: c.id, name: c.name })));
+      }
+      if (signalsRes.ok) {
+        const json = await signalsRes.json();
+        setSubscriptions(json.subscriptions ?? []);
+      }
+    } catch {
+      toast.error("Could not load signals");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+  }, []);
 
   const filteredSignals =
     activeFilter === "All"
       ? signals
       : signals.filter((s) => s.categories.includes(activeFilter));
 
+  const subscriptionsFor = (signalKey: string) =>
+    subscriptions.filter((s) => s.signalType === signalKey && s.enabled);
+
   const handleSignalClick = (signal: Signal) => {
     if (signal.comingSoon) return;
     setSelectedSignal(signal);
     setSelectedCampaign("");
+    setNewCampaignName("");
     setSignalModalOpen(true);
   };
 
-  const handleSetupSignal = () => {
+  const closeModal = () => {
     setSignalModalOpen(false);
     setSelectedSignal(null);
     setSelectedCampaign("");
-    setToast("Signal configured!");
-    setTimeout(() => setToast(null), 2500);
+    setNewCampaignName("");
+  };
+
+  const handleSetupSignal = async () => {
+    if (!selectedSignal) return;
+    if (!selectedCampaign) {
+      toast.error("Select a campaign first");
+      return;
+    }
+    if (selectedCampaign === "__new" && !newCampaignName.trim()) {
+      toast.error("Enter a name for the new campaign");
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      let campaignId = selectedCampaign;
+
+      if (selectedCampaign === "__new") {
+        const res = await fetch("/api/campaigns", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: newCampaignName.trim(), status: "draft" }),
+        });
+        if (!res.ok) {
+          toast.error("Could not create campaign");
+          return;
+        }
+        const json = await res.json();
+        campaignId = json.data.id;
+        setCampaigns((prev) => [...prev, { id: campaignId, name: newCampaignName.trim() }]);
+      }
+
+      const res = await fetch("/api/signals", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ signalType: selectedSignal.key, campaignId }),
+      });
+      if (!res.ok) {
+        toast.error("Could not set up this signal");
+        return;
+      }
+      toast.success(`${selectedSignal.title} configured!`);
+      closeModal();
+      loadData();
+    } catch {
+      toast.error("Could not set up this signal");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleRemoveSubscription = async (subscriptionId: string) => {
+    try {
+      const res = await fetch(`/api/signals/${subscriptionId}`, { method: "DELETE" });
+      if (!res.ok) {
+        toast.error("Could not remove signal");
+        return;
+      }
+      setSubscriptions((prev) => prev.filter((s) => s.id !== subscriptionId));
+      toast.success("Signal removed");
+    } catch {
+      toast.error("Could not remove signal");
+    }
   };
 
   return (
@@ -208,42 +329,78 @@ export default function SignalsPage() {
           ))}
         </div>
 
-        {/* Signal Cards Grid */}
-        <div className="grid grid-cols-3 gap-4 max-w-5xl mx-auto mt-8">
-          {filteredSignals.map((signal) => {
-            const Icon = signal.icon;
-            return (
-              <div
-                key={signal.id}
-                onClick={() => handleSignalClick(signal)}
-                title={signal.comingSoon ? "Coming soon — join waitlist" : undefined}
-                className={`relative rounded-xl border border-gray-200 bg-white p-5 transition ${
-                  signal.comingSoon
-                    ? "opacity-60 cursor-default"
-                    : "hover:shadow-md cursor-pointer"
-                }`}
-              >
-                {signal.comingSoon && (
-                  <span className="absolute top-3 right-3 flex items-center gap-1 rounded-full bg-gray-100 px-2 py-1 text-xs text-gray-500">
-                    <Rocket className="h-3 w-3" />
-                    Coming soon
-                  </span>
-                )}
+        {loading ? (
+          <div className="flex justify-center mt-12">
+            <Loader2 className="h-5 w-5 text-gray-300 animate-spin" />
+          </div>
+        ) : (
+          /* Signal Cards Grid */
+          <div className="grid grid-cols-3 gap-4 max-w-5xl mx-auto mt-8">
+            {filteredSignals.map((signal) => {
+              const Icon = signal.icon;
+              const activeSubs = subscriptionsFor(signal.key);
+              return (
                 <div
-                  className={`flex h-10 w-10 items-center justify-center rounded-lg ${signal.iconBg}`}
+                  key={signal.id}
+                  onClick={() => handleSignalClick(signal)}
+                  title={signal.comingSoon ? "Coming soon — join waitlist" : undefined}
+                  className={`relative rounded-xl border border-gray-200 bg-white p-5 transition ${
+                    signal.comingSoon
+                      ? "opacity-60 cursor-default"
+                      : "hover:shadow-md cursor-pointer"
+                  }`}
                 >
-                  <Icon className="h-5 w-5 text-gray-700" />
+                  {signal.comingSoon && (
+                    <span className="absolute top-3 right-3 flex items-center gap-1 rounded-full bg-gray-100 px-2 py-1 text-xs text-gray-500">
+                      <Rocket className="h-3 w-3" />
+                      Coming soon
+                    </span>
+                  )}
+                  {!signal.comingSoon && activeSubs.length > 0 && (
+                    <span className="absolute top-3 right-3 flex items-center gap-1 rounded-full bg-green-50 px-2 py-1 text-xs text-green-700">
+                      <CheckCircle2 className="h-3 w-3" />
+                      Active
+                    </span>
+                  )}
+                  <div
+                    className={`flex h-10 w-10 items-center justify-center rounded-lg ${signal.iconBg}`}
+                  >
+                    <Icon className="h-5 w-5 text-gray-700" />
+                  </div>
+                  <h3 className="mt-3 font-medium text-gray-900">
+                    {signal.title}
+                  </h3>
+                  <p className="mt-1 text-sm text-gray-500">
+                    {signal.description}
+                  </p>
+                  {activeSubs.length > 0 && (
+                    <div className="mt-3 space-y-1 border-t border-gray-100 pt-2">
+                      {activeSubs.map((sub) => (
+                        <div
+                          key={sub.id}
+                          className="flex items-center justify-between text-xs text-gray-500"
+                        >
+                          <span className="truncate">
+                            → {sub.campaignName ?? "Unknown campaign"}
+                          </span>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleRemoveSubscription(sub.id);
+                            }}
+                            className="text-gray-400 hover:text-red-600 transition shrink-0 ml-2"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
-                <h3 className="mt-3 font-medium text-gray-900">
-                  {signal.title}
-                </h3>
-                <p className="mt-1 text-sm text-gray-500">
-                  {signal.description}
-                </p>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Signal Setup Modal */}
@@ -256,10 +413,7 @@ export default function SignalsPage() {
                 Set up {selectedSignal.title}
               </h2>
               <button
-                onClick={() => {
-                  setSignalModalOpen(false);
-                  setSelectedSignal(null);
-                }}
+                onClick={closeModal}
                 className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition"
               >
                 <X className="h-5 w-5" />
@@ -280,42 +434,50 @@ export default function SignalsPage() {
                   className="mt-1.5 w-full rounded-lg border border-gray-300 bg-white py-2.5 px-3 text-sm outline-none focus:border-[#6C47FF] transition"
                 >
                   <option value="">Select a campaign...</option>
-                  {campaignOptions.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
+                  {campaigns.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
                     </option>
                   ))}
                   <option value="__new">+ Create new campaign</option>
                 </select>
               </div>
+
+              {selectedCampaign === "__new" && (
+                <div>
+                  <label className="text-sm font-medium text-gray-700">
+                    New campaign name
+                  </label>
+                  <input
+                    autoFocus
+                    type="text"
+                    value={newCampaignName}
+                    onChange={(e) => setNewCampaignName(e.target.value)}
+                    placeholder="e.g. Funding signals outreach"
+                    className="mt-1.5 w-full rounded-lg border border-gray-300 bg-white py-2.5 px-3 text-sm outline-none focus:border-[#6C47FF] transition"
+                  />
+                </div>
+              )}
             </div>
 
             {/* Footer */}
             <div className="flex items-center justify-end gap-3 border-t border-gray-200 px-6 py-4">
               <button
-                onClick={() => {
-                  setSignalModalOpen(false);
-                  setSelectedSignal(null);
-                }}
+                onClick={closeModal}
                 className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition"
               >
                 Cancel
               </button>
               <button
                 onClick={handleSetupSignal}
-                className="rounded-lg bg-[#6C47FF] px-5 py-2 text-sm font-medium text-white hover:bg-[#5a38e0] transition"
+                disabled={submitting}
+                className="inline-flex items-center gap-2 rounded-lg bg-[#6C47FF] px-5 py-2 text-sm font-medium text-white hover:bg-[#5a38e0] transition disabled:opacity-50"
               >
+                {submitting && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
                 Set up signal
               </button>
             </div>
           </div>
-        </div>
-      )}
-
-      {/* Toast */}
-      {toast && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 rounded-lg bg-gray-900 px-5 py-3 text-sm text-white shadow-lg">
-          {toast}
         </div>
       )}
     </div>

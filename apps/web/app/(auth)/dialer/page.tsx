@@ -4,13 +4,11 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useUser } from "@clerk/nextjs";
 import { toast } from "sonner";
-import { Phone, X, Minus, Plus, CreditCard, Check, Loader2, Lock } from "lucide-react";
+import { Phone, X, Minus, Plus, Check, Loader2, Lock } from "lucide-react";
 import { useRazorpay } from "@/hooks/useRazorpay";
 
 const tabs = ["Ready to call", "Upcoming", "Call log"] as const;
 type Tab = (typeof tabs)[number];
-
-type PayTab = "Card" | "UPI" | "Net Banking";
 
 export default function DialerPage() {
   const router = useRouter();
@@ -19,50 +17,34 @@ export default function DialerPage() {
   const [activeTab, setActiveTab] = useState<Tab>("Ready to call");
   const [dialerModalOpen, setDialerModalOpen] = useState(false);
   const [quantity, setQuantity] = useState(1);
-  const [payTab, setPayTab] = useState<PayTab>("Card");
-
-  // Card fields
-  const [cardholderName, setCardholderName] = useState("");
-  const [cardNumber, setCardNumber] = useState("");
-  const [expiration, setExpiration] = useState("");
-  const [securityCode, setSecurityCode] = useState("");
-  const [country, setCountry] = useState("US");
-  const [saveCard, setSaveCard] = useState(false);
-
-  // UPI
-  const [upiId, setUpiId] = useState("");
-
-  // Net banking
-  const [bank, setBank] = useState("HDFC Bank");
 
   const [purchasing, setPurchasing] = useState(false);
   const [purchaseSuccess, setPurchaseSuccess] = useState(false);
 
-  const unitPrice = 75;
+  // ₹6,299/seat — matches app/api/billing/create-order/route.ts's
+  // `qty * 629900` (paise). This modal previously hand-rolled Card/UPI/Net
+  // Banking form fields in USD that were never actually read by the payment
+  // call (Razorpay's own hosted Checkout — opened via openCheckout below —
+  // collects the real payment method at payment time), while quietly
+  // charging a different amount in a different currency. Same bug class
+  // already fixed this session in ChangePlanModal/BuyCreditsModal.
+  const unitPrice = 6299;
   const GST_RATE = 0.18;
   const subtotal = unitPrice * quantity;
-  const tax = Math.round(subtotal * GST_RATE * 100) / 100;
-  const total = Math.round((subtotal + tax) * 100) / 100;
+  const tax = Math.round(subtotal * GST_RATE);
+  const total = subtotal + tax;
 
   const fmt = (n: number) =>
-    `$${n.toLocaleString("en-US", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })}`;
+    new Intl.NumberFormat("en-IN", {
+      style: "currency",
+      currency: "INR",
+      maximumFractionDigits: 0,
+    }).format(n);
 
   const resetState = () => {
     setPurchasing(false);
     setPurchaseSuccess(false);
     setQuantity(1);
-    setPayTab("Card");
-    setCardholderName("");
-    setCardNumber("");
-    setExpiration("");
-    setSecurityCode("");
-    setCountry("US");
-    setSaveCard(false);
-    setUpiId("");
-    setBank("HDFC Bank");
   };
 
   const handlePurchase = async () => {
@@ -148,6 +130,11 @@ export default function DialerPage() {
           <p className="mt-2 max-w-sm text-center text-sm text-gray-500">
             Arya gives reps live talking points and summaries of past
             interactions.
+          </p>
+          <p className="mt-2 max-w-sm text-center text-xs text-amber-600">
+            Placing real calls needs a connected telephony provider (e.g. Twilio),
+            which isn&apos;t set up yet — seat purchases are real, but calling
+            isn&apos;t functional until that&apos;s connected.
           </p>
           <button
             onClick={() => setDialerModalOpen(true)}
@@ -267,193 +254,21 @@ export default function DialerPage() {
                     </div>
                   </div>
 
-                  {/* RIGHT: Payment Method (60%) */}
+                  {/* RIGHT: Payment (60%) */}
                   <div className="w-full md:w-3/5 p-6">
-                    {/* Tabs */}
-                    <div className="flex gap-2 border-b border-[#E5E7EB]">
-                      {(["Card", "UPI", "Net Banking"] as PayTab[]).map((t) => (
-                        <button
-                          key={t}
-                          onClick={() => setPayTab(t)}
-                          className={`px-4 py-2 text-sm font-medium rounded-t-full transition ${
-                            payTab === t
-                              ? "text-[#6C47FF] border-b-2 border-[#6C47FF]"
-                              : "text-[#6B7280] hover:text-[#111827]"
-                          }`}
-                        >
-                          {t}
-                        </button>
-                      ))}
+                    <p className="text-sm text-[#6B7280]">
+                      Clicking below opens Razorpay&apos;s secure checkout, where you can pay
+                      by card, UPI, or net banking.
+                    </p>
+
+                    <div className="mt-5 rounded-lg border border-[#E5E7EB] bg-[#F9FAFB] p-4">
+                      <p className="text-xs text-[#6B7280]">
+                        Dialer seats are a real-time human-calling feature and additionally
+                        require a connected telephony provider (e.g. Twilio) to actually place
+                        calls — that integration isn&apos;t configured yet, so purchased seats
+                        won&apos;t be able to dial out until it is.
+                      </p>
                     </div>
-
-                    {/* CARD TAB */}
-                    {payTab === "Card" && (
-                      <div className="mt-4 space-y-3">
-                        {/* Brand badges */}
-                        <div className="flex items-center justify-end gap-1.5">
-                          <span className="rounded border border-[#E5E7EB] bg-white px-1.5 py-0.5 text-[10px] font-bold text-[#1A1F71]">
-                            VISA
-                          </span>
-                          <span className="rounded border border-[#E5E7EB] bg-white px-1.5 py-0.5 text-[10px] font-bold text-[#EB001B]">
-                            MC
-                          </span>
-                          <span className="rounded border border-[#E5E7EB] bg-white px-1.5 py-0.5 text-[10px] font-bold text-[#2E77BB]">
-                            AMEX
-                          </span>
-                          <span className="rounded border border-[#E5E7EB] bg-white px-1.5 py-0.5 text-[10px] font-bold text-[#FF6000]">
-                            DISC
-                          </span>
-                          <span className="rounded border border-[#E5E7EB] bg-white px-1.5 py-0.5 text-[10px] font-bold text-[#097E3B]">
-                            RuPay
-                          </span>
-                        </div>
-
-                        <div>
-                          <label className="text-xs text-[#6B7280]">
-                            Cardholder name
-                          </label>
-                          <input
-                            type="text"
-                            value={cardholderName}
-                            onChange={(e) => setCardholderName(e.target.value)}
-                            placeholder="Name on card"
-                            className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm text-[#111827] outline-none focus:border-[#6C47FF] focus:ring-1 focus:ring-[#6C47FF] transition"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="text-xs text-[#6B7280]">
-                            Card number
-                          </label>
-                          <div className="relative mt-1">
-                            <input
-                              type="text"
-                              value={cardNumber}
-                              onChange={(e) => setCardNumber(e.target.value)}
-                              placeholder="1234 1234 1234 1234"
-                              className="w-full rounded-lg border border-gray-200 px-3 py-2.5 pr-10 text-sm text-[#111827] outline-none focus:border-[#6C47FF] focus:ring-1 focus:ring-[#6C47FF] transition"
-                            />
-                            <CreditCard className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                          </div>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-3">
-                          <div>
-                            <label className="text-xs text-[#6B7280]">
-                              Expiration
-                            </label>
-                            <input
-                              type="text"
-                              value={expiration}
-                              onChange={(e) => setExpiration(e.target.value)}
-                              placeholder="MM / YY"
-                              className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm text-[#111827] outline-none focus:border-[#6C47FF] focus:ring-1 focus:ring-[#6C47FF] transition"
-                            />
-                          </div>
-                          <div>
-                            <label className="text-xs text-[#6B7280]">CVC</label>
-                            <input
-                              type="text"
-                              value={securityCode}
-                              onChange={(e) => setSecurityCode(e.target.value)}
-                              placeholder="CVC"
-                              className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm text-[#111827] outline-none focus:border-[#6C47FF] focus:ring-1 focus:ring-[#6C47FF] transition"
-                            />
-                          </div>
-                        </div>
-
-                        <div>
-                          <label className="text-xs text-[#6B7280]">
-                            Billing country
-                          </label>
-                          <select
-                            value={country}
-                            onChange={(e) => setCountry(e.target.value)}
-                            className="mt-1 w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm text-[#111827] outline-none focus:border-[#6C47FF] focus:ring-1 focus:ring-[#6C47FF] transition"
-                          >
-                            <option value="US">United States</option>
-                            <option value="IN">India</option>
-                            <option value="UK">United Kingdom</option>
-                            <option value="CA">Canada</option>
-                            <option value="AU">Australia</option>
-                          </select>
-                        </div>
-
-                        <label className="flex items-center gap-2 text-xs text-[#6B7280] pt-1 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={saveCard}
-                            onChange={(e) => setSaveCard(e.target.checked)}
-                            className="h-4 w-4 rounded border-gray-300 text-[#6C47FF] focus:ring-[#6C47FF]"
-                          />
-                          Save card for future payments
-                        </label>
-                      </div>
-                    )}
-
-                    {/* UPI TAB */}
-                    {payTab === "UPI" && (
-                      <div className="mt-4 space-y-3">
-                        <div>
-                          <label className="text-xs text-[#6B7280]">
-                            UPI ID
-                          </label>
-                          <input
-                            type="text"
-                            value={upiId}
-                            onChange={(e) => setUpiId(e.target.value)}
-                            placeholder="name@bank"
-                            className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm text-[#111827] outline-none focus:border-[#6C47FF] focus:ring-1 focus:ring-[#6C47FF] transition"
-                          />
-                        </div>
-
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="rounded border border-[#E5E7EB] bg-white px-2 py-1 text-[11px] font-semibold text-[#4285F4]">
-                            GPay
-                          </span>
-                          <span className="rounded border border-[#E5E7EB] bg-white px-2 py-1 text-[11px] font-semibold text-[#5F259F]">
-                            PhonePe
-                          </span>
-                          <span className="rounded border border-[#E5E7EB] bg-white px-2 py-1 text-[11px] font-semibold text-[#00BAF2]">
-                            Paytm
-                          </span>
-                          <span className="rounded border border-[#E5E7EB] bg-white px-2 py-1 text-[11px] font-semibold text-[#EF7B22]">
-                            BHIM
-                          </span>
-                        </div>
-
-                        <p className="text-xs text-[#6B7280]">
-                          You'll get a payment request on your UPI app
-                        </p>
-                      </div>
-                    )}
-
-                    {/* NET BANKING TAB */}
-                    {payTab === "Net Banking" && (
-                      <div className="mt-4 space-y-3">
-                        <div>
-                          <label className="text-xs text-[#6B7280]">
-                            Select bank
-                          </label>
-                          <select
-                            value={bank}
-                            onChange={(e) => setBank(e.target.value)}
-                            className="mt-1 w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm text-[#111827] outline-none focus:border-[#6C47FF] focus:ring-1 focus:ring-[#6C47FF] transition"
-                          >
-                            <option>HDFC Bank</option>
-                            <option>ICICI Bank</option>
-                            <option>SBI</option>
-                            <option>Axis Bank</option>
-                            <option>Kotak</option>
-                            <option>Yes Bank</option>
-                            <option>Other</option>
-                          </select>
-                        </div>
-                        <p className="text-xs text-[#6B7280]">
-                          You'll be redirected to your bank's secure portal.
-                        </p>
-                      </div>
-                    )}
 
                     {/* Trust signals */}
                     <div className="mt-5 space-y-2 border-t border-[#E5E7EB] pt-4">

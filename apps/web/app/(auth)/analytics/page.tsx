@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import {
   UserPlus,
   Send,
@@ -20,9 +21,173 @@ import {
   SlidersHorizontal,
   Download,
 } from "lucide-react";
+import {
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+} from "recharts";
 import { ChangePlanModal } from "@/components/billing/ChangePlanModal";
+import { useSubscription } from "@/lib/hooks/useSubscription";
 
 type Tab = "overview" | "messaging" | "deliverability" | "dialer" | "credits";
+
+/* ------------------------------------------------------------------ */
+/*  Shared analytics data                                              */
+/* ------------------------------------------------------------------ */
+type AnalyticsOverview = {
+  totalCampaigns: number;
+  totalLeads: number;
+  emailsSent: number;
+  avgOpenRate: number;
+  avgReplyRate: number;
+  meetingsBooked: number;
+  totalReplies: number;
+  positiveReplies: number;
+  bounces: number;
+  bounceRate: number;
+};
+
+type ActivityPoint = {
+  date: string;
+  sent: number;
+  opened: number;
+  replied: number;
+};
+
+type FunnelRow = { status: string; count: number };
+
+type Transaction = {
+  id: string;
+  amount: number;
+  currency: string | null;
+  status: string;
+  description: string | null;
+  providerPaymentId: string | null;
+  createdAt: string;
+};
+
+function useAnalyticsData() {
+  const [overview, setOverview] = useState<AnalyticsOverview | null>(null);
+  const [activityTimeline, setActivityTimeline] = useState<ActivityPoint[]>([]);
+  const [funnelData, setFunnelData] = useState<FunnelRow[]>([]);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      try {
+        const [analyticsRes, v1Res, txRes] = await Promise.all([
+          fetch("/api/analytics", { cache: "no-store" }),
+          fetch("/api/v1/analytics", { cache: "no-store" }),
+          fetch("/api/billing/transactions", { cache: "no-store" }),
+        ]);
+        if (cancelled) return;
+
+        if (analyticsRes.ok) {
+          const json = await analyticsRes.json();
+          setOverview(json.data ?? null);
+        }
+        if (v1Res.ok) {
+          const json = await v1Res.json();
+          setActivityTimeline(
+            (json.activityTimeline ?? []).map((row: any) => ({
+              date: row.date,
+              sent: Number(row.sent) || 0,
+              opened: Number(row.opened) || 0,
+              replied: Number(row.replied) || 0,
+            }))
+          );
+          setFunnelData(
+            (json.funnelData ?? []).map((row: any) => ({
+              status: row.status ?? "unknown",
+              count: Number(row.count) || 0,
+            }))
+          );
+        }
+        if (txRes.ok) {
+          const json = await txRes.json();
+          setTransactions(Array.isArray(json.transactions) ? json.transactions : []);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  return { overview, activityTimeline, funnelData, transactions, loading };
+}
+
+function formatChartDate(iso: string) {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString("en-IN", { month: "short", day: "numeric" });
+}
+
+function downloadCsv(filename: string, header: string[], rows: (string | number)[][]) {
+  const csv = [header, ...rows]
+    .map((r) => r.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","))
+    .join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+/* ------------------------------------------------------------------ */
+/*  Timeline chart (recharts)                                          */
+/* ------------------------------------------------------------------ */
+function TimelineChart({
+  data,
+  lines,
+}: {
+  data: ActivityPoint[];
+  lines: { key: "sent" | "opened" | "replied"; label: string; color: string }[];
+}) {
+  return (
+    <div className="h-72">
+      <ResponsiveContainer width="100%" height="100%">
+        <LineChart data={data} margin={{ top: 8, right: 16, left: -16, bottom: 0 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#F3F4F6" />
+          <XAxis
+            dataKey="date"
+            tickFormatter={formatChartDate}
+            tick={{ fontSize: 12, fill: "#9CA3AF" }}
+            axisLine={{ stroke: "#E5E7EB" }}
+          />
+          <YAxis tick={{ fontSize: 12, fill: "#9CA3AF" }} axisLine={{ stroke: "#E5E7EB" }} allowDecimals={false} />
+          <Tooltip labelFormatter={formatChartDate} />
+          <Legend wrapperStyle={{ fontSize: 12 }} />
+          {lines.map((line) => (
+            <Line
+              key={line.key}
+              type="monotone"
+              dataKey={line.key}
+              name={line.label}
+              stroke={line.color}
+              strokeWidth={2}
+              dot={false}
+            />
+          ))}
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
 
 /* ------------------------------------------------------------------ */
 /*  Toast                                                              */
@@ -550,24 +715,26 @@ function DateRangeDropdown({
 /* ------------------------------------------------------------------ */
 /*  Overview Tab                                                       */
 /* ------------------------------------------------------------------ */
-function OverviewTab({ onToast }: { onToast: (msg: string) => void }) {
-  const [activeChart, setActiveChart] = useState("leads");
+function OverviewTab({
+  onToast,
+  overview,
+  activityTimeline,
+  funnelData,
+}: {
+  onToast: (msg: string) => void;
+  overview: AnalyticsOverview | null;
+  activityTimeline: ActivityPoint[];
+  funnelData: FunnelRow[];
+}) {
   const [leadsToggle, setLeadsToggle] = useState<"new" | "all">("new");
   const [responsesToggle, setResponsesToggle] = useState<"all" | "positive">("all");
 
-  const chartOptions = [
-    { key: "leads", label: "New leads contacted" },
-    { key: "messages", label: "Messages sent" },
-    { key: "all_responses", label: "All responses" },
-    { key: "positive", label: "Positive responses" },
-  ];
+  const newLeadsCount = funnelData.find((f) => f.status === "new")?.count ?? 0;
+  const leadsValue = leadsToggle === "new" ? newLeadsCount : overview?.totalLeads ?? 0;
+  const responsesValue =
+    responsesToggle === "all" ? overview?.totalReplies ?? 0 : overview?.positiveReplies ?? 0;
 
-  const chartTitles: Record<string, string> = {
-    leads: "New leads contacted over time",
-    messages: "Messages sent over time",
-    all_responses: "All responses over time",
-    positive: "Positive responses over time",
-  };
+  const hasChartData = activityTimeline.length > 0;
 
   return (
     <div className="space-y-6">
@@ -575,8 +742,8 @@ function OverviewTab({ onToast }: { onToast: (msg: string) => void }) {
         <StatCard
           icon={UserPlus}
           title="Leads contacted"
-          value="0"
-          subtitle="No change"
+          value={leadsValue.toLocaleString()}
+          subtitle={leadsToggle === "new" ? "New leads" : "All leads"}
           headerRight={
             <PillToggle
               options={[
@@ -588,12 +755,17 @@ function OverviewTab({ onToast }: { onToast: (msg: string) => void }) {
             />
           }
         />
-        <StatCard icon={Send} title="Messages sent" value="0" subtitle="No change" />
+        <StatCard
+          icon={Send}
+          title="Messages sent"
+          value={(overview?.emailsSent ?? 0).toLocaleString()}
+          subtitle={`${overview?.avgOpenRate ?? 0}% avg. open rate`}
+        />
         <StatCard
           icon={MessageCircle}
           title="Responses"
-          value="0"
-          subtitle="No change"
+          value={responsesValue.toLocaleString()}
+          subtitle={responsesToggle === "all" ? "All responses" : "Positive sentiment"}
           headerRight={
             <PillToggle
               options={[
@@ -605,36 +777,44 @@ function OverviewTab({ onToast }: { onToast: (msg: string) => void }) {
             />
           }
         />
-        <StatCard icon={Calendar} title="Meetings booked" value="0" subtitle="No change" />
+        <StatCard
+          icon={Calendar}
+          title="Meetings booked"
+          value={(overview?.meetingsBooked ?? 0).toLocaleString()}
+          subtitle="All time"
+        />
       </div>
 
       <div className="bg-white border border-gray-200 rounded-xl p-5">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-semibold text-gray-900">{chartTitles[activeChart]}</h3>
+          <h3 className="text-sm font-semibold text-gray-900">Activity over the last 14 days</h3>
           <button
-            onClick={() => onToast("Exporting data...")}
+            onClick={() => {
+              downloadCsv(
+                "analytics-activity.csv",
+                ["Date", "Sent", "Opened", "Replied"],
+                activityTimeline.map((r) => [r.date, r.sent, r.opened, r.replied])
+              );
+              onToast("Exported activity.csv");
+            }}
             className="flex items-center gap-1.5 border border-gray-200 rounded-lg px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 transition-colors"
           >
             <Download className="h-3.5 w-3.5" />
             Export
           </button>
         </div>
-        <div className="flex gap-2 mb-4">
-          {chartOptions.map((opt) => (
-            <button
-              key={opt.key}
-              onClick={() => setActiveChart(opt.key)}
-              className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
-                activeChart === opt.key
-                  ? "bg-violet-600 text-white"
-                  : "bg-white border border-gray-200 text-gray-600 hover:bg-gray-50"
-              }`}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
-        <EmptyChart />
+        {hasChartData ? (
+          <TimelineChart
+            data={activityTimeline}
+            lines={[
+              { key: "sent", label: "Sent", color: "#6C47FF" },
+              { key: "opened", label: "Opened", color: "#10B981" },
+              { key: "replied", label: "Replied", color: "#F59E0B" },
+            ]}
+          />
+        ) : (
+          <EmptyChart />
+        )}
       </div>
     </div>
   );
@@ -643,16 +823,35 @@ function OverviewTab({ onToast }: { onToast: (msg: string) => void }) {
 /* ------------------------------------------------------------------ */
 /*  Messaging Tab                                                      */
 /* ------------------------------------------------------------------ */
-function MessagingTab() {
+function MessagingTab({
+  overview,
+  activityTimeline,
+}: {
+  overview: AnalyticsOverview | null;
+  activityTimeline: ActivityPoint[];
+}) {
+  const hasChartData = activityTimeline.length > 0;
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-4 gap-4">
-        <StatCard icon={Mail} title="Emails sent" value="0" subtitle="No change" />
+        <StatCard
+          icon={Mail}
+          title="Emails sent"
+          value={(overview?.emailsSent ?? 0).toLocaleString()}
+          subtitle="All time"
+        />
       </div>
 
       <div className="bg-white border border-gray-200 rounded-xl p-5">
         <h3 className="text-sm font-semibold text-gray-900 mb-4">Emails sent over time</h3>
-        <EmptyChart />
+        {hasChartData ? (
+          <TimelineChart
+            data={activityTimeline}
+            lines={[{ key: "sent", label: "Sent", color: "#6C47FF" }]}
+          />
+        ) : (
+          <EmptyChart />
+        )}
       </div>
 
       <div className="bg-white border border-gray-200 rounded-xl p-5">
@@ -668,7 +867,10 @@ function MessagingTab() {
         <div className="flex flex-col items-center justify-center py-12">
           <MessageCircle className="h-12 w-12 text-gray-200 mb-3" />
           <p className="text-sm text-gray-500">No conversation drivers yet</p>
-          <p className="text-xs text-gray-400 mt-1">Data will appear once campaigns generate replies.</p>
+          <p className="text-xs text-gray-400 mt-1">
+            Per-lead driver ranking isn&apos;t tracked yet — this will populate once that
+            breakdown is built.
+          </p>
         </div>
       </div>
     </div>
@@ -678,19 +880,56 @@ function MessagingTab() {
 /* ------------------------------------------------------------------ */
 /*  Deliverability Tab                                                 */
 /* ------------------------------------------------------------------ */
-function DeliverabilityTab() {
+function DeliverabilityTab({
+  overview,
+  activityTimeline,
+}: {
+  overview: AnalyticsOverview | null;
+  activityTimeline: ActivityPoint[];
+}) {
+  const hasChartData = activityTimeline.length > 0;
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-4 gap-4">
-        <StatCard icon={Send} title="Emails sent" value="0" subtitle="No change" />
-        <StatCard icon={Inbox} title="Inbox placement rate" value="0%" subtitle="No change" />
-        <StatCard icon={Star} title="Reply rate" value="0%" subtitle="No change" />
-        <StatCard icon={AlertTriangle} title="Bounce rate" value="0%" subtitle="No change" />
+        <StatCard
+          icon={Send}
+          title="Emails sent"
+          value={(overview?.emailsSent ?? 0).toLocaleString()}
+          subtitle="All time"
+        />
+        <StatCard
+          icon={Inbox}
+          title="Inbox placement rate"
+          value="N/A"
+          subtitle="Needs ESP feedback-loop tracking (not integrated)"
+        />
+        <StatCard
+          icon={Star}
+          title="Reply rate"
+          value={`${overview?.avgReplyRate ?? 0}%`}
+          subtitle="All time"
+        />
+        <StatCard
+          icon={AlertTriangle}
+          title="Bounce rate"
+          value={`${overview?.bounceRate ?? 0}%`}
+          subtitle={`${overview?.bounces ?? 0} bounces`}
+        />
       </div>
 
       <div className="bg-white border border-gray-200 rounded-xl p-5">
         <h3 className="text-sm font-semibold text-gray-900 mb-4">Delivery status over time</h3>
-        <EmptyChart />
+        {hasChartData ? (
+          <TimelineChart
+            data={activityTimeline}
+            lines={[
+              { key: "sent", label: "Sent", color: "#6C47FF" },
+              { key: "opened", label: "Opened", color: "#10B981" },
+            ]}
+          />
+        ) : (
+          <EmptyChart />
+        )}
       </div>
     </div>
   );
@@ -745,10 +984,28 @@ function DialerTab() {
 /* ------------------------------------------------------------------ */
 /*  Credits Tab                                                        */
 /* ------------------------------------------------------------------ */
-function CreditsTab({ onToast }: { onToast: (msg: string) => void }) {
+function CreditsTab({
+  onToast,
+  transactions,
+}: {
+  onToast: (msg: string) => void;
+  transactions: Transaction[];
+}) {
+  const router = useRouter();
   const [breakdownView, setBreakdownView] = useState<"campaign" | "action">("campaign");
   const [showPlanModal, setShowPlanModal] = useState(false);
-  const [showBuyCredits, setShowBuyCredits] = useState(false);
+  const { data: subscription } = useSubscription();
+
+  const creditsRemaining = subscription
+    ? Math.max(0, subscription.credits - subscription.creditsUsed)
+    : 0;
+
+  const formatINR = (amountPaise: number) =>
+    new Intl.NumberFormat("en-IN", {
+      style: "currency",
+      currency: "INR",
+      maximumFractionDigits: 0,
+    }).format(amountPaise / 100);
 
   return (
     <div className="space-y-6">
@@ -756,7 +1013,7 @@ function CreditsTab({ onToast }: { onToast: (msg: string) => void }) {
         <h2 className="text-lg font-bold text-gray-900">Credits</h2>
         <div className="flex items-center gap-3">
           <button
-            onClick={() => onToast("Opening credits purchase...")}
+            onClick={() => router.push("/settings/billing")}
             className="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
           >
             Buy extra credits
@@ -773,22 +1030,23 @@ function CreditsTab({ onToast }: { onToast: (msg: string) => void }) {
         <StatCard
           icon={BarChart2}
           title="Credits used"
-          value="0"
-          subtitle="Credits used in selected period"
-          extra={<p className="text-xs text-green-600">+0.0% vs. previous</p>}
+          value={(subscription?.creditsUsed ?? 0).toLocaleString()}
+          subtitle={`of ${(subscription?.credits ?? 0).toLocaleString()} on the ${subscription?.tier ?? "trial"} plan`}
         />
         <StatCard
           icon={DollarSign}
           title="Current balance"
-          value="10,000"
+          value={creditsRemaining.toLocaleString()}
           subtitle="Available credits"
-          extra={<p className="text-xs text-gray-400">Next credit grant: +0 credit</p>}
         />
       </div>
 
       <div className="bg-white border border-gray-200 rounded-xl p-5">
         <h3 className="text-sm font-semibold text-gray-900 mb-4">Credits used over time</h3>
-        <EmptyChart />
+        <EmptyChart
+          title="No per-day usage log yet"
+          description="Credit consumption isn't logged per-event yet, so a daily trend isn't available."
+        />
       </div>
 
       <div className="bg-white border border-gray-200 rounded-xl p-5">
@@ -817,20 +1075,14 @@ function CreditsTab({ onToast }: { onToast: (msg: string) => void }) {
                 By action type
               </button>
             </div>
-            <button
-              onClick={() => onToast("Exporting data...")}
-              className="flex items-center gap-1.5 border border-gray-200 rounded-lg px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 transition-colors"
-            >
-              <Download className="h-3.5 w-3.5" />
-              Export
-            </button>
           </div>
         </div>
         <div className="flex flex-col items-center justify-center py-12">
           <DollarSign className="h-12 w-12 text-gray-200 mb-3" />
           <p className="text-sm text-gray-500">No usage breakdown yet</p>
           <p className="text-xs text-gray-400 mt-1">
-            Usage breakdown will appear once you start using credits.
+            Per-{breakdownView} credit attribution isn&apos;t tracked yet — this needs
+            per-action metering to be wired into each credit-consuming feature.
           </p>
         </div>
       </div>
@@ -839,7 +1091,23 @@ function CreditsTab({ onToast }: { onToast: (msg: string) => void }) {
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-sm font-semibold text-gray-900">Transaction history</h3>
           <button
-            onClick={() => onToast("Downloading CSV...")}
+            onClick={() => {
+              if (transactions.length === 0) {
+                onToast("No transactions to export yet");
+                return;
+              }
+              downloadCsv(
+                "aryasdr-transactions.csv",
+                ["Invoice", "Status", "Amount", "Created"],
+                transactions.map((t) => [
+                  t.providerPaymentId ?? t.id,
+                  t.status,
+                  ((t.amount ?? 0) / 100).toFixed(2),
+                  new Date(t.createdAt).toISOString(),
+                ])
+              );
+              onToast("Exported transactions.csv");
+            }}
             className="flex items-center gap-1.5 border border-gray-200 rounded-lg px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 transition-colors"
           >
             <Download className="h-3.5 w-3.5" />
@@ -855,12 +1123,41 @@ function CreditsTab({ onToast }: { onToast: (msg: string) => void }) {
               <th className="text-xs text-gray-500 uppercase font-medium text-left py-2">Created</th>
             </tr>
           </thead>
-          <tbody />
+          <tbody>
+            {transactions.map((t) => (
+              <tr key={t.id} className="border-b border-gray-50 last:border-0">
+                <td className="py-2 pr-4 text-sm text-gray-700 font-mono text-xs">
+                  {t.providerPaymentId ?? t.id.slice(0, 12)}
+                </td>
+                <td className="py-2 pr-4 text-sm">
+                  <span
+                    className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                      t.status === "succeeded"
+                        ? "bg-green-100 text-green-700"
+                        : "bg-gray-100 text-gray-600"
+                    }`}
+                  >
+                    {t.status}
+                  </span>
+                </td>
+                <td className="py-2 pr-4 text-sm text-gray-700">{formatINR(t.amount ?? 0)}</td>
+                <td className="py-2 text-sm text-gray-700">
+                  {new Date(t.createdAt).toLocaleDateString("en-IN", {
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                  })}
+                </td>
+              </tr>
+            ))}
+          </tbody>
         </table>
-        <div className="flex flex-col items-center justify-center py-12">
-          <Clock className="h-12 w-12 text-gray-200 mb-3" />
-          <p className="text-sm text-gray-500">No transactions yet</p>
-        </div>
+        {transactions.length === 0 && (
+          <div className="flex flex-col items-center justify-center py-12">
+            <Clock className="h-12 w-12 text-gray-200 mb-3" />
+            <p className="text-sm text-gray-500">No transactions yet</p>
+          </div>
+        )}
       </div>
       {showPlanModal && <ChangePlanModal onClose={() => setShowPlanModal(false)} />}
     </div>
@@ -907,6 +1204,8 @@ export default function AnalyticsPage() {
 
   const activeFilterCount =
     personalizationTypes.size + seniorities.size + industries.size;
+
+  const { overview, activityTimeline, funnelData, transactions } = useAnalyticsData();
 
   return (
     <div className="space-y-6">
@@ -963,11 +1262,24 @@ export default function AnalyticsPage() {
       </div>
 
       {/* Tab Content */}
-      {activeTab === "overview" && <OverviewTab onToast={showToast} />}
-      {activeTab === "messaging" && <MessagingTab />}
-      {activeTab === "deliverability" && <DeliverabilityTab />}
+      {activeTab === "overview" && (
+        <OverviewTab
+          onToast={showToast}
+          overview={overview}
+          activityTimeline={activityTimeline}
+          funnelData={funnelData}
+        />
+      )}
+      {activeTab === "messaging" && (
+        <MessagingTab overview={overview} activityTimeline={activityTimeline} />
+      )}
+      {activeTab === "deliverability" && (
+        <DeliverabilityTab overview={overview} activityTimeline={activityTimeline} />
+      )}
       {activeTab === "dialer" && <DialerTab />}
-      {activeTab === "credits" && <CreditsTab onToast={showToast} />}
+      {activeTab === "credits" && (
+        <CreditsTab onToast={showToast} transactions={transactions} />
+      )}
 
       {/* Filters Panel */}
       <FiltersPanel
