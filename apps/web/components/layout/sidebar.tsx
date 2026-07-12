@@ -166,10 +166,15 @@ export function Sidebar({ onChatOpen }: SidebarProps) {
   const creditsUsed = subscription?.creditsUsed ?? 0;
   const creditsRemaining = Math.max(0, credits - creditsUsed);
   const creditsRemainingRatio = credits > 0 ? creditsRemaining / credits : 0;
-  // Bar width uses raw ratio (not rounded to int) so single-credit spends still
-  // register visually via sub-pixel width changes the browser can render.
   const creditsRemainingPct = creditsRemainingRatio * 100;
   const creditsRemainingPctLabel = Math.round(creditsRemainingPct);
+  // Visual amplification: on a 10k plan, 100 credits = 1% = ~1.5px on a 148px
+  // bar — invisible. When ANY credits have been used, cap the visible fill
+  // at 92% so the shrink is always at least ~12px. The number below stays
+  // authoritative, so no data is lost — only the visual gets an honest
+  // "yes, you've started spending" cue.
+  const creditsBarPct =
+    creditsUsed > 0 ? Math.min(creditsRemainingPct, 92) : creditsRemainingPct;
   const creditsBarColor =
     creditsRemainingRatio > 0.5 ? "bg-violet-500" : creditsRemainingRatio > 0.2 ? "bg-amber-400" : "bg-red-500";
 
@@ -347,10 +352,10 @@ export function Sidebar({ onChatOpen }: SidebarProps) {
                   {creditsRemaining.toLocaleString()}
                 </span>
               </div>
-              <div className="mt-1.5 w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
+              <div className="mt-1.5 w-full h-2 bg-gray-100 rounded-full overflow-hidden">
                 <div
                   className={`h-full rounded-full transition-all duration-500 ${creditsBarColor}`}
-                  style={{ width: `${creditsRemainingPct}%` }}
+                  style={{ width: `${creditsBarPct}%` }}
                 />
               </div>
               <div className="mt-1 flex items-center justify-between text-[10px] text-gray-400 tabular-nums">
