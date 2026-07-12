@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useRef, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import {
   Sparkles,
@@ -31,7 +32,9 @@ import {
 import { useUser, useClerk } from "@clerk/nextjs";
 import { AryaAvatar } from "@/components/arya/AryaAvatar";
 import { ChangePlanModal } from "@/components/billing/ChangePlanModal";
+import { CreditsModal } from "@/components/billing/CreditsModal";
 import { useSubscription } from "@/lib/hooks/useSubscription";
+import { NotificationsBell } from "@/components/notifications/NotificationsBell";
 
 const MANAGE_ITEMS = [
   { href: "/dashboard/manage", label: "Manage Arya", icon: Sparkles },
@@ -69,6 +72,7 @@ export function Sidebar({ onChatOpen }: SidebarProps) {
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [supportMenuOpen, setSupportMenuOpen] = useState(false);
   const [showPlanModal, setShowPlanModal] = useState(false);
+  const [showCreditsModal, setShowCreditsModal] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
   const supportMenuRef = useRef<HTMLDivElement>(null);
   const { data: subscription } = useSubscription();
@@ -76,7 +80,9 @@ export function Sidebar({ onChatOpen }: SidebarProps) {
   const credits = subscription?.credits ?? 10000;
   const creditsUsed = subscription?.creditsUsed ?? 0;
   const creditsRemaining = Math.max(0, credits - creditsUsed);
-  const creditsUsagePct = credits > 0 ? Math.min(100, Math.round((creditsUsed / credits) * 100)) : 0;
+  const creditsRemainingPct = credits > 0 ? Math.round((creditsRemaining / credits) * 100) : 0;
+  const creditsBarColor =
+    creditsRemainingPct > 50 ? "bg-violet-500" : creditsRemainingPct > 20 ? "bg-amber-400" : "bg-red-500";
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -122,14 +128,23 @@ export function Sidebar({ onChatOpen }: SidebarProps) {
             active ? "text-violet-600" : "text-gray-500"
           )}
         />
-        {!collapsed && (
-          <>
-            <span className="flex-1">{label}</span>
-            {badge && (
-              <span className="ml-auto h-2 w-2 rounded-full bg-violet-600" />
-            )}
-          </>
-        )}
+        <AnimatePresence initial={false}>
+          {!collapsed && (
+            <motion.span
+              key="label"
+              initial={{ opacity: 0, width: 0 }}
+              animate={{ opacity: 1, width: "auto" }}
+              exit={{ opacity: 0, width: 0 }}
+              transition={{ duration: 0.18, ease: "easeOut" }}
+              className="flex flex-1 items-center gap-1 overflow-hidden whitespace-nowrap"
+            >
+              <span className="flex-1">{label}</span>
+              {badge && (
+                <span className="ml-auto h-2 w-2 rounded-full bg-violet-600 shrink-0" />
+              )}
+            </motion.span>
+          )}
+        </AnimatePresence>
       </Link>
     );
   }
@@ -148,11 +163,11 @@ export function Sidebar({ onChatOpen }: SidebarProps) {
     user?.primaryEmailAddress?.emailAddress || "user@example.com";
 
   return (
-    <aside
-      className={cn(
-        "flex h-screen flex-col border-r border-gray-200 bg-white transition-all duration-200",
-        collapsed ? "w-16" : "w-60"
-      )}
+    <motion.aside
+      initial={false}
+      animate={{ width: collapsed ? 64 : 240 }}
+      transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+      className="flex h-screen flex-col border-r border-gray-200 bg-white overflow-hidden shrink-0"
     >
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-3 border-b border-gray-100">
@@ -218,25 +233,35 @@ export function Sidebar({ onChatOpen }: SidebarProps) {
         </button>
 
         {/* Credits */}
-        {!collapsed && (
-          <button
-            onClick={() => setShowPlanModal(true)}
-            className="w-full rounded-lg px-3 py-2 hover:bg-violet-50 cursor-pointer transition-colors"
-          >
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-gray-500">Credits</span>
-              <span className="font-semibold text-gray-900">
-                {creditsRemaining.toLocaleString()}
-              </span>
-            </div>
-            <div className="mt-1.5 w-full h-1 bg-gray-200 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-[#6C47FF] rounded-full transition-all"
-                style={{ width: `${creditsUsagePct}%` }}
-              />
-            </div>
-          </button>
-        )}
+        <AnimatePresence initial={false}>
+          {!collapsed && (
+            <motion.button
+              key="credits-widget"
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.2, ease: "easeOut" }}
+              onClick={() => setShowCreditsModal(true)}
+              className="w-full rounded-lg px-3 py-2 hover:bg-violet-50 cursor-pointer transition-colors overflow-hidden"
+            >
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-500">Credits</span>
+                <span className="font-semibold text-gray-900">
+                  {creditsRemaining.toLocaleString()}
+                </span>
+              </div>
+              <div className="mt-1.5 w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all duration-500 ${creditsBarColor}`}
+                  style={{ width: `${creditsRemainingPct}%` }}
+                />
+              </div>
+            </motion.button>
+          )}
+        </AnimatePresence>
+
+        {/* Notifications bell — polls /api/notifications every 30s */}
+        <NotificationsBell collapsed={collapsed} />
 
         {/* Support */}
         <div ref={supportMenuRef} className="relative">
@@ -327,6 +352,7 @@ export function Sidebar({ onChatOpen }: SidebarProps) {
         </div>
       </div>
       {showPlanModal && <ChangePlanModal onClose={() => setShowPlanModal(false)} />}
-    </aside>
+      {showCreditsModal && <CreditsModal onClose={() => setShowCreditsModal(false)} />}
+    </motion.aside>
   );
 }

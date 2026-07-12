@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { usePathname } from "next/navigation";
+import { motion, AnimatePresence } from "framer-motion";
 import { Sidebar } from "@/components/layout/sidebar";
 import { ChatWithArya } from "@/components/ChatWithArya";
 import { AryaChatWidget } from "@/components/arya/AryaChatWidget";
@@ -53,6 +55,7 @@ function UpgradeBanner({
 }
 
 export function AuthShell({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
   const [showBanner, setShowBanner] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
   const [showWelcome, setShowWelcome] = useState(false);
@@ -96,7 +99,18 @@ export function AuthShell({ children }: { children: React.ReactNode }) {
       <div className="flex flex-1 overflow-hidden">
         <Sidebar onChatOpen={() => setChatOpen(true)} />
         <main className="flex-1 overflow-y-auto">
-          <div className="mx-auto max-w-7xl p-6">{children}</div>
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div
+              key={pathname}
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6 }}
+              transition={{ duration: 0.18, ease: "easeOut" }}
+              className="mx-auto max-w-7xl p-6"
+            >
+              {children}
+            </motion.div>
+          </AnimatePresence>
         </main>
         {chatOpen && <ChatWithArya onClose={() => setChatOpen(false)} />}
       </div>

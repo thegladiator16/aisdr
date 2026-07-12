@@ -163,3 +163,104 @@
 .arya-shine {
   animation: arya-shine 3.6s ease-in-out infinite;
 }
+
+/* ===== Infinite marquee / ticker ===== */
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+.animate-marquee {
+  animation: marquee 24s linear infinite;
+  will-change: transform;
+}
+
+/* ===== Skeleton shimmer ===== */
+@keyframes skeleton-shimmer {
+  from { background-position: -600px 0; }
+  to   { background-position: 600px 0; }
+}
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    #f0f0f0 25%,
+    #e8e8e8 50%,
+    #f0f0f0 75%
+  );
+  background-size: 1200px 100%;
+  animation: skeleton-shimmer 1.5s ease-in-out infinite;
+  border-radius: 0.5rem;
+}
+
+/* ===== Hero animated gradient blobs ===== */
+@keyframes hero-blob-pulse {
+  0%, 100% { opacity: 0.07; transform: scale(1) translate(0, 0); }
+  50%       { opacity: 0.12; transform: scale(1.12) translate(-3%, 3%); }
+}
+@keyframes hero-blob-pulse-2 {
+  0%, 100% { opacity: 0.05; transform: scale(1) translate(0, 0); }
+  50%       { opacity: 0.09; transform: scale(1.08) translate(3%, -2%); }
+}
+.animate-hero-blob {
+  animation: hero-blob-pulse 12s ease-in-out infinite;
+  will-change: transform, opacity;
+}
+.animate-hero-blob-2 {
+  animation: hero-blob-pulse-2 16s ease-in-out 5s infinite;
+  will-change: transform, opacity;
+}
+
+/* ===== CTA button glow / pulse ===== */
+@keyframes cta-glow {
+  0%, 100% {
+    box-shadow: 0 4px 20px rgba(108,71,255,0.35), 0 0 0 0 rgba(108,71,255,0.25);
+  }
+  50% {
+    box-shadow: 0 6px 32px rgba(108,71,255,0.55), 0 0 0 10px rgba(108,71,255,0);
+  }
+}
+.animate-cta-glow {
+  animation: cta-glow 3s ease-in-out infinite;
+}
+
+/* ===== Dashboard card hover lift ===== */
+.card-lift {
+  transition: transform 200ms cubic-bezier(0.22, 1, 0.36, 1),
+              box-shadow 200ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.card-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.08), 0 2px 8px rgba(0,0,0,0.04);
+}
+
+/* ===== Input focus glow ===== */
+.input-focus-glow:focus {
+  border-color: #6C47FF !important;
+  box-shadow: 0 0 0 3px rgba(108,71,255,0.18) !important;
+  outline: none !important;
+}
+
+/* ===== Modal open/close (scale + fade) — used via framer-motion ===== */
+/* kept in JS; this comment is a marker */
+
+/* ===== prefers-reduced-motion: silence everything ===== */
+@media (prefers-reduced-motion: reduce) {
+  .animate-marquee,
+  .animate-hero-blob,
+  .animate-hero-blob-2,
+  .animate-cta-glow,
+  .animate-float,
+  .animate-float-delay,
+  .animate-float-delay-2,
+  .skeleton,
+  .arya-pulse-ring,
+  .arya-button-in,
+  .arya-panel-in,
+  .arya-panel-out,
+  .arya-msg-in,
+  .arya-typing-dot,
+  .arya-breathe,
+  .arya-shine {
+    animation: none !important;
+    transition-duration: 0.01ms !important;
+  }
+}
