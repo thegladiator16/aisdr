@@ -256,29 +256,35 @@ export default function CampaignBuilderPage() {
     }
   }
 
+  async function persistSequence() {
+    const stepsPayload = steps.map(({ id: _id, ...s }) => s);
+    if (savedSequenceId) {
+      const res = await fetch(`/api/sequences/${savedSequenceId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ steps: stepsPayload }),
+      });
+      if (!res.ok) throw new Error("Failed to update sequence");
+    } else {
+      const res = await fetch("/api/sequences", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          campaignId: id,
+          name: `${campaign?.name ?? "Campaign"} sequence`,
+          steps: stepsPayload,
+        }),
+      });
+      if (!res.ok) throw new Error("Failed to create sequence");
+      const json = await res.json();
+      if (json.data?.id) setSavedSequenceId(json.data.id);
+    }
+  }
+
   async function saveSequence() {
     setSaving(true);
     try {
-      const stepsPayload = steps.map(({ id: _id, ...s }) => s);
-      if (savedSequenceId) {
-        await fetch(`/api/sequences/${savedSequenceId}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ steps: stepsPayload }),
-        });
-      } else {
-        const res = await fetch("/api/sequences", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            campaignId: id,
-            name: `${campaign?.name ?? "Campaign"} sequence`,
-            steps: stepsPayload,
-          }),
-        });
-        const json = await res.json();
-        if (json.data?.id) setSavedSequenceId(json.data.id);
-      }
+      await persistSequence();
       toast.success("Sequence saved");
     } catch {
       toast.error("Failed to save sequence");
@@ -290,7 +296,12 @@ export default function CampaignBuilderPage() {
   async function handleLaunch() {
     setLaunching(true);
     try {
-      await saveSequence();
+      try {
+        await persistSequence();
+      } catch {
+        toast.error("Couldn't save sequence — campaign not launched");
+        return;
+      }
       const res = await fetch(`/api/campaigns/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
