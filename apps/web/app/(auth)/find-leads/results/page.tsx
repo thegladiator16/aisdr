@@ -280,6 +280,16 @@ export default function FindLeadsResultsPage() {
     return Array.from(byName.values()).sort((a, b) => b.leadCount - a.leadCount);
   })();
 
+  /* Filter icon: toggle all sections open/closed */
+  const relevantSections: FilterSection[] =
+    searchMode === "companies"
+      ? ["company", "headcount"]
+      : ["role", "location", "company", "headcount"];
+  const allSectionsOpen = relevantSections.every((s) => openSections.has(s));
+  const toggleAllSections = () => {
+    setOpenSections(allSectionsOpen ? new Set() : new Set(relevantSections));
+  };
+
   return (
     <div className="flex h-[calc(100vh-64px)] overflow-hidden bg-gray-50">
       {/* ── Left filter panel ── */}
@@ -293,13 +303,27 @@ export default function FindLeadsResultsPage() {
           </div>
           {/* AI describe bar */}
           <div className="relative">
-            <SlidersHorizontal className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-violet-500 pointer-events-none" />
+            <button
+              type="button"
+              onClick={toggleAllSections}
+              aria-label={allSectionsOpen ? "Collapse all filters" : "Expand all filters"}
+              aria-pressed={allSectionsOpen}
+              title={allSectionsOpen ? "Collapse all filters" : "Expand all filters"}
+              className={cn(
+                "absolute left-1.5 top-1/2 -translate-y-1/2 p-1.5 rounded-md transition-colors active:scale-95",
+                allSectionsOpen
+                  ? "bg-violet-100 text-violet-700 hover:bg-violet-200"
+                  : "text-violet-500 hover:bg-violet-100 hover:text-violet-700"
+              )}
+            >
+              <SlidersHorizontal className="h-4 w-4" />
+            </button>
             <input
               type="text"
               value={aiSearch}
               onChange={(e) => setAiSearch(e.target.value)}
               placeholder="Describe who you want to find..."
-              className="w-full rounded-lg border border-violet-200 bg-violet-50/50 pl-9 pr-3 py-2.5 text-sm outline-none focus:border-violet-500 focus:bg-white transition placeholder:text-gray-400"
+              className="w-full rounded-lg border border-violet-200 bg-violet-50/50 pl-10 pr-3 py-2.5 text-sm outline-none focus:border-violet-500 focus:bg-white transition placeholder:text-gray-400"
             />
           </div>
         </div>
