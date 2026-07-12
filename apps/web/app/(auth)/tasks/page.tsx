@@ -508,51 +508,57 @@ export default function TasksPage() {
         </div>
 
         {/* Approve all split button */}
-        <div className="flex items-center rounded-lg overflow-hidden border border-[#6C47FF] shadow-sm">
-          <button
-            disabled={pendingCount === 0}
-            onClick={() => { if (pendingCount > 0) openOp("approve", "bulk"); }}
-            className={cn(
-              "px-4 py-2 text-sm font-semibold text-white bg-[#6C47FF] transition-colors whitespace-nowrap",
-              pendingCount === 0 ? "opacity-50 cursor-not-allowed" : "hover:bg-[#5a3ad4]"
-            )}
-          >
-            Approve all ({pendingCount})
-          </button>
-          <div className="relative border-l border-violet-400">
-            <button
-              disabled={pendingCount === 0}
-              onClick={() => setApproveDropdownOpen(!approveDropdownOpen)}
-              className={cn(
-                "px-2 py-2 text-white bg-[#6C47FF] transition-colors",
-                pendingCount === 0 ? "opacity-50 cursor-not-allowed" : "hover:bg-[#5a3ad4]"
-              )}
-            >
-              <ChevronDown className={cn("h-4 w-4 transition-transform", approveDropdownOpen && "rotate-180")} />
-            </button>
-            {approveDropdownOpen && pendingCount > 0 && (
-              <>
-                <div className="fixed inset-0 z-20" onClick={() => setApproveDropdownOpen(false)} />
-                <div className="absolute right-0 top-10 z-30 w-44 rounded-xl border border-gray-100 bg-white py-1 shadow-xl">
-                  <button
-                    onClick={() => { openOp("approve", "bulk"); setApproveDropdownOpen(false); }}
-                    className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                  >
-                    <CheckCircle2 className="h-4 w-4 text-[#6C47FF]" />
-                    Approve all
-                  </button>
-                  <button
-                    onClick={() => { openOp("schedule", "bulk"); setApproveDropdownOpen(false); }}
-                    className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                  >
-                    <CalendarClock className="h-4 w-4 text-gray-500" />
-                    Schedule all
-                  </button>
-                </div>
-              </>
-            )}
+        {pendingCount === 0 ? (
+          <div className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-gray-50 px-4 py-2 text-sm font-medium text-gray-400 cursor-not-allowed select-none">
+            <CheckCircle2 className="h-4 w-4" />
+            No pending approvals
           </div>
-        </div>
+        ) : (
+          <div className="inline-flex items-stretch rounded-full shadow-sm shadow-violet-500/20 ring-1 ring-violet-600/60 overflow-hidden">
+            <button
+              onClick={() => openOp("approve", "bulk")}
+              className="inline-flex items-center gap-2 bg-gradient-to-b from-[#7C5AFF] to-[#6C47FF] px-4 py-2 text-sm font-semibold text-white hover:from-[#6C47FF] hover:to-[#5835E8] active:scale-[0.98] transition-all duration-150"
+            >
+              <CheckCircle2 className="h-4 w-4" />
+              Approve all
+              <span className="ml-1 rounded-full bg-white/25 px-1.5 py-0.5 text-[11px] font-bold leading-none tabular-nums">
+                {pendingCount}
+              </span>
+            </button>
+            <div className="relative border-l border-white/25">
+              <button
+                onClick={() => setApproveDropdownOpen(!approveDropdownOpen)}
+                aria-label="More approve options"
+                aria-haspopup="menu"
+                aria-expanded={approveDropdownOpen}
+                className="h-full inline-flex items-center bg-gradient-to-b from-[#7C5AFF] to-[#6C47FF] px-2.5 text-white hover:from-[#6C47FF] hover:to-[#5835E8] active:scale-[0.98] transition-all duration-150"
+              >
+                <ChevronDown className={cn("h-4 w-4 transition-transform duration-200", approveDropdownOpen && "rotate-180")} />
+              </button>
+              {approveDropdownOpen && (
+                <>
+                  <div className="fixed inset-0 z-20" onClick={() => setApproveDropdownOpen(false)} />
+                  <div className="absolute right-0 top-11 z-30 w-48 rounded-xl border border-gray-100 bg-white p-1 shadow-lg shadow-gray-200/60 ring-1 ring-black/5">
+                    <button
+                      onClick={() => { openOp("approve", "bulk"); setApproveDropdownOpen(false); }}
+                      className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-gray-700 hover:bg-violet-50 hover:text-violet-700 transition-colors"
+                    >
+                      <CheckCircle2 className="h-4 w-4 text-[#6C47FF]" />
+                      <span className="font-medium">Approve all</span>
+                    </button>
+                    <button
+                      onClick={() => { openOp("schedule", "bulk"); setApproveDropdownOpen(false); }}
+                      className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-gray-700 hover:bg-violet-50 hover:text-violet-700 transition-colors"
+                    >
+                      <CalendarClock className="h-4 w-4 text-gray-500" />
+                      <span className="font-medium">Schedule all</span>
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Content */}

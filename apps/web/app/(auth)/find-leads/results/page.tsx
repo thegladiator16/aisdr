@@ -258,7 +258,7 @@ export default function FindLeadsResultsPage() {
   return (
     <div className="flex h-[calc(100vh-64px)] overflow-hidden bg-gray-50">
       {/* ── Left filter panel ── */}
-      <aside className="w-80 shrink-0 border-r border-gray-200 overflow-y-auto bg-white flex flex-col">
+      <aside className="w-80 shrink-0 border-r border-gray-200 overflow-x-hidden overflow-y-auto bg-white flex flex-col">
         {/* Breadcrumb + People/Companies toggle */}
         <div className="p-4 border-b border-gray-100">
           <div className="flex items-center gap-1 text-sm text-gray-500 mb-3">
@@ -432,15 +432,15 @@ export default function FindLeadsResultsPage() {
                 value={headcountMin}
                 onChange={(e) => setHeadcountMin(e.target.value)}
                 placeholder="Min"
-                className="flex-1 rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-violet-500 transition"
+                className="min-w-0 flex-1 rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-violet-500 transition"
               />
-              <span className="text-gray-400 text-sm">–</span>
+              <span className="text-gray-400 text-sm shrink-0">–</span>
               <input
                 type="number"
                 value={headcountMax}
                 onChange={(e) => setHeadcountMax(e.target.value)}
                 placeholder="Max"
-                className="flex-1 rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-violet-500 transition"
+                className="min-w-0 flex-1 rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-violet-500 transition"
               />
             </div>
           </FilterSection>
