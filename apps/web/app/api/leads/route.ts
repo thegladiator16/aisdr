@@ -3,8 +3,9 @@ import { z } from "zod";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { leads } from "@aisdr/db/schema";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, sql } from "drizzle-orm";
 import { consumeCredits } from "@/lib/credits";
+import { insertNotification } from "@/app/api/notifications/_lib";
 
 const createLeadSchema = z.object({
   campaignId: z.string().uuid().optional(),
@@ -24,17 +25,28 @@ export async function GET(req: NextRequest) {
     const campaignId = searchParams.get("campaignId");
     const status = searchParams.get("status");
 
+    const limit = Math.min(Number(searchParams.get("limit") ?? 100), 500);
+    const offset = Math.max(Number(searchParams.get("offset") ?? 0), 0);
+
     const conditions = [eq(leads.userId, user.id)];
     if (campaignId) conditions.push(eq(leads.campaignId, campaignId));
     if (status) conditions.push(eq(leads.status, status));
 
-    const data = await db
-      .select()
-      .from(leads)
-      .where(and(...conditions))
-      .orderBy(desc(leads.createdAt));
+    const [data, [{ total }]] = await Promise.all([
+      db
+        .select()
+        .from(leads)
+        .where(and(...conditions))
+        .orderBy(desc(leads.createdAt))
+        .limit(limit)
+        .offset(offset),
+      db
+        .select({ total: sql<number>`count(*)::int` })
+        .from(leads)
+        .where(and(...conditions)),
+    ]);
 
-    return NextResponse.json({ data });
+    return NextResponse.json({ data, total, limit, offset });
   } catch {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -100,6 +112,20 @@ export async function POST(req: NextRequest) {
       action: "lead_added",
       campaignId: parsed.campaignId,
     });
+
+    // Fire-and-forget notification. insertNotification swallows errors so a
+    // failure here can NEVER break lead creation.
+    try {
+      const leadId = result[0]?.id;
+      const displayName = fullName || parsed.email || "unknown";
+      await insertNotification(user.id, {
+        kind: "lead_added",
+        title: `New lead added: ${displayName}`,
+        targetUrl: leadId ? `/leads/${leadId}` : "/leads",
+      });
+    } catch {
+      // swallowed
+    }
 
     return NextResponse.json({ data: result[0] }, { status: 201 });
   } catch (error) {

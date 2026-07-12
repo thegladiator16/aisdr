@@ -13,6 +13,9 @@ export const dynamic = "force-dynamic";
  * has ever succeeded in provisioning this user.
  */
 export async function GET() {
+  if (process.env.NODE_ENV === "production") {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
   try {
     const { userId: clerkId, sessionId } = auth();
     if (!clerkId) {

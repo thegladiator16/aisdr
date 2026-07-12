@@ -1,12 +1,23 @@
-import { Queue, Worker, QueueEvents } from "bullmq";
+import { Queue } from "bullmq";
 import IORedis from "ioredis";
 
-const REDIS_URL = process.env.UPSTASH_REDIS_REST_URL ?? "redis://localhost:6379";
+// Only connect when UPSTASH_REDIS_REST_URL is explicitly provided.
+// Falling back to localhost:6379 causes ECONNREFUSED on every serverless
+// cold-start because Vercel has no local Redis — that TCP timeout is the
+// #1 cause of slow page loads.
+const REDIS_URL = process.env.UPSTASH_REDIS_REST_URL;
 
-export const connection = new IORedis(REDIS_URL, {
-  maxRetriesPerRequest: null,
-  tls: REDIS_URL.startsWith("rediss://") ? {} : undefined,
-});
+let _connection: IORedis | null = null;
+
+function getConnection(): IORedis {
+  if (_connection) return _connection;
+  if (!REDIS_URL) throw new Error("UPSTASH_REDIS_REST_URL is not set — queues unavailable");
+  _connection = new IORedis(REDIS_URL, {
+    maxRetriesPerRequest: null,
+    tls: REDIS_URL.startsWith("rediss://") ? {} : undefined,
+  });
+  return _connection;
+}
 
 export const QUEUES = {
   LEAD_RESEARCH: "lead-research",
@@ -15,12 +26,20 @@ export const QUEUES = {
   SEQUENCE_ADVANCE: "sequence-advance",
 } as const;
 
-const queueConnection = connection as never;
+function makeQueue(name: string) {
+  return new Proxy({} as Queue, {
+    get(_t, prop) {
+      const q = new Queue(name, { connection: getConnection() as never });
+      const v = (q as unknown as Record<string, unknown>)[prop as string];
+      return typeof v === "function" ? (v as Function).bind(q) : v;
+    },
+  });
+}
 
-export const leadResearchQueue = new Queue(QUEUES.LEAD_RESEARCH, { connection: queueConnection });
-export const outreachQueue = new Queue(QUEUES.OUTREACH, { connection: queueConnection });
-export const replySyncQueue = new Queue(QUEUES.REPLY_SYNC, { connection: queueConnection });
-export const sequenceAdvanceQueue = new Queue(QUEUES.SEQUENCE_ADVANCE, { connection: queueConnection });
+export const leadResearchQueue = makeQueue(QUEUES.LEAD_RESEARCH);
+export const outreachQueue = makeQueue(QUEUES.OUTREACH);
+export const replySyncQueue = makeQueue(QUEUES.REPLY_SYNC);
+export const sequenceAdvanceQueue = makeQueue(QUEUES.SEQUENCE_ADVANCE);
 
 export type LeadResearchJob = {
   leadId: string;

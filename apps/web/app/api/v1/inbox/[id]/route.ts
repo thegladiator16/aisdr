@@ -45,7 +45,7 @@ export async function PUT(
       const lead = await db
         .select()
         .from(leads)
-        .where(eq(leads.id, reply[0].leadId))
+        .where(and(eq(leads.id, reply[0].leadId), eq(leads.userId, user.id)))
         .limit(1);
 
       if (!lead[0]?.email) {

@@ -7,6 +7,16 @@ import { eq, and } from "drizzle-orm";
 import { ensureCampaignsColumns } from "@/lib/db/ensure-schema";
 import { ensureCampaignsApprovalColumn } from "@/app/api/campaigns/approval-mode/_lib";
 
+const updateCampaignSchema = z.object({
+  name: z.string().min(1).optional(),
+  description: z.string().optional(),
+  subject: z.string().optional(),
+  body: z.string().optional(),
+  fromEmail: z.string().email().optional().or(z.literal("")),
+  status: z.string().optional(),
+  requireApproval: z.boolean().optional(),
+});
+
 async function getCampaignOrFail(userId: string, id: string) {
   await ensureCampaignsColumns();
   await ensureCampaignsApprovalColumn();
@@ -41,17 +51,21 @@ export async function PUT(
     const campaign = await getCampaignOrFail(user.id, params.id);
     if (!campaign) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-    const body = await req.json() as Record<string, unknown>;
-    const { id: _id, userId: _uid, createdAt: _ca, ...updateable } = body;
+    const body = (await req.json()) as unknown;
+    const parsed = updateCampaignSchema.parse(body);
 
     const result = await db
       .update(campaigns)
-      .set({ ...updateable, updatedAt: new Date() })
+      .set({ ...parsed, fromEmail: parsed.fromEmail || undefined, updatedAt: new Date() })
       .where(and(eq(campaigns.id, params.id), eq(campaigns.userId, user.id)))
       .returning();
 
+    if (!result[0]) return NextResponse.json({ error: "Not found" }, { status: 404 });
     return NextResponse.json(result[0]);
-  } catch {
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json({ error: error.errors }, { status: 400 });
+    }
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

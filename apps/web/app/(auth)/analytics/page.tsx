@@ -833,44 +833,77 @@ function MessagingTab({
   const hasChartData = activityTimeline.length > 0;
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <StatCard
           icon={Mail}
           title="Emails sent"
           value={(overview?.emailsSent ?? 0).toLocaleString()}
           subtitle="All time"
         />
+        <StatCard
+          icon={Inbox}
+          title="Avg open rate"
+          value={`${overview?.avgOpenRate ?? 0}%`}
+          subtitle="Across all campaigns"
+        />
+        <StatCard
+          icon={MessageCircle}
+          title="Avg reply rate"
+          value={`${overview?.avgReplyRate ?? 0}%`}
+          subtitle="All time"
+        />
+        <StatCard
+          icon={AlertTriangle}
+          title="Bounce rate"
+          value={`${overview?.bounceRate ?? 0}%`}
+          subtitle={`${overview?.bounces ?? 0} bounces total`}
+        />
       </div>
 
       <div className="bg-white border border-gray-200 rounded-xl p-5">
-        <h3 className="text-sm font-semibold text-gray-900 mb-4">Emails sent over time</h3>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-sm font-semibold text-gray-900">Emails sent over time</h3>
+        </div>
         {hasChartData ? (
           <TimelineChart
             data={activityTimeline}
-            lines={[{ key: "sent", label: "Sent", color: "#6C47FF" }]}
+            lines={[
+              { key: "sent", label: "Sent", color: "#6C47FF" },
+              { key: "opened", label: "Opened", color: "#10B981" },
+              { key: "replied", label: "Replied", color: "#F59E0B" },
+            ]}
           />
         ) : (
           <EmptyChart />
         )}
       </div>
 
-      <div className="bg-white border border-gray-200 rounded-xl p-5">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-semibold text-gray-900">Top conversation drivers</h3>
-          <Dropdown
-            value="Reply rate"
-            options={["Reply rate", "Open rate", "Click rate"]}
-            onChange={() => {}}
-            width="w-40"
-          />
+      <div className="grid grid-cols-2 gap-4">
+        <div className="bg-white border border-gray-200 rounded-xl p-5">
+          <h3 className="text-sm font-semibold text-gray-900 mb-1">Positive replies</h3>
+          <p className="text-3xl font-bold text-gray-900">{(overview?.positiveReplies ?? 0).toLocaleString()}</p>
+          <p className="text-xs text-gray-400 mt-1">out of {(overview?.totalReplies ?? 0).toLocaleString()} total replies</p>
+          {overview && overview.totalReplies > 0 && (
+            <div className="mt-3 h-2 rounded-full bg-gray-100 overflow-hidden">
+              <div
+                className="h-full rounded-full bg-emerald-500 transition-all"
+                style={{ width: `${Math.round((overview.positiveReplies / overview.totalReplies) * 100)}%` }}
+              />
+            </div>
+          )}
         </div>
-        <div className="flex flex-col items-center justify-center py-12">
-          <MessageCircle className="h-12 w-12 text-gray-200 mb-3" />
-          <p className="text-sm text-gray-500">No conversation drivers yet</p>
-          <p className="text-xs text-gray-400 mt-1">
-            Per-lead driver ranking isn&apos;t tracked yet — this will populate once that
-            breakdown is built.
-          </p>
+        <div className="bg-white border border-gray-200 rounded-xl p-5">
+          <h3 className="text-sm font-semibold text-gray-900 mb-1">Meetings booked</h3>
+          <p className="text-3xl font-bold text-gray-900">{(overview?.meetingsBooked ?? 0).toLocaleString()}</p>
+          <p className="text-xs text-gray-400 mt-1">from {(overview?.totalReplies ?? 0).toLocaleString()} replies</p>
+          {overview && overview.totalReplies > 0 && (
+            <div className="mt-3 h-2 rounded-full bg-gray-100 overflow-hidden">
+              <div
+                className="h-full rounded-full bg-violet-500 transition-all"
+                style={{ width: `${Math.min(100, Math.round((overview.meetingsBooked / overview.totalReplies) * 100))}%` }}
+              />
+            </div>
+          )}
         </div>
       </div>
     </div>

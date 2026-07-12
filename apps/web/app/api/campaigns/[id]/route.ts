@@ -7,15 +7,33 @@ import { eq, and, count } from "drizzle-orm";
 import { ensureCampaignsColumns } from "@/lib/db/ensure-schema";
 import { ensureCampaignsApprovalColumn } from "../approval-mode/_lib";
 
+const CAMPAIGN_STATUSES = ["draft", "active", "paused", "completed", "archived"] as const;
+
 const updateCampaignSchema = z.object({
   name: z.string().min(1).optional(),
   description: z.string().optional(),
   subject: z.string().optional(),
   body: z.string().optional(),
   fromEmail: z.string().email().optional().or(z.literal("")),
-  status: z.string().optional(),
+  status: z.enum(CAMPAIGN_STATUSES).optional(),
   requireApproval: z.boolean().optional(),
 });
+
+function timestampsFor(status: (typeof CAMPAIGN_STATUSES)[number] | undefined) {
+  const now = new Date();
+  switch (status) {
+    case "active":
+      return { startedAt: now, pausedAt: null, completedAt: null };
+    case "paused":
+      return { pausedAt: now };
+    case "completed":
+      return { completedAt: now };
+    case "draft":
+      return { startedAt: null, pausedAt: null, completedAt: null };
+    default:
+      return {};
+  }
+}
 
 export async function GET(
   _req: NextRequest,
@@ -68,6 +86,7 @@ export async function PUT(
         ...parsed,
         fromEmail: parsed.fromEmail || undefined,
         updatedAt: new Date(),
+        ...timestampsFor(parsed.status),
       })
       .where(and(eq(campaigns.id, params.id), eq(campaigns.userId, user.id)))
       .returning();
@@ -98,16 +117,22 @@ export async function PATCH(
     const parsed = updateCampaignSchema.parse(body);
     await ensureCampaignsApprovalColumn();
 
-    await db
+    const result = await db
       .update(campaigns)
       .set({
         ...parsed,
         fromEmail: parsed.fromEmail || undefined,
         updatedAt: new Date(),
+        ...timestampsFor(parsed.status),
       })
-      .where(and(eq(campaigns.id, params.id), eq(campaigns.userId, user.id)));
+      .where(and(eq(campaigns.id, params.id), eq(campaigns.userId, user.id)))
+      .returning();
 
-    return NextResponse.json({ success: true });
+    if (!result[0]) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+
+    return NextResponse.json({ data: result[0] });
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: error.errors }, { status: 400 });

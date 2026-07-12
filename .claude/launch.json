@@ -2,11 +2,11 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "web",
-      "runtimeExecutable": "npx",
-      "runtimeArgs": ["next", "dev"],
+      "name": "aisdr-web",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["C:/Users/ironm/AppData/Roaming/npm/node_modules/pnpm/bin/pnpm.cjs", "--filter", "web", "dev"],
       "port": 3000,
-      "cwd": "apps/web"
+      "cwd": "C:\\Users\\ironm\\OneDrive\\Desktop\\submission\\aisdr"
     }
   ]
 }

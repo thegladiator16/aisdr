@@ -75,32 +75,32 @@ const CAMPAIGN_OPTIONS: CampaignOption[] = [
   {
     id: "warm-outbound",
     icon: Flame,
-    iconBg: "bg-orange-50",
-    iconColor: "text-orange-600",
+    iconBg: "bg-violet-50",
+    iconColor: "text-violet-600",
     title: "Warm outbound campaign",
     description: "Reaching out to leads within your CRM",
   },
   {
     id: "cross-sell",
     icon: TrendingUp,
-    iconBg: "bg-blue-50",
-    iconColor: "text-blue-600",
+    iconBg: "bg-violet-50",
+    iconColor: "text-violet-600",
     title: "Cross-sell/upsell campaign",
     description: "Cross-sell or upsell your existing customer base",
   },
   {
     id: "website-visitor",
     icon: Globe,
-    iconBg: "bg-green-50",
-    iconColor: "text-green-600",
+    iconBg: "bg-violet-50",
+    iconColor: "text-violet-600",
     title: "Website visitor campaign",
     description: "De-anonymize and sequence your website visitors",
   },
   {
     id: "intent-signals",
     icon: Target,
-    iconBg: "bg-pink-50",
-    iconColor: "text-pink-600",
+    iconBg: "bg-violet-50",
+    iconColor: "text-violet-600",
     title: "Intent signals campaign",
     description: "Find timely net new prospects with intent signals",
   },
@@ -110,7 +110,7 @@ const STATUS_BADGE: Record<string, string> = {
   draft: "bg-gray-100 text-gray-600",
   active: "bg-green-50 text-green-700 ring-1 ring-green-200",
   paused: "bg-yellow-50 text-yellow-700 ring-1 ring-yellow-200",
-  completed: "bg-blue-50 text-blue-700 ring-1 ring-blue-200",
+  completed: "bg-violet-50 text-violet-700 ring-1 ring-violet-200",
 };
 
 /* ---------- page ---------- */
@@ -698,7 +698,7 @@ export default function CampaignsPage() {
             </p>
             <button
               onClick={openModal}
-              className="mt-6 inline-flex items-center gap-2 rounded-lg bg-[#6C47FF] px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#5a39dd] transition-colors"
+              className="mt-6 inline-flex items-center gap-2 rounded-lg bg-[#6C47FF] px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#5a39dd] active:scale-[0.98] transition-all duration-150"
             >
               <Plus className="h-4 w-4" />
               Create campaign

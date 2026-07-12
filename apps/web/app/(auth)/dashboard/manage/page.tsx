@@ -1325,7 +1325,7 @@ export default function ManageAryaPage() {
         <h1 className="text-2xl font-bold text-gray-900">Manage Arya</h1>
         <Link
           href="/campaigns"
-          className="rounded-lg bg-[#6C47FF] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#5A38E0] transition-colors"
+          className="rounded-lg bg-[#6C47FF] px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-[#5A38E0] active:scale-[0.98] transition-all duration-150"
         >
           + New campaign
         </Link>
@@ -1462,12 +1462,19 @@ export default function ManageAryaPage() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {statTiles.map((stat) => (
-                <div key={stat.label} className="rounded-xl border border-gray-200 bg-white p-5">
+                <div
+                  key={stat.label}
+                  className="rounded-xl border border-gray-200 bg-white p-5 transition-all duration-200 hover:shadow-sm hover:-translate-y-0.5"
+                >
                   <stat.icon className="h-5 w-5 text-gray-400 mb-3" />
                   <p className="text-sm text-gray-500">{stat.label}</p>
-                  <p className="text-2xl font-bold text-gray-900 mt-1">
-                    {analyticsLoading ? "…" : stat.value.toLocaleString()}
-                  </p>
+                  {analyticsLoading ? (
+                    <div className="mt-2 h-7 w-16 rounded bg-gray-200 animate-pulse" />
+                  ) : (
+                    <p className="text-2xl font-bold text-gray-900 mt-1">
+                      {stat.value.toLocaleString()}
+                    </p>
+                  )}
                 </div>
               ))}
             </div>

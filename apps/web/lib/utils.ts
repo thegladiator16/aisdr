@@ -52,6 +52,6 @@ export const STATUS_COLOR: Record<string, string> = {
   active: "text-green-400 bg-green-400/10",
   paused: "text-yellow-400 bg-yellow-400/10",
   draft: "text-zinc-400 bg-zinc-400/10",
-  completed: "text-blue-400 bg-blue-400/10",
+  completed: "text-violet-400 bg-violet-400/10",
   archived: "text-zinc-600 bg-zinc-600/10",
 };

@@ -66,10 +66,10 @@ const TAB_TASK_TYPE: Record<Tab, string> = {
 
 const AVATAR_COLORS = [
   "bg-violet-100 text-violet-700",
-  "bg-blue-100 text-blue-700",
-  "bg-emerald-100 text-emerald-700",
-  "bg-amber-100 text-amber-700",
-  "bg-rose-100 text-rose-700",
+  "bg-violet-200 text-violet-800",
+  "bg-violet-50 text-violet-600",
+  "bg-fuchsia-100 text-fuchsia-700",
+  "bg-purple-100 text-purple-700",
 ];
 
 /* ------------------------------------------------------------------ */

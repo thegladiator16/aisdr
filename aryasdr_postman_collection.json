@@ -1,0 +1,1888 @@
+{
+  "info": {
+    "_postman_id": "aryasdr-apis-v1",
+    "name": "AryaSDR APIs",
+    "description": "Auto-generated collection of every AryaSDR API endpoint (Next.js App Router).\n\n## Setup\n\n1. Set `{{base_url}}` — defaults to `https://aryasdr.in`. Point at `http://localhost:3000` for local dev.\n2. Set `{{token}}` — a Clerk-issued JWT for the signed-in user. Fastest way to grab one: sign in on `{{base_url}}`, open DevTools console, run:\n\n   ```js\n   window.Clerk.session.getToken().then(t => { console.log(t); navigator.clipboard.writeText(t) })\n   ```\n\n   Paste as the `token` variable. Tokens expire in ~60s; call `getToken()` again when needed.\n\n## Auth model\n\n- `clerk_session` requests attach `Authorization: Bearer {{token}}`.\n- `webhook_signature` requests (Clerk `user.created` webhook) require svix headers — leave these to Clerk itself in production; use Clerk Dashboard → Webhooks → Send Test Event to fire them.\n- `public` requests need no auth (`/api/v1/health`, `/api/v1/integrations/gmail` start).\n\n## Path variables\n\nEndpoints like `/api/campaigns/:id` use Postman path variables. Fill in the `id` under the request's Params → Path Variables tab, or use the pre-populated sample UUID.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Auth",
+      "description": "Auth endpoints for AryaSDR.",
+      "item": [
+        {
+          "name": "Get current user",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "description": "Clerk session JWT. In-app, this is the __session cookie value (HttpOnly). Use `getToken()` from Clerk's client SDK to fetch a JWT for external calls."
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/user",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "user"
+              ]
+            },
+            "description": "Returns the currently authenticated user record from the database."
+          },
+          "response": []
+        },
+        {
+          "name": "Create or ensure current user",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "description": "Clerk session JWT. In-app, this is the __session cookie value (HttpOnly). Use `getToken()` from Clerk's client SDK to fetch a JWT for external calls."
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/user",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "user"
+              ]
+            },
+            "description": "Ensures the current Clerk user exists in the DB and returns the user record."
+          },
+          "response": []
+        },
+        {
+          "name": "Update user profile",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "description": "Clerk session JWT. In-app, this is the __session cookie value (HttpOnly). Use `getToken()` from Clerk's client SDK to fetch a JWT for external calls."
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/user/profile",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "user",
+                "profile"
+              ]
+            },
+            "description": "Patches profile fields for the signed-in user and echoes the updated payload back.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Priya Sharma\",\n  \"companyName\": \"Zepto\",\n  \"role\": \"Head of Sales\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get user subscription",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "description": "Clerk session JWT. In-app, this is the __session cookie value (HttpOnly). Use `getToken()` from Clerk's client SDK to fetch a JWT for external calls."
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/user/subscription",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "user",
+                "subscription"
+              ]
+            },
+            "description": "Returns the user's subscription state (tier, trial days left, credits) and lazily provisions the user and trial subscription if missing."
+          },
+          "response": []
+        },
+        {
+          "name": "Update email signature",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "description": "Clerk session JWT. In-app, this is the __session cookie value (HttpOnly). Use `getToken()` from Clerk's client SDK to fetch a JWT for external calls."
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/user/signature",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "user",
+                "signature"
+              ]
+            },
+            "description": "Saves the signed-in user's email signature to their user record.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"signature\": \"Priya Sharma\\nHead of Sales, Zepto\\npriya@zepto.in | +91 98765 43210\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Clerk webhook",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "svix-id",
+                "value": "msg_xxxxxxxxxxxxxxxxxxxxxx",
+                "description": "Svix message id (set by Clerk)"
+              },
+              {
+                "key": "svix-timestamp",
+                "value": "1783705572",
+                "description": "Unix timestamp (set by Clerk)"
+              },
+              {
+                "key": "svix-signature",
+                "value": "v1,g0hM9SsE+OTPZTsdvo7WGO/Bt7lKQ2mIWBaEXAMPLE=",
+                "description": "HMAC signature (set by Clerk). Do not craft manually — call from Clerk Dashboard test webhook."
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/webhooks/clerk",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "webhooks",
+                "clerk"
+              ]
+            },
+            "description": "Svix-verified Clerk webhook that provisions users and trial subscriptions on user.created and cancels subscriptions on user.deleted.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"user.created\",\n  \"data\": {\n    \"id\": \"user_2abcXYZ123\",\n    \"email_addresses\": [\n      { \"email_address\": \"priya@zepto.in\" }\n    ],\n    \"first_name\": \"Priya\",\n    \"last_name\": \"Sharma\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Debug auth state",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "description": "Clerk session JWT. In-app, this is the __session cookie value (HttpOnly). Use `getToken()` from Clerk's client SDK to fetch a JWT for external calls."
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/debug/auth-state",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "debug",
+                "auth-state"
+              ]
+            },
+            "description": "Diagnostic endpoint reporting what Clerk auth() sees on the server plus cookie and header state."
+          },
+          "response": []
+        },
+        {
+          "name": "Debug DB user",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "description": "Clerk session JWT. In-app, this is the __session cookie value (HttpOnly). Use `getToken()` from Clerk's client SDK to fetch a JWT for external calls."
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/debug/db-user",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "debug",
+                "db-user"
+              ]
+            },
+            "description": "Diagnostic endpoint reporting whether the current Clerk user has a corresponding DB user and subscription row."
+          },
+          "response": []
+        },
+        {
+          "name": "Complete onboarding",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "description": "Clerk session JWT. In-app, this is the __session cookie value (HttpOnly). Use `getToken()` from Clerk's client SDK to fetch a JWT for external calls."
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/onboarding/complete",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "onboarding",
+                "complete"
+              ]
+            },
+            "description": "Marks the signed-in user's onboarding as complete and stores company/industry/target market details.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"companyName\": \"Zepto\",\n  \"industry\": \"Quick Commerce\",\n  \"targetMarket\": \"Indian D2C brands\",\n  \"companySize\": \"51-200\",\n  \"role\": \"Head of Sales\",\n  \"tone\": \"professional\",\n  \"channels\": [\"email\", \"linkedin\"],\n  \"dailyLimit\": 100\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Leads",
+      "description": "Leads endpoints for AryaSDR.",
+      "item": [
+        {
+          "name": "List leads",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "description": "Clerk session JWT. In-app, this is the __session cookie value (HttpOnly). Use `getToken()` from Clerk's client SDK to fetch a JWT for external calls."
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/leads?campaignId=b2f5e2a1-3d4c-4a6b-8f1e-2c3d4e5f6a7b&status=new",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "leads"
+              ],
+              "query": [
+                {
+                  "key": "campaignId",
+                  "value": "b2f5e2a1-3d4c-4a6b-8f1e-2c3d4e5f6a7b",
+                  "description": "Filter leads by campaign UUID",
+                  "disabled": false
+                },
+                {
+                  "key": "status",
+                  "value": "new",
+                  "description": "Filter leads by status",
+                  "disabled": false
+                }
+              ]
+            },
+            "description": "Returns all leads for the signed-in user, optionally filtered by campaignId and status. Ordered by creation date descending."
+          },
+          "response": []
+        },
+        {
+          "name": "Create lead",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "description": "Clerk session JWT. In-app, this is the __session cookie value (HttpOnly). Use `getToken()` from Clerk's client SDK to fetch a JWT for external calls."
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/leads",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "leads"
+              ]
+            },
+            "description": "Creates a new lead under the signed-in user, optionally associating it with a campaign. Derives fullName from first/last name if not provided.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"campaignId\": \"b2f5e2a1-3d4c-4a6b-8f1e-2c3d4e5f6a7b\",\n  \"firstName\": \"Priya\",\n  \"lastName\": \"Sharma\",\n  \"fullName\": \"Priya Sharma\",\n  \"email\": \"priya.sharma@zepto.co.in\",\n  \"companyName\": \"Zepto\",\n  \"jobTitle\": \"VP of Operations\",\n  \"status\": \"new\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Bulk import leads",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "description": "Clerk session JWT. In-app, this is the __session cookie value (HttpOnly). Use `getToken()` from Clerk's client SDK to fetch a JWT for external calls."
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/leads/bulk",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "leads",
+                "bulk"
+              ]
+            },
+            "description": "Bulk-inserts up to 10,000 leads (chunked at 500) for the signed-in user and increments totalLeads on the associated campaign if provided.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"campaignId\": \"b2f5e2a1-3d4c-4a6b-8f1e-2c3d4e5f6a7b\",\n  \"leads\": [\n    {\n      \"firstName\": \"Rahul\",\n      \"lastName\": \"Verma\",\n      \"email\": \"rahul.verma@razorpay.com\",\n      \"companyName\": \"Razorpay\",\n      \"jobTitle\": \"Head of Growth\"\n    },\n    {\n      \"firstName\": \"Ananya\",\n      \"lastName\": \"Iyer\",\n      \"email\": \"ananya.iyer@meesho.com\",\n      \"companyName\": \"Meesho\",\n      \"jobTitle\": \"Director of Marketing\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List leads (v1)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "description": "Clerk session JWT. In-app, this is the __session cookie value (HttpOnly). Use `getToken()` from Clerk's client SDK to fetch a JWT for external calls."
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/leads?status=new&search=Zepto&limit=50&offset=0",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "leads"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "new",
+                  "description": "Filter leads by status",
+                  "disabled": false
+                },
+                {
+                  "key": "search",
+                  "value": "Zepto",
+                  "description": "Search across fullName, email, and companyName",
+                  "disabled": false
+                },
+                {
+                  "key": "limit",
+                  "value": "50",
+                  "description": "Page size (max 200)",
+                  "disabled": false
+                },
+                {
+                  "key": "offset",
+                  "value": "0",
+                  "description": "Pagination offset",
+                  "disabled": false
+                }
+              ]
+            },
+            "description": "Returns paginated leads for the signed-in user with optional status filter and full-text search over name, email, and company. Ordered by score and recency."
+          },
+          "response": []
+        },
+        {
+          "name": "Create lead (v1)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "description": "Clerk session JWT. In-app, this is the __session cookie value (HttpOnly). Use `getToken()` from Clerk's client SDK to fetch a JWT for external calls."
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/leads",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "leads"
+              ]
+            },
+            "description": "Creates a lead with the extended v1 schema (contact, company, industry, tags, notes) under the signed-in user.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"Priya\",\n  \"lastName\": \"Sharma\",\n  \"fullName\": \"Priya Sharma\",\n  \"email\": \"priya.sharma@zepto.co.in\",\n  \"phone\": \"+91 98765 43210\",\n  \"linkedinUrl\": \"https://www.linkedin.com/in/priya-sharma\",\n  \"companyName\": \"Zepto\",\n  \"companyWebsite\": \"https://www.zeptonow.com\",\n  \"industry\": \"Quick Commerce\",\n  \"fundingStage\": \"Series F\",\n  \"location\": \"Mumbai\",\n  \"country\": \"India\",\n  \"jobTitle\": \"VP of Operations\",\n  \"seniority\": \"VP\",\n  \"source\": \"manual\",\n  \"tags\": [\"priority\", \"q3-outreach\"],\n  \"notes\": \"Met at Bengaluru SaaSBoomi meetup.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get lead by id (v1)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "description": "Clerk session JWT. In-app, this is the __session cookie value (HttpOnly). Use `getToken()` from Clerk's client SDK to fetch a JWT for external calls."
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/leads/:id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "leads",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "b2f5e2a1-3d4c-4a6b-8f1e-2c3d4e5f6a7b",
+                  "description": "Path variable id"
+                }
+              ]
+            },
+            "description": "Fetches a single lead by id, scoped to the signed-in user. Returns 404 if the lead is not found or not owned."
+          },
+          "response": []
+        },
+        {
+          "name": "Update lead (v1)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "description": "Clerk session JWT. In-app, this is the __session cookie value (HttpOnly). Use `getToken()` from Clerk's client SDK to fetch a JWT for external calls."
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/leads/:id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "leads",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "b2f5e2a1-3d4c-4a6b-8f1e-2c3d4e5f6a7b",
+                  "description": "Path variable id"
+                }
+              ]
+            },
+            "description": "Updates arbitrary lead fields for the signed-in user (id, userId, and createdAt are stripped). Returns the updated row.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"contacted\",\n  \"jobTitle\": \"Senior VP of Operations\",\n  \"companyName\": \"Zepto\",\n  \"notes\": \"Replied positively - schedule discovery call.\",\n  \"tags\": [\"warm\", \"q3-outreach\"]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete lead (v1)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "description": "Clerk session JWT. In-app, this is the __session cookie value (HttpOnly). Use `getToken()` from Clerk's client SDK to fetch a JWT for external calls."
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/leads/:id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "leads",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "b2f5e2a1-3d4c-4a6b-8f1e-2c3d4e5f6a7b",
+                  "description": "Path variable id"
+                }
+              ]
+            },
+            "description": "Deletes a lead by id, scoped to the signed-in user."
+          },
+          "response": []
+        },
+        {
+          "name": "Trigger lead action (v1)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "description": "Clerk session JWT. In-app, this is the __session cookie value (HttpOnly). Use `getToken()` from Clerk's client SDK to fetch a JWT for external calls."
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/leads/:id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "leads",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "b2f5e2a1-3d4c-4a6b-8f1e-2c3d4e5f6a7b",
+                  "description": "Path variable id"
+                }
+              ]
+            },
+            "description": "Runs an action on the lead. When action is 'research', marks the lead as researching and enqueues a background lead-research job.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"research\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Import leads from CSV (v1)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "description": "Clerk session JWT. In-app, this is the __session cookie value (HttpOnly). Use `getToken()` from Clerk's client SDK to fetch a JWT for external calls."
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/leads/import",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "leads",
+                "import"
+              ]
+            },
+            "description": "Imports up to 10,000 CSV-shaped rows, normalizing header variants, de-duplicating against existing emails for the user, and inserting in chunks of 500.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rows\": [\n    {\n      \"first_name\": \"Rahul\",\n      \"last_name\": \"Verma\",\n      \"email\": \"rahul.verma@razorpay.com\",\n      \"phone\": \"+91 99887 66554\",\n      \"linkedin_url\": \"https://www.linkedin.com/in/rahul-verma\",\n      \"company\": \"Razorpay\",\n      \"website\": \"https://razorpay.com\",\n      \"title\": \"Head of Growth\",\n      \"location\": \"Bengaluru\",\n      \"country\": \"India\",\n      \"industry\": \"Fintech\",\n      \"funding_stage\": \"Series F\"\n    },\n    {\n      \"first_name\": \"Ananya\",\n      \"last_name\": \"Iyer\",\n      \"email\": \"ananya.iyer@meesho.com\",\n      \"company\": \"Meesho\",\n      \"title\": \"Director of Marketing\",\n      \"location\": \"Bengaluru\",\n      \"country\": \"India\",\n      \"industry\": \"E-commerce\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Campaigns",
+      "description": "Campaigns endpoints for AryaSDR.",
+      "item": [
+        {
+          "name": "List campaigns",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "description": "Clerk session JWT. In-app, this is the __session cookie value (HttpOnly). Use `getToken()` from Clerk's client SDK to fetch a JWT for external calls."
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/campaigns",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "campaigns"
+              ]
+            },
+            "description": "Returns all campaigns for the signed-in user with summary stats (leads, emails sent, replies, meetings), ordered by creation date descending."
+          },
+          "response": []
+        },
+        {
+          "name": "Create campaign",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "description": "Clerk session JWT. In-app, this is the __session cookie value (HttpOnly). Use `getToken()` from Clerk's client SDK to fetch a JWT for external calls."
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/campaigns",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "campaigns"
+              ]
+            },
+            "description": "Creates a new campaign for the signed-in user. Validates name/description/status via zod and defaults status to 'draft'.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Zepto Q3 Outreach\",\n  \"description\": \"Outbound to grocery-tech founders in Bengaluru\",\n  \"status\": \"draft\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get campaign by id",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "description": "Clerk session JWT. In-app, this is the __session cookie value (HttpOnly). Use `getToken()` from Clerk's client SDK to fetch a JWT for external calls."
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/campaigns/:id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "campaigns",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "b2f5e2a1-3d4c-4a6b-8f1e-2c3d4e5f6a7b",
+                  "description": "Path variable id"
+                }
+              ]
+            },
+            "description": "Fetches a single campaign owned by the signed-in user along with a live lead count."
+          },
+          "response": []
+        },
+        {
+          "name": "Update campaign (full)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "description": "Clerk session JWT. In-app, this is the __session cookie value (HttpOnly). Use `getToken()` from Clerk's client SDK to fetch a JWT for external calls."
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/campaigns/:id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "campaigns",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "b2f5e2a1-3d4c-4a6b-8f1e-2c3d4e5f6a7b",
+                  "description": "Path variable id"
+                }
+              ]
+            },
+            "description": "Updates editable campaign fields (name, description, subject, body, fromEmail, status) for a campaign owned by the signed-in user.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Zepto Q3 Outreach - Revised\",\n  \"description\": \"Targeting Series B+ grocery-tech founders\",\n  \"subject\": \"Quick idea for {{companyName}}'s ops team\",\n  \"body\": \"Hi {{fullName}}, saw Zepto's 10-min delivery push...\",\n  \"fromEmail\": \"priya.sharma@zepto.co.in\",\n  \"status\": \"active\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Patch campaign",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "description": "Clerk session JWT. In-app, this is the __session cookie value (HttpOnly). Use `getToken()` from Clerk's client SDK to fetch a JWT for external calls."
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/campaigns/:id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "campaigns",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "b2f5e2a1-3d4c-4a6b-8f1e-2c3d4e5f6a7b",
+                  "description": "Path variable id"
+                }
+              ]
+            },
+            "description": "Partially updates campaign fields (name, description, subject, body, fromEmail, status) via the same zod schema; returns success flag.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"paused\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete campaign",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "description": "Clerk session JWT. In-app, this is the __session cookie value (HttpOnly). Use `getToken()` from Clerk's client SDK to fetch a JWT for external calls."
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/campaigns/:id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "campaigns",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "b2f5e2a1-3d4c-4a6b-8f1e-2c3d4e5f6a7b",
+                  "description": "Path variable id"
+                }
+              ]
+            },
+            "description": "Deletes a campaign owned by the signed-in user. Returns 404 if the campaign does not exist for that user."
+          },
+          "response": []
+        },
+        {
+          "name": "List campaigns (v1)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "description": "Clerk session JWT. In-app, this is the __session cookie value (HttpOnly). Use `getToken()` from Clerk's client SDK to fetch a JWT for external calls."
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/campaigns",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "campaigns"
+              ]
+            },
+            "description": "Returns the full campaign rows for the signed-in user, ordered by creation date descending (v1 shape - array response)."
+          },
+          "response": []
+        },
+        {
+          "name": "Create campaign (v1)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "description": "Clerk session JWT. In-app, this is the __session cookie value (HttpOnly). Use `getToken()` from Clerk's client SDK to fetch a JWT for external calls."
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/campaigns",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "campaigns"
+              ]
+            },
+            "description": "Creates a campaign with full ICP targeting config: industries, job titles, company size, locations, funding stages, keywords, channels, tone, language, goal, send window and daily limit.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Zepto Q3 Outreach\",\n  \"description\": \"Outbound to grocery-tech founders in Bengaluru\",\n  \"targetIndustries\": [\"Quick Commerce\", \"E-commerce\", \"Retail Tech\"],\n  \"targetJobTitles\": [\"Founder\", \"Head of Growth\", \"VP Sales\"],\n  \"targetCompanySize\": [\"51-200\", \"201-500\"],\n  \"targetLocations\": [\"Bengaluru\", \"Mumbai\", \"Gurugram\"],\n  \"targetFundingStages\": [\"Series B\", \"Series C\"],\n  \"targetKeywords\": [\"10-min delivery\", \"dark stores\", \"logistics\"],\n  \"channels\": [\"email\", \"linkedin_dm\"],\n  \"tone\": \"professional_warm\",\n  \"language\": \"english\",\n  \"goal\": \"book_meeting\",\n  \"sendDays\": [\"monday\", \"tuesday\", \"wednesday\", \"thursday\", \"friday\"],\n  \"sendTimeStart\": \"09:30\",\n  \"sendTimeEnd\": \"18:00\",\n  \"dailyLimit\": 40\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get campaign by id (v1)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "description": "Clerk session JWT. In-app, this is the __session cookie value (HttpOnly). Use `getToken()` from Clerk's client SDK to fetch a JWT for external calls."
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/campaigns/:id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "campaigns",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "b2f5e2a1-3d4c-4a6b-8f1e-2c3d4e5f6a7b",
+                  "description": "Path variable id"
+                }
+              ]
+            },
+            "description": "Fetches a single campaign row scoped to the signed-in user. Returns 404 if not found."
+          },
+          "response": []
+        },
+        {
+          "name": "Update campaign (v1)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "description": "Clerk session JWT. In-app, this is the __session cookie value (HttpOnly). Use `getToken()` from Clerk's client SDK to fetch a JWT for external calls."
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/campaigns/:id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "campaigns",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "b2f5e2a1-3d4c-4a6b-8f1e-2c3d4e5f6a7b",
+                  "description": "Path variable id"
+                }
+              ]
+            },
+            "description": "Replaces editable campaign fields for the signed-in user; strips id/userId/createdAt from the incoming body before updating.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Zepto Q3 Outreach - Revised\",\n  \"description\": \"Refined ICP after week 1 results\",\n  \"targetIndustries\": [\"Quick Commerce\", \"D2C\"],\n  \"targetJobTitles\": [\"Founder\", \"Co-founder\"],\n  \"dailyLimit\": 50,\n  \"tone\": \"casual_direct\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Campaign lifecycle action (v1)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "description": "Clerk session JWT. In-app, this is the __session cookie value (HttpOnly). Use `getToken()` from Clerk's client SDK to fetch a JWT for external calls."
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/campaigns/:id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "campaigns",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "b2f5e2a1-3d4c-4a6b-8f1e-2c3d4e5f6a7b",
+                  "description": "Path variable id"
+                }
+              ]
+            },
+            "description": "Transitions campaign lifecycle. Accepts action = start | pause | complete | archive and sets the corresponding status and timestamp (startedAt, pausedAt, completedAt, updatedAt).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"start\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete campaign (v1)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "description": "Clerk session JWT. In-app, this is the __session cookie value (HttpOnly). Use `getToken()` from Clerk's client SDK to fetch a JWT for external calls."
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/campaigns/:id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "campaigns",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "b2f5e2a1-3d4c-4a6b-8f1e-2c3d4e5f6a7b",
+                  "description": "Path variable id"
+                }
+              ]
+            },
+            "description": "Deletes a campaign owned by the signed-in user. Returns { success: true }."
+          },
+          "response": []
+        },
+        {
+          "name": "List sequences",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "description": "Clerk session JWT. In-app, this is the __session cookie value (HttpOnly). Use `getToken()` from Clerk's client SDK to fetch a JWT for external calls."
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/sequences?campaignId=c3f2a1e0-1234-4abc-9def-0123456789ab",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "sequences"
+              ],
+              "query": [
+                {
+                  "key": "campaignId",
+                  "value": "c3f2a1e0-1234-4abc-9def-0123456789ab",
+                  "description": "Optional UUID of the campaign to filter sequences by.",
+                  "disabled": false
+                }
+              ]
+            },
+            "description": "Lists sequences for the signed-in user, optionally filtered by campaignId, ordered by creation date descending."
+          },
+          "response": []
+        },
+        {
+          "name": "Create sequence",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "description": "Clerk session JWT. In-app, this is the __session cookie value (HttpOnly). Use `getToken()` from Clerk's client SDK to fetch a JWT for external calls."
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/sequences",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "sequences"
+              ]
+            },
+            "description": "Creates a multi-step outreach sequence tied to a campaign. Validates each step's channel (email / linkedin_connection / linkedin_dm / whatsapp) and condition (always / if_no_reply / if_opened).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"campaignId\": \"c3f2a1e0-1234-4abc-9def-0123456789ab\",\n  \"name\": \"Zepto founder 4-touch sequence\",\n  \"isActive\": true,\n  \"steps\": [\n    {\n      \"stepNumber\": 1,\n      \"channel\": \"email\",\n      \"delayDays\": 0,\n      \"subject\": \"Quick idea for Zepto's ops team\",\n      \"body\": \"Hi Priya, saw Zepto crossed 300 dark stores...\",\n      \"condition\": \"always\"\n    },\n    {\n      \"stepNumber\": 2,\n      \"channel\": \"linkedin_connection\",\n      \"delayDays\": 2,\n      \"condition\": \"if_no_reply\"\n    },\n    {\n      \"stepNumber\": 3,\n      \"channel\": \"linkedin_dm\",\n      \"delayDays\": 4,\n      \"body\": \"Hi Priya, following up from my email on rider routing...\",\n      \"condition\": \"if_no_reply\"\n    },\n    {\n      \"stepNumber\": 4,\n      \"channel\": \"whatsapp\",\n      \"delayDays\": 7,\n      \"body\": \"Hi Priya, last note - happy to share the Blinkit case study.\",\n      \"condition\": \"if_no_reply\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Email",
+      "description": "Email endpoints for AryaSDR.",
+      "item": [
+        {
+          "name": "Arya AI chat",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "description": "Clerk session JWT. In-app, this is the __session cookie value (HttpOnly). Use `getToken()` from Clerk's client SDK to fetch a JWT for external calls."
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/arya/chat",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "arya",
+                "chat"
+              ]
+            },
+            "description": "Sends a user message to Arya, the AI BDR assistant, and returns a Claude-generated reply personalized with the user's name and company.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"message\": \"Draft a follow-up email for Priya Sharma at Zepto who opened my last email twice.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Generate inbox draft reply",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "description": "Clerk session JWT. In-app, this is the __session cookie value (HttpOnly). Use `getToken()` from Clerk's client SDK to fetch a JWT for external calls."
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/inbox/draft-reply",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "inbox",
+                "draft-reply"
+              ]
+            },
+            "description": "Generates a draft reply for an inbox thread using a hardcoded tone template (professional, friendly, or bold).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"threadId\": \"thr_9f2a1c4e-8b3d-4e6f-9a1b-2c3d4e5f6a7b\",\n  \"tone\": \"professional\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List inbox replies",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "description": "Clerk session JWT. In-app, this is the __session cookie value (HttpOnly). Use `getToken()` from Clerk's client SDK to fetch a JWT for external calls."
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/inbox?unread=true&limit=50",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "inbox"
+              ],
+              "query": [
+                {
+                  "key": "unread",
+                  "value": "true",
+                  "description": "If 'true', only return unread replies.",
+                  "disabled": false
+                },
+                {
+                  "key": "limit",
+                  "value": "50",
+                  "description": "Maximum number of replies to return (capped at 100).",
+                  "disabled": false
+                }
+              ]
+            },
+            "description": "Lists the signed-in user's inbox replies joined with lead info, optionally filtered to unread only and limited by count (max 100)."
+          },
+          "response": []
+        },
+        {
+          "name": "Update inbox reply",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "description": "Clerk session JWT. In-app, this is the __session cookie value (HttpOnly). Use `getToken()` from Clerk's client SDK to fetch a JWT for external calls."
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/inbox/:id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "inbox",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "b2f5e2a1-3d4c-4a6b-8f1e-2c3d4e5f6a7b",
+                  "description": "Path variable id"
+                }
+              ]
+            },
+            "description": "Updates an inbox reply by marking it read, marking it acted-on, or sending an actual Gmail reply back to the lead using the user's connected Gmail integration.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"reply\",\n  \"replyBody\": \"Hi Priya, thanks for getting back to me. Happy to jump on a quick 20-minute call this week to walk you through how we're helping Indian D2C brands like Zepto scale outbound. Does Thursday 4pm IST work?\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Preview outreach message",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "description": "Clerk session JWT. In-app, this is the __session cookie value (HttpOnly). Use `getToken()` from Clerk's client SDK to fetch a JWT for external calls."
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/outreach/preview",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "outreach",
+                "preview"
+              ]
+            },
+            "description": "Generates a preview outreach message for a lead on a chosen channel and step using the agent service, personalized with the sender's profile and lead research.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"leadId\": \"6b2d3f1a-4c5e-4a8b-9d1f-8e7c6b5a4d3f\",\n  \"channel\": \"email\",\n  \"stepNumber\": 1,\n  \"tone\": \"professional_warm\",\n  \"language\": \"english\",\n  \"goal\": \"book_meeting\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Dashboard",
+      "description": "Dashboard endpoints for AryaSDR.",
+      "item": [
+        {
+          "name": "Get analytics overview",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "description": "Clerk session JWT. In-app, this is the __session cookie value (HttpOnly). Use `getToken()` from Clerk's client SDK to fetch a JWT for external calls."
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/analytics",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "analytics"
+              ]
+            },
+            "description": "Returns aggregated dashboard analytics for the signed-in user including total campaigns, leads, emails sent, open/reply rates, and meetings booked."
+          },
+          "response": []
+        },
+        {
+          "name": "Get v1 analytics with timeline",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "description": "Clerk session JWT. In-app, this is the __session cookie value (HttpOnly). Use `getToken()` from Clerk's client SDK to fetch a JWT for external calls."
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/analytics",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "analytics"
+              ]
+            },
+            "description": "Returns dashboard overview stats along with a 14-day activity timeline and lead funnel breakdown by status."
+          },
+          "response": []
+        },
+        {
+          "name": "List signals",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "description": "Clerk session JWT. In-app, this is the __session cookie value (HttpOnly). Use `getToken()` from Clerk's client SDK to fetch a JWT for external calls."
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/signals",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "signals"
+              ]
+            },
+            "description": "Lists buying/intent signals for the authenticated user."
+          },
+          "response": []
+        },
+        {
+          "name": "Create signal",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "description": "Clerk session JWT. In-app, this is the __session cookie value (HttpOnly). Use `getToken()` from Clerk's client SDK to fetch a JWT for external calls."
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/signals",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "signals"
+              ]
+            },
+            "description": "Creates a new intent/buying signal record for the authenticated user.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"funding_raised\",\n  \"companyName\": \"Zepto\",\n  \"description\": \"Zepto raised Series F funding of $350M\",\n  \"source\": \"news\",\n  \"severity\": \"high\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List website visitors",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "description": "Clerk session JWT. In-app, this is the __session cookie value (HttpOnly). Use `getToken()` from Clerk's client SDK to fetch a JWT for external calls."
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/website-visitors",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "website-visitors"
+              ]
+            },
+            "description": "Returns identified website visitors and tracked domains for the authenticated user."
+          },
+          "response": []
+        },
+        {
+          "name": "Track website domain",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "description": "Clerk session JWT. In-app, this is the __session cookie value (HttpOnly). Use `getToken()` from Clerk's client SDK to fetch a JWT for external calls."
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/website-visitors",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "website-visitors"
+              ]
+            },
+            "description": "Adds a domain to the website-visitor tracking list for the authenticated user.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"domain\": \"zepto.co.in\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List lead lists",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "description": "Clerk session JWT. In-app, this is the __session cookie value (HttpOnly). Use `getToken()` from Clerk's client SDK to fetch a JWT for external calls."
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/lists",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "lists"
+              ]
+            },
+            "description": "Returns saved lead lists for the authenticated user."
+          },
+          "response": []
+        },
+        {
+          "name": "Create lead list",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "description": "Clerk session JWT. In-app, this is the __session cookie value (HttpOnly). Use `getToken()` from Clerk's client SDK to fetch a JWT for external calls."
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/lists",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "lists"
+              ]
+            },
+            "description": "Creates a new saved lead list for the authenticated user.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Mumbai D2C Founders\",\n  \"description\": \"Founders of D2C brands in Mumbai targeted for Q3 outreach\",\n  \"tags\": [\"d2c\", \"mumbai\", \"q3-2026\"]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Health check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/health",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "health"
+              ]
+            },
+            "description": "Public health probe returning service status for the aisdr-web app."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Integrations",
+      "description": "Integrations endpoints for AryaSDR.",
+      "item": [
+        {
+          "name": "Start Gmail OAuth flow",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/integrations/gmail",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "integrations",
+                "gmail"
+              ]
+            },
+            "description": "Kicks off the Gmail OAuth flow by redirecting the user to Google's consent screen. Returns a redirect to Google or back to /integrations with an error if Google isn't configured."
+          },
+          "response": []
+        },
+        {
+          "name": "Gmail OAuth callback",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "description": "Clerk session JWT. In-app, this is the __session cookie value (HttpOnly). Use `getToken()` from Clerk's client SDK to fetch a JWT for external calls."
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/integrations/gmail/callback?code=4%2F0AX4XfWjExampleAuthCode&error=access_denied",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "integrations",
+                "gmail",
+                "callback"
+              ],
+              "query": [
+                {
+                  "key": "code",
+                  "value": "4/0AX4XfWjExampleAuthCode",
+                  "description": "Authorization code returned by Google after user consent.",
+                  "disabled": false
+                },
+                {
+                  "key": "error",
+                  "value": "access_denied",
+                  "description": "Optional error code returned by Google if the user denied consent.",
+                  "disabled": false
+                }
+              ]
+            },
+            "description": "Google OAuth callback that exchanges the auth code for tokens and upserts a Gmail integration row for the current user. Redirects back to /integrations on success or error."
+          },
+          "response": []
+        },
+        {
+          "name": "Create Razorpay order",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "description": "Clerk session JWT. In-app, this is the __session cookie value (HttpOnly). Use `getToken()` from Clerk's client SDK to fetch a JWT for external calls."
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/billing/create-order",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "billing",
+                "create-order"
+              ]
+            },
+            "description": "Computes the amount in paise for a plan or add-on purchase (credits, dialer, mailbox, phone), applies 18% GST, and creates a Razorpay order. Returns orderId, amount, currency, and the public key id.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"plan\": \"growth\",\n  \"billing\": \"monthly\",\n  \"type\": \"credits\",\n  \"quantity\": 500\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Verify Razorpay payment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "description": "Clerk session JWT. In-app, this is the __session cookie value (HttpOnly). Use `getToken()` from Clerk's client SDK to fetch a JWT for external calls."
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/billing/verify-payment",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "billing",
+                "verify-payment"
+              ]
+            },
+            "description": "Verifies the Razorpay HMAC signature, records a payment row, and updates the user's subscription (tier + period, or added lead credits) based on the purchase kind.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"razorpay_order_id\": \"order_NqExampleOrderId\",\n  \"razorpay_payment_id\": \"pay_NqExamplePaymentId\",\n  \"razorpay_signature\": \"9a0d8f7e6c5b4a3f2e1d0c9b8a7f6e5d4c3b2a1f0e9d8c7b6a5f4e3d2c1b0a9f\",\n  \"plan\": \"growth\",\n  \"billing\": \"monthly\",\n  \"type\": \"credits\",\n  \"quantity\": 500\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "https://aryasdr.in",
+      "type": "string",
+      "description": "AryaSDR host. Change to http://localhost:3000 for local dev."
+    },
+    {
+      "key": "token",
+      "value": "REPLACE_WITH_CLERK_JWT",
+      "type": "string",
+      "description": "Clerk session JWT. Get via `window.Clerk.session.getToken()` in the browser console after signing in."
+    }
+  ]
+}

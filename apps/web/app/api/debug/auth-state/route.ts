@@ -12,6 +12,9 @@ export const dynamic = "force-dynamic";
  * publishable-key metadata (never the secret).
  */
 export async function GET() {
+  if (process.env.NODE_ENV === "production") {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
   const authResult = auth();
   const cookieStore = cookies();
   const headerStore = headers();

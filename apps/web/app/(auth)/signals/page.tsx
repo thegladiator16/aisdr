@@ -40,7 +40,7 @@ const signals: Signal[] = [
     id: 1,
     key: "funding_announcement",
     icon: DollarSign,
-    iconBg: "bg-green-100",
+    iconBg: "bg-violet-100",
     title: "Funding announcement",
     description:
       "Find leads at companies that recently raised a new funding round.",
@@ -51,7 +51,7 @@ const signals: Signal[] = [
     id: 2,
     key: "new_leadership_hire",
     icon: Trophy,
-    iconBg: "bg-blue-100",
+    iconBg: "bg-violet-100",
     title: "New leadership hire",
     description:
       "Find leads at companies that recently hired a senior leader.",
@@ -62,7 +62,7 @@ const signals: Signal[] = [
     id: 3,
     key: "first_hire_department",
     icon: UserPlus,
-    iconBg: "bg-pink-100",
+    iconBg: "bg-violet-100",
     title: "First hire in department",
     description:
       "Find leads at companies making their first hire in a department.",
@@ -73,7 +73,7 @@ const signals: Signal[] = [
     id: 4,
     key: "first_hire_role",
     icon: UserPlus,
-    iconBg: "bg-orange-100",
+    iconBg: "bg-violet-100",
     title: "First hire in role",
     description:
       "Find leads at companies creating a new specialized role.",
@@ -84,7 +84,7 @@ const signals: Signal[] = [
     id: 5,
     key: "actively_hiring_role",
     icon: MapPin,
-    iconBg: "bg-red-100",
+    iconBg: "bg-violet-100",
     title: "Actively hiring for role",
     description:
       "Find leads from companies that are actively hiring for matching roles.",
@@ -330,8 +330,18 @@ export default function SignalsPage() {
         </div>
 
         {loading ? (
-          <div className="flex justify-center mt-12">
-            <Loader2 className="h-5 w-5 text-gray-300 animate-spin" />
+          <div className="grid grid-cols-3 gap-4 max-w-5xl mx-auto mt-8">
+            {Array.from({ length: 9 }).map((_, i) => (
+              <div
+                key={i}
+                className="rounded-xl border border-gray-200 bg-white p-5"
+              >
+                <div className="h-10 w-10 rounded-lg bg-gray-200 animate-pulse" />
+                <div className="mt-3 h-4 w-32 rounded bg-gray-200 animate-pulse" />
+                <div className="mt-2 h-3 w-full rounded bg-gray-100 animate-pulse" />
+                <div className="mt-1.5 h-3 w-4/5 rounded bg-gray-100 animate-pulse" />
+              </div>
+            ))}
           </div>
         ) : (
           /* Signal Cards Grid */

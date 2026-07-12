@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { AryaAvatar } from "@/components/arya/AryaAvatar";
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2, ArrowLeft } from "lucide-react";
 
 const PERSONAL_EMAIL_DOMAINS = [
   "gmail.com", "yahoo.com", "hotmail.com", "outlook.com",
@@ -60,8 +60,12 @@ export default function ContactPage() {
             <AryaAvatar size="sm" />
             <span className="font-semibold text-gray-900">AI SDR</span>
           </Link>
-          <Link href="/" className="text-sm text-gray-600 hover:text-gray-900">
-            &larr; Back to home
+          <Link
+            href="/"
+            className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 hover:border-gray-300 hover:shadow-md transition-all"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to home
           </Link>
         </nav>
         <div className="flex items-center justify-center min-h-[80vh]">
@@ -92,8 +96,12 @@ export default function ContactPage() {
           <AryaAvatar size="sm" />
           <span className="font-semibold text-gray-900">AI SDR</span>
         </Link>
-        <Link href="/" className="text-sm text-gray-600 hover:text-gray-900">
-          &larr; Back to home
+        <Link
+          href="/"
+          className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 hover:border-gray-300 hover:shadow-md transition-all"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back to home
         </Link>
       </nav>
 

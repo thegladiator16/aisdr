@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useLayoutEffect } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import {
@@ -64,11 +65,95 @@ interface SidebarProps {
   onChatOpen?: () => void;
 }
 
+const useIsomorphicLayoutEffect =
+  typeof window !== "undefined" ? useLayoutEffect : useEffect;
+
+function SidebarTooltip({
+  label,
+  show,
+  children,
+}: {
+  label: string;
+  show: boolean;
+  children: React.ReactNode;
+}) {
+  const [hovered, setHovered] = useState(false);
+  const [coords, setCoords] = useState<{ top: number; left: number } | null>(null);
+  const wrapRef = useRef<HTMLDivElement>(null);
+
+  useIsomorphicLayoutEffect(() => {
+    if (!hovered || !wrapRef.current) return;
+    const update = () => {
+      if (!wrapRef.current) return;
+      const rect = wrapRef.current.getBoundingClientRect();
+      setCoords({ top: rect.top + rect.height / 2, left: rect.right + 8 });
+    };
+    update();
+    window.addEventListener("scroll", update, true);
+    window.addEventListener("resize", update);
+    return () => {
+      window.removeEventListener("scroll", update, true);
+      window.removeEventListener("resize", update);
+    };
+  }, [hovered]);
+
+  if (!show) return <>{children}</>;
+  return (
+    <>
+      <div
+        ref={wrapRef}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => {
+          setHovered(false);
+          setCoords(null);
+        }}
+      >
+        {children}
+      </div>
+      {hovered && coords && typeof document !== "undefined" &&
+        createPortal(
+          <span
+            role="tooltip"
+            style={{ top: coords.top, left: coords.left, transform: "translateY(-50%)" }}
+            className="pointer-events-none fixed z-[100] whitespace-nowrap rounded-md bg-gray-900 px-2 py-1 text-xs font-medium text-white shadow-md"
+          >
+            {label}
+          </span>,
+          document.body
+        )}
+    </>
+  );
+}
+
 export function Sidebar({ onChatOpen }: SidebarProps) {
   const pathname = usePathname();
   const { user } = useUser();
   const { signOut } = useClerk();
   const [collapsed, setCollapsed] = useState(false);
+  const collapsedHydrated = useRef(false);
+
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem("aryasdr.sidebar.collapsed");
+      if (saved === "1") setCollapsed(true);
+    } catch {
+      /* localStorage disabled — ignore */
+    } finally {
+      collapsedHydrated.current = true;
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!collapsedHydrated.current) return;
+    try {
+      window.localStorage.setItem(
+        "aryasdr.sidebar.collapsed",
+        collapsed ? "1" : "0"
+      );
+    } catch {
+      /* localStorage disabled — best-effort only */
+    }
+  }, [collapsed]);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [supportMenuOpen, setSupportMenuOpen] = useState(false);
   const [showPlanModal, setShowPlanModal] = useState(false);
@@ -113,41 +198,44 @@ export function Sidebar({ onChatOpen }: SidebarProps) {
   }) {
     const active = isActive(href);
     return (
-      <Link
-        href={href}
-        className={cn(
-          "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
-          active
-            ? "bg-violet-50 text-violet-700 font-medium"
-            : "text-gray-700 hover:bg-gray-50"
-        )}
-      >
-        <Icon
+      <SidebarTooltip label={label} show={collapsed}>
+        <Link
+          href={href}
           className={cn(
-            "h-4 w-4 shrink-0",
-            active ? "text-violet-600" : "text-gray-500"
+            "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
+            active
+              ? "bg-violet-50 text-violet-700 font-medium"
+              : "text-gray-700 hover:bg-gray-50"
           )}
-        />
-        <AnimatePresence initial={false}>
-          {!collapsed && (
-            <motion.span
-              key="label"
-              initial={{ opacity: 0, width: 0 }}
-              animate={{ opacity: 1, width: "auto" }}
-              exit={{ opacity: 0, width: 0 }}
-              transition={{ duration: 0.18, ease: "easeOut" }}
-              className="flex flex-1 items-center gap-1 overflow-hidden whitespace-nowrap"
-            >
-              <span className="flex-1">{label}</span>
-              {badge && (
-                <span className="ml-auto h-2 w-2 rounded-full bg-violet-600 shrink-0" />
-              )}
-            </motion.span>
-          )}
-        </AnimatePresence>
-      </Link>
+        >
+          <Icon
+            className={cn(
+              "h-4 w-4 shrink-0",
+              active ? "text-violet-600" : "text-gray-500"
+            )}
+          />
+          <AnimatePresence initial={false}>
+            {!collapsed && (
+              <motion.span
+                key="label"
+                initial={{ opacity: 0, width: 0 }}
+                animate={{ opacity: 1, width: "auto" }}
+                exit={{ opacity: 0, width: 0 }}
+                transition={{ duration: 0.18, ease: "easeOut" }}
+                className="flex flex-1 items-center gap-1 overflow-hidden whitespace-nowrap"
+              >
+                <span className="flex-1">{label}</span>
+                {badge && (
+                  <span className="ml-auto h-2 w-2 rounded-full bg-violet-600 shrink-0" />
+                )}
+              </motion.span>
+            )}
+          </AnimatePresence>
+        </Link>
+      </SidebarTooltip>
     );
   }
+
 
   function SectionHeader({ title }: { title: string }) {
     if (collapsed) return <div className="my-2 border-t border-gray-100" />;
@@ -169,24 +257,26 @@ export function Sidebar({ onChatOpen }: SidebarProps) {
       transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
       className="flex h-screen flex-col border-r border-gray-200 bg-white overflow-hidden shrink-0"
     >
-      {/* Header */}
-      <div className="flex items-center justify-between px-3 py-3 border-b border-gray-100">
-        <div className="flex items-center gap-2">
-          <div className="h-8 w-8 rounded-full bg-[#6C47FF] flex items-center justify-center shrink-0">
-            <span className="text-white text-sm font-bold">A</span>
+      {/* Header — fixed height so collapse/expand doesn't jog the nav below */}
+      <div className={cn(
+        "flex h-14 items-center px-3 border-b border-gray-100 shrink-0",
+        collapsed ? "justify-center" : "justify-between"
+      )}>
+        {!collapsed && (
+          <div className="flex items-center gap-2">
+            <div className="h-8 w-8 rounded-full bg-[#6C47FF] flex items-center justify-center shrink-0">
+              <span className="text-white text-sm font-bold">A</span>
+            </div>
+            <span className="font-bold text-gray-900 text-sm">AryaSDR</span>
+            <span className="text-[10px] font-semibold text-violet-600 bg-violet-50 px-1.5 py-0.5 rounded">
+              BETA
+            </span>
           </div>
-          {!collapsed && (
-            <>
-              <span className="font-bold text-gray-900 text-sm">AryaSDR</span>
-              <span className="text-[10px] font-semibold text-violet-600 bg-violet-50 px-1.5 py-0.5 rounded">
-                BETA
-              </span>
-            </>
-          )}
-        </div>
+        )}
         <button
           onClick={() => setCollapsed(!collapsed)}
           className="p-1 text-gray-400 hover:text-gray-600 rounded"
+          title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
           {collapsed ? (
             <PanelLeftOpen className="h-4 w-4" />
@@ -222,15 +312,17 @@ export function Sidebar({ onChatOpen }: SidebarProps) {
       {/* Bottom section */}
       <div className="border-t border-gray-100 px-2 py-2 space-y-0.5">
         {/* Chat with Arya */}
-        <button
-          onClick={onChatOpen}
-          className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-        >
-          <div className="h-5 w-5 rounded-full bg-[#6C47FF] flex items-center justify-center shrink-0">
-            <span className="text-white text-[8px] font-bold">A</span>
-          </div>
-          {!collapsed && <span>Chat with Arya</span>}
-        </button>
+        <SidebarTooltip label="Chat with Arya" show={collapsed}>
+          <button
+            onClick={onChatOpen}
+            className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+          >
+            <div className="h-5 w-5 rounded-full bg-[#6C47FF] flex items-center justify-center shrink-0">
+              <span className="text-white text-[8px] font-bold">A</span>
+            </div>
+            {!collapsed && <span>Chat with Arya</span>}
+          </button>
+        </SidebarTooltip>
 
         {/* Credits */}
         <AnimatePresence initial={false}>
@@ -261,17 +353,21 @@ export function Sidebar({ onChatOpen }: SidebarProps) {
         </AnimatePresence>
 
         {/* Notifications bell — polls /api/notifications every 30s */}
-        <NotificationsBell collapsed={collapsed} />
+        <SidebarTooltip label="Notifications" show={collapsed}>
+          <NotificationsBell collapsed={collapsed} />
+        </SidebarTooltip>
 
         {/* Support */}
         <div ref={supportMenuRef} className="relative">
-          <button
-            onClick={() => setSupportMenuOpen(!supportMenuOpen)}
-            className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-          >
-            <HelpCircle className="h-4 w-4 text-gray-500 shrink-0" />
-            {!collapsed && <span>Support</span>}
-          </button>
+          <SidebarTooltip label="Support" show={collapsed}>
+            <button
+              onClick={() => setSupportMenuOpen(!supportMenuOpen)}
+              className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+            >
+              <HelpCircle className="h-4 w-4 text-gray-500 shrink-0" />
+              {!collapsed && <span>Support</span>}
+            </button>
+          </SidebarTooltip>
           {supportMenuOpen && !collapsed && (
             <div className="absolute bottom-full left-0 mb-1 w-48 rounded-lg border border-gray-200 bg-white shadow-lg py-1 z-50">
               <a
@@ -296,27 +392,29 @@ export function Sidebar({ onChatOpen }: SidebarProps) {
 
         {/* User row */}
         <div ref={userMenuRef} className="relative">
-          <button
-            onClick={() => setUserMenuOpen(!userMenuOpen)}
-            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-gray-50 transition-colors"
-          >
-            <div className="h-7 w-7 rounded-full bg-violet-100 flex items-center justify-center shrink-0 text-xs font-semibold text-violet-700">
-              {displayName.slice(0, 2).toUpperCase()}
-            </div>
-            {!collapsed && (
-              <>
-                <div className="flex-1 text-left min-w-0">
-                  <p className="text-sm font-medium text-gray-900 truncate">
-                    {displayName}
-                  </p>
-                  <p className="text-xs text-gray-500 truncate">
-                    {displayEmail}
-                  </p>
-                </div>
-                <ChevronDown className="h-3.5 w-3.5 text-gray-400 shrink-0" />
-              </>
-            )}
-          </button>
+          <SidebarTooltip label={displayName} show={collapsed}>
+            <button
+              onClick={() => setUserMenuOpen(!userMenuOpen)}
+              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-gray-50 transition-colors"
+            >
+              <div className="h-7 w-7 rounded-full bg-violet-100 flex items-center justify-center shrink-0 text-xs font-semibold text-violet-700">
+                {displayName.slice(0, 2).toUpperCase()}
+              </div>
+              {!collapsed && (
+                <>
+                  <div className="flex-1 text-left min-w-0">
+                    <p className="text-sm font-medium text-gray-900 truncate">
+                      {displayName}
+                    </p>
+                    <p className="text-xs text-gray-500 truncate">
+                      {displayEmail}
+                    </p>
+                  </div>
+                  <ChevronDown className="h-3.5 w-3.5 text-gray-400 shrink-0" />
+                </>
+              )}
+            </button>
+          </SidebarTooltip>
           {userMenuOpen && !collapsed && (
             <div className="absolute bottom-full left-0 mb-1 w-64 rounded-lg border border-gray-200 bg-white shadow-lg py-1 z-50">
               <div className="px-3 py-2 border-b border-gray-100">

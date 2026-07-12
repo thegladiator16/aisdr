@@ -35,6 +35,10 @@ const isPublicRoute = createRouteMatcher([
   "/api/v1/billing/webhook(.*)",
   "/api/billing/webhook/(.*)",
   "/api/webhooks/(.*)",
+  // Inbound-lead webhook — called by external systems (Zapier, form
+  // providers, CRMs) that authenticate via the `arya_...` API key in
+  // the URL / x-arya-key header, not via a Clerk session.
+  "/api/hooks/lead/(.*)",
   // System / SEO / icon routes — must be reachable to logged-out crawlers
   "/robots.txt",
   "/sitemap.xml",

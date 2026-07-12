@@ -33,7 +33,7 @@ export async function GET() {
       .where(eq(signalSubscriptions.userId, user.id))
       .orderBy(desc(signalSubscriptions.createdAt));
 
-    return NextResponse.json({ subscriptions: rows });
+    return NextResponse.json({ data: rows });
   } catch {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }

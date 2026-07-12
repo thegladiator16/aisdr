@@ -7,10 +7,13 @@ import { eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 
+let _ensureColumnDone = false;
 async function ensureColumn() {
+  if (_ensureColumnDone) return;
   await db.execute(
     sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS email_signature text`
   );
+  _ensureColumnDone = true;
 }
 
 export async function GET() {
