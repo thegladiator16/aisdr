@@ -36,13 +36,13 @@ export const razorpay = new Proxy({} as Razorpay, {
 
 // Amounts in paise (smallest INR unit — 1 INR = 100 paise).
 // Monthly prices in INR:
-//   Starter: ₹6,799   Growth: ₹11,599   Scale: ₹23,999
-// Yearly-billed (per-month equivalent, ~10% off):
-//   Starter yearly per mo: ₹5,999   Growth yearly per mo: ₹10,399
+//   Starter: ₹4,999   Growth: ₹9,999
+// Yearly-billed (per-month equivalent, ~17% off):
+//   Starter yearly per mo: ₹4,166   Growth yearly per mo: ₹8,333
 export const PLAN_PRICES_INR: Record<string, { monthly: number; yearly: number }> = {
-  starter: { monthly: 679900, yearly: 599900 * 12 },
-  growth:  { monthly: 1159900, yearly: 1039900 * 12 },
-  scale:   { monthly: 2399900, yearly: 2159900 * 12 },
+  starter: { monthly: 499900, yearly: 416600 * 12 },
+  growth:  { monthly: 999900, yearly: 833300 * 12 },
+  scale:   { monthly: 0, yearly: 0 }, // custom — contact sales
 };
 
 export function getPlanAmountInPaise(

@@ -30,6 +30,10 @@ import {
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { Spinner } from "@/components/ui/spinner";
+import { useSubscription } from "@/lib/hooks/useSubscription";
+import { ChangePlanModal } from "@/components/billing/ChangePlanModal";
+import { UpgradeGateModal } from "@/components/billing/UpgradeGateModal";
+import { canRunCampaigns } from "@/lib/plan-features";
 
 /* ---------- types ---------- */
 
@@ -115,6 +119,11 @@ export default function CampaignsPage() {
   const router = useRouter();
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
+
+  /* plan gating */
+  const { data: subscription } = useSubscription();
+  const [showGate, setShowGate] = useState(false);
+  const [showPlanModal, setShowPlanModal] = useState(false);
 
   /* modal state */
   const [modalState, setModalState] = useState<ModalState>("closed");
@@ -224,6 +233,10 @@ export default function CampaignsPage() {
   /* ---- modal helpers ---- */
 
   function openModal() {
+    if (!canRunCampaigns(subscription?.tier ?? "trial")) {
+      setShowGate(true);
+      return;
+    }
     setModalState("step1");
     setSelectedType(null);
     setCampaignName("");
@@ -1511,6 +1524,15 @@ export default function CampaignsPage() {
           </div>
         </>
       )}
+
+      {showGate && (
+        <UpgradeGateModal
+          feature="campaigns"
+          onClose={() => setShowGate(false)}
+          onUpgrade={() => setShowPlanModal(true)}
+        />
+      )}
+      {showPlanModal && <ChangePlanModal onClose={() => setShowPlanModal(false)} />}
     </>
   );
 }

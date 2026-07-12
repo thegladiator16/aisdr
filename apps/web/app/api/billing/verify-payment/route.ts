@@ -104,9 +104,9 @@ export async function POST(req: Request) {
       billing === "yearly" ? 365 * 24 * 60 * 60 * 1000 : 30 * 24 * 60 * 60 * 1000;
     const periodEnd = new Date(now.getTime() + cycleMs);
     const leadsLimit =
-      plan === "starter" ? 500 : plan === "growth" ? 2000 : 999999;
+      plan === "starter" ? 5000 : plan === "growth" ? 15000 : 999999;
 
-    await db
+    const updated = await db
       .update(subscriptions)
       .set({
         tier: plan,
@@ -115,19 +115,42 @@ export async function POST(req: Request) {
         currentPeriodEnd: periodEnd,
         leadsLimit,
         trialEndsAt: null,
+        updatedAt: now,
       })
-      .where(eq(subscriptions.userId, user.id));
+      .where(eq(subscriptions.userId, user.id))
+      .returning({ id: subscriptions.id });
+
+    if (updated.length === 0) {
+      await db.insert(subscriptions).values({
+        userId: user.id,
+        tier: plan,
+        status: "active",
+        currentPeriodStart: now,
+        currentPeriodEnd: periodEnd,
+        leadsLimit,
+        leadsUsed: 0,
+      });
+    }
   } else if (type === "credits") {
     const qty = Number(quantity) || 0;
     const existing = await db.query.subscriptions.findFirst({
       where: eq(subscriptions.userId, user.id),
     });
-    const currentLimit = existing?.leadsLimit ?? 0;
 
-    await db
-      .update(subscriptions)
-      .set({ leadsLimit: currentLimit + qty })
-      .where(eq(subscriptions.userId, user.id));
+    if (existing) {
+      await db
+        .update(subscriptions)
+        .set({ leadsLimit: (existing.leadsLimit ?? 0) + qty, updatedAt: new Date() })
+        .where(eq(subscriptions.userId, user.id));
+    } else {
+      await db.insert(subscriptions).values({
+        userId: user.id,
+        tier: "free",
+        status: "active",
+        leadsLimit: qty,
+        leadsUsed: 0,
+      });
+    }
   }
 
   return NextResponse.json({ success: true, plan, type });

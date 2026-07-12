@@ -2,102 +2,176 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { Check, X, Zap } from 'lucide-react'
 import { AryaAvatar } from "@/components/arya/AryaAvatar"
-import { CreditEstimator } from "@/components/pricing/CreditEstimator"
 
-const plans = [
+function formatINR(n: number) {
+  return new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency: 'INR',
+    maximumFractionDigits: 0,
+  }).format(n)
+}
+
+const PLANS = [
   {
     id: 'free',
     name: 'Free',
-    price: '$0',
-    period: '/month',
-    description: 'No credit card needed',
-    features: [
-      '50 leads/month',
-      '100 emails/month',
-      'Gmail integration',
-      'Basic analytics',
-    ],
+    monthly: 0,
+    yearly: 0,
+    creditLabel: '300 credits/month',
+    leadsLabel: 'Search leads only',
+    description: 'Explore the platform, search leads, run enrichments.',
     cta: 'Start free',
     ctaHref: '/sign-up',
-    recommended: false,
+    highlight: false,
+    features: {
+      campaigns: false,
+      emails: false,
+      sequences: false,
+      credits: '300 / month',
+      leads: 'Search only',
+      activeCampaigns: '—',
+      support: 'Community',
+      azTesting: false,
+      analytics: 'Basic',
+      integrations: '—',
+    },
   },
   {
     id: 'starter',
     name: 'Starter',
-    price: '$79',
-    period: '/month',
-    description: 'Run outbound campaigns',
-    features: [
-      '500 leads/month',
-      '2,000 emails/month',
-      'WhatsApp integration',
-      'Gmail integration',
-      'Intent signals',
-      'Autonomous reply drafting',
-      'Deliverability monitoring',
-    ],
-    cta: 'Start 14-day trial',
+    monthly: 4999,
+    yearly: 4166,
+    creditLabel: '5,000 credits/month',
+    leadsLabel: '500 leads in database',
+    description: 'Run outbound campaigns with full email automation.',
+    cta: 'Start free trial',
     ctaHref: '/sign-up?plan=starter',
-    recommended: false,
+    highlight: false,
+    features: {
+      campaigns: true,
+      emails: true,
+      sequences: true,
+      credits: '5,000 / month',
+      leads: '500',
+      activeCampaigns: '5',
+      support: 'Email',
+      azTesting: false,
+      analytics: 'Basic',
+      integrations: 'Gmail',
+    },
   },
   {
     id: 'growth',
     name: 'Growth',
-    price: '$139',
-    period: '/month',
-    description: 'Automate your full outbound motion',
-    features: [
-      '2,000 leads/month',
-      '10,000 emails/month',
-      'Everything in Starter',
-      'CRM integrations',
-      'A/Z testing',
-      'Priority support',
-    ],
-    cta: 'Start 14-day trial',
+    monthly: 9999,
+    yearly: 8333,
+    creditLabel: '15,000 credits/month',
+    leadsLabel: '5,000 leads in database',
+    description: 'Automate your entire outbound motion at scale.',
+    cta: 'Start free trial',
     ctaHref: '/sign-up?plan=growth',
-    recommended: true,
+    highlight: true,
+    features: {
+      campaigns: true,
+      emails: true,
+      sequences: true,
+      credits: '15,000 / month',
+      leads: '5,000',
+      activeCampaigns: 'Unlimited',
+      support: 'Priority',
+      azTesting: true,
+      analytics: 'Advanced',
+      integrations: 'Gmail + HubSpot',
+    },
   },
   {
     id: 'enterprise',
     name: 'Enterprise',
-    price: 'Custom',
-    period: '',
-    description: 'Unlimited scale',
-    features: [
-      'Unlimited leads & emails',
-      'Dedicated CSM',
-      'Slack channel',
-      'SSO/SAML',
-      'Audit logs',
-    ],
-    cta: 'Book a demo',
-    ctaHref: '/contact',
-    recommended: false,
+    monthly: null,
+    yearly: null,
+    creditLabel: 'Custom volume',
+    leadsLabel: 'Unlimited',
+    description: 'Dedicated implementation, SLAs, and custom contracts.',
+    cta: 'Contact sales',
+    ctaHref: 'mailto:sales@aryasdr.in?subject=Enterprise%20plan%20inquiry',
+    highlight: false,
+    features: {
+      campaigns: true,
+      emails: true,
+      sequences: true,
+      credits: 'Custom',
+      leads: 'Unlimited',
+      activeCampaigns: 'Unlimited',
+      support: 'Dedicated CSM',
+      azTesting: true,
+      analytics: 'Advanced + custom',
+      integrations: 'All + SSO/SAML',
+    },
   },
 ]
 
+const COMPARISON_ROWS: {
+  label: string
+  key: keyof typeof PLANS[0]['features']
+  isBool?: boolean
+}[] = [
+  { label: 'Credits / month', key: 'credits' },
+  { label: 'Leads in database', key: 'leads' },
+  { label: 'Active campaigns', key: 'activeCampaigns' },
+  { label: 'Run campaigns & send emails', key: 'campaigns', isBool: true },
+  { label: 'Email sequences', key: 'sequences', isBool: true },
+  { label: 'A/Z testing', key: 'azTesting', isBool: true },
+  { label: 'Analytics', key: 'analytics' },
+  { label: 'Integrations', key: 'integrations' },
+  { label: 'Support', key: 'support' },
+]
+
+const CREDIT_COSTS = [
+  { action: 'Email enrichment', credits: 2, icon: '✉️' },
+  { action: 'Phone enrichment', credits: 10, icon: '📞' },
+  { action: 'Campaign enrollment per lead', credits: 22, icon: '🚀' },
+]
+
 const FAQ = [
-  { q: "Can I try before buying?", a: "Yes! The free plan includes 50 leads and 100 emails per month, forever. No credit card needed." },
-  { q: "How does billing work?", a: "Monthly billing in USD. Cancel anytime, no contracts. Enterprise plans have annual options." },
-  { q: "Can I switch plans?", a: "Yes. Upgrade or downgrade at any time. Changes take effect on your next billing cycle." },
-  { q: "What payment methods do you accept?", a: "Credit cards, debit cards, and major international cards. Enterprise can pay via invoice." },
-  { q: "Is there a refund policy?", a: "We offer a 14-day money-back guarantee on all paid plans. No questions asked." },
-  { q: "Do unused credits roll over?", a: "Credits reset monthly. We recommend choosing a plan that fits your consistent volume." },
+  {
+    q: 'What happens when my free trial ends?',
+    a: 'Your account automatically moves to the Free plan (300 credits/month). All active campaigns are paused. You keep your data and can upgrade any time.',
+  },
+  {
+    q: 'What are credits?',
+    a: 'Credits are the currency Arya uses for actions. Email enrichment costs 2 credits, phone enrichment costs 10 credits, and enrolling a lead into a campaign costs 22 credits. Unused credits carry over to the next month on monthly plans.',
+  },
+  {
+    q: 'Can I run campaigns on the Free plan?',
+    a: "No. The Free plan lets you search for leads and run enrichments so you can explore the platform. To send emails and run campaigns you'll need Starter or above.",
+  },
+  {
+    q: 'How does billing work?',
+    a: 'Monthly billing in INR via Razorpay. Yearly billing gives ~17% off. Cancel anytime — no lock-in, no contracts.',
+  },
+  {
+    q: 'Do unused credits roll over?',
+    a: "Yes — on monthly plans, unused credits carry over to the next month. They don't expire as long as your subscription is active.",
+  },
+  {
+    q: 'What payment methods do you accept?',
+    a: 'UPI, credit/debit cards, net banking, and all major Indian payment methods via Razorpay.',
+  },
 ]
 
 export default function PricingPage() {
-  const [selected, setSelected] = useState<string>('growth')
+  const [billing, setBilling] = useState<'monthly' | 'yearly'>('monthly')
 
   return (
     <div className="min-h-screen bg-[#FAFAFA]">
       {/* Navbar */}
-      <nav className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-200">
+      <nav className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-gray-200">
         <div className="mx-auto max-w-6xl flex items-center justify-between px-6 py-3">
           <Link href="/" className="flex items-center gap-2.5">
             <AryaAvatar size="sm" />
-            <span className="font-bold text-gray-900 text-lg">AI SDR</span>
+            <span className="font-bold text-gray-900 text-lg">AryaSDR</span>
           </Link>
           <div className="flex items-center gap-3">
             <Link href="/sign-in" className="text-sm text-gray-600 hover:text-gray-900 px-3 py-2">
@@ -113,118 +187,246 @@ export default function PricingPage() {
         </div>
       </nav>
 
-      {/* Header */}
-      <section className="mx-auto max-w-5xl px-6 pt-16 pb-12 text-center">
-        <h1 className="text-4xl font-bold text-gray-900">Hire Arya</h1>
-        <p className="text-lg text-gray-500 mt-3">
-          Pay a fraction of a human SDR. Start for free.
+      {/* Hero */}
+      <section className="mx-auto max-w-5xl px-6 pt-16 pb-8 text-center">
+        <div className="inline-flex items-center gap-2 bg-violet-50 text-violet-700 text-xs font-semibold px-3 py-1.5 rounded-full mb-4">
+          <Zap className="h-3 w-3" />
+          14-day free trial on all paid plans — no credit card required
+        </div>
+        <h1 className="text-4xl sm:text-5xl font-bold text-gray-900 mb-4">
+          Simple, transparent pricing
+        </h1>
+        <p className="text-lg text-gray-500 max-w-2xl mx-auto">
+          Pay a fraction of a human SDR. Arya does the prospecting, enrichment,
+          outreach, and follow-up — all on autopilot.
         </p>
-      </section>
 
-      {/* Cost Comparison */}
-      <section className="mx-auto max-w-3xl px-6 pb-16">
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
-          <div className="rounded-2xl bg-white border-2 border-red-400 p-8 flex-1 max-w-xs text-center shadow-lg">
-            <p className="text-sm text-red-400 mb-2 font-medium">A human SDR</p>
-            <p className="text-4xl font-bold text-red-500">$999</p>
-            <p className="text-sm text-gray-400 mt-1">/month</p>
-          </div>
-          <div className="flex items-center justify-center h-12 w-12 rounded-full bg-[#6C47FF] text-white font-bold text-sm shrink-0">
-            vs
-          </div>
-          <div className="rounded-2xl bg-white border-2 border-[#6C47FF] p-8 flex-1 max-w-xs text-center shadow-lg">
-            <p className="text-sm text-[#6C47FF] mb-2 font-medium">Arya</p>
-            <p className="text-4xl font-bold text-[#6C47FF]">$79</p>
-            <p className="text-sm text-gray-400 mt-1">/month</p>
-            <p className="text-sm text-emerald-600 font-semibold mt-3">Save $920/month</p>
-          </div>
+        {/* Billing toggle */}
+        <div className="flex items-center justify-center gap-2 mt-8">
+          <button
+            onClick={() => setBilling('monthly')}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              billing === 'monthly' ? 'bg-gray-900 text-white' : 'text-gray-600 hover:bg-gray-100'
+            }`}
+          >
+            Monthly
+          </button>
+          <button
+            onClick={() => setBilling('yearly')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              billing === 'yearly' ? 'bg-gray-900 text-white' : 'text-gray-600 hover:bg-gray-100'
+            }`}
+          >
+            Yearly
+            <span className="bg-emerald-100 text-emerald-700 text-xs px-2 py-0.5 rounded-full font-semibold">
+              Save 17%
+            </span>
+          </button>
         </div>
       </section>
 
-      {/* Pricing Cards */}
-      <section className="mx-auto max-w-6xl px-6 pb-20">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {plans.map((plan) => {
-            const isSelected = selected === plan.id
-            return (
-              <div
-                key={plan.id}
-                onClick={() => setSelected(plan.id)}
-                className={`
-                  relative bg-white rounded-2xl p-6 flex flex-col cursor-pointer
-                  transition-all duration-200 ease-in-out
-                  ${isSelected
-                    ? 'border-2 border-[#6C47FF] shadow-lg ring-2 ring-[#6C47FF] ring-offset-2'
-                    : 'border-2 border-gray-200 shadow-sm hover:border-gray-300 hover:shadow-md'
-                  }
-                `}
-              >
-                {plan.recommended && (
-                  <div className="absolute -top-4 left-1/2 -translate-x-1/2">
-                    <span className="bg-[#6C47FF] text-white text-xs font-semibold px-4 py-1.5 rounded-full whitespace-nowrap">
-                      Recommended
-                    </span>
+      {/* Plan cards */}
+      <section className="mx-auto max-w-6xl px-6 pb-16">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          {PLANS.map((plan) => (
+            <div
+              key={plan.id}
+              className={`relative bg-white rounded-2xl p-6 flex flex-col border-2 ${
+                plan.highlight
+                  ? 'border-[#6C47FF] shadow-lg shadow-violet-100'
+                  : 'border-gray-200'
+              }`}
+            >
+              {plan.highlight && (
+                <div className="absolute -top-3.5 left-1/2 -translate-x-1/2">
+                  <span className="bg-[#6C47FF] text-white text-xs font-bold px-4 py-1.5 rounded-full whitespace-nowrap">
+                    Most popular
+                  </span>
+                </div>
+              )}
+
+              <div className="mb-4">
+                <h3 className="text-lg font-bold text-gray-900">{plan.name}</h3>
+                <p className="text-xs text-gray-500 mt-1">{plan.description}</p>
+              </div>
+
+              <div className="mb-4">
+                {plan.monthly == null ? (
+                  <p className="text-3xl font-bold text-gray-900">Custom</p>
+                ) : plan.monthly === 0 ? (
+                  <div>
+                    <p className="text-3xl font-bold text-gray-900">Free</p>
+                    <p className="text-xs text-gray-400 mt-0.5">forever</p>
+                  </div>
+                ) : (
+                  <div>
+                    <p className="text-3xl font-bold text-gray-900">
+                      {formatINR(billing === 'monthly' ? plan.monthly : plan.yearly!)}
+                      <span className="text-base font-normal text-gray-400">/mo</span>
+                    </p>
+                    {billing === 'yearly' && (
+                      <p className="text-xs text-emerald-600 font-medium mt-0.5">
+                        {formatINR(plan.monthly - plan.yearly!)} saved / month
+                      </p>
+                    )}
                   </div>
                 )}
-
-                <h3 className="text-xl font-bold text-gray-900 mb-1">{plan.name}</h3>
-
-                <div className="flex items-baseline gap-1 mb-1">
-                  <span className="text-3xl font-bold text-gray-900">{plan.price}</span>
-                  {plan.period && <span className="text-gray-400 text-sm">{plan.period}</span>}
-                </div>
-
-                <p className="text-sm text-gray-500 mb-6">{plan.description}</p>
-
-                <ul className="space-y-3 flex-1 mb-8">
-                  {plan.features.map((feature) => (
-                    <li key={feature} className="flex items-start gap-2 text-sm text-gray-700">
-                      <svg className="w-4 h-4 text-[#6C47FF] mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 12l2 2 4-4" />
-                        <circle cx="12" cy="12" r="9" strokeWidth={2} />
-                      </svg>
-                      {feature}
-                    </li>
-                  ))}
-                </ul>
-
-                <Link
-                  href={plan.ctaHref}
-                  onClick={(e) => e.stopPropagation()}
-                  className={`
-                    block w-full text-center py-3 px-4 rounded-xl text-sm font-semibold transition-colors
-                    ${isSelected
-                      ? 'bg-[#6C47FF] text-white hover:bg-[#5538DD]'
-                      : 'bg-white text-[#6C47FF] border-2 border-[#6C47FF] hover:bg-[#F5F3FF]'
-                    }
-                  `}
-                >
-                  {plan.cta} →
-                </Link>
+                <p className="text-xs font-semibold text-violet-600 mt-2">{plan.creditLabel}</p>
+                <p className="text-xs text-gray-400">{plan.leadsLabel}</p>
               </div>
-            )
-          })}
+
+              <Link
+                href={plan.ctaHref}
+                className={`block w-full text-center py-2.5 rounded-xl text-sm font-semibold transition-colors mb-5 ${
+                  plan.highlight
+                    ? 'bg-[#6C47FF] text-white hover:bg-[#5538DD]'
+                    : plan.id === 'enterprise'
+                    ? 'bg-gray-900 text-white hover:bg-gray-800'
+                    : 'border-2 border-gray-200 text-gray-700 hover:border-[#6C47FF] hover:text-[#6C47FF]'
+                }`}
+              >
+                {plan.cta} →
+              </Link>
+
+              {/* Key features */}
+              <ul className="space-y-2 flex-1">
+                {COMPARISON_ROWS.filter((r) => r.isBool).map((row) => {
+                  const val = plan.features[row.key]
+                  return (
+                    <li key={row.key} className="flex items-center gap-2 text-xs text-gray-600">
+                      {val ? (
+                        <Check className="h-3.5 w-3.5 text-violet-500 shrink-0" />
+                      ) : (
+                        <X className="h-3.5 w-3.5 text-gray-300 shrink-0" />
+                      )}
+                      {row.label}
+                    </li>
+                  )
+                })}
+              </ul>
+            </div>
+          ))}
         </div>
       </section>
 
-      {/* Credit Estimator */}
-      <section className="bg-gray-50 border-y border-gray-200 py-16">
-        <div className="mx-auto max-w-3xl px-6 text-center mb-8">
-          <h2 className="text-2xl font-bold">Not sure which plan?</h2>
-          <p className="text-gray-500 mt-2">Estimate your monthly credits</p>
+      {/* Credit costs callout */}
+      <section className="bg-white border-y border-gray-200 py-14">
+        <div className="mx-auto max-w-3xl px-6">
+          <div className="text-center mb-8">
+            <h2 className="text-2xl font-bold text-gray-900">How credits work</h2>
+            <p className="text-gray-500 mt-2 text-sm">
+              Credits are consumed per action. Unused credits carry over month-to-month.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {CREDIT_COSTS.map((c) => (
+              <div
+                key={c.action}
+                className="rounded-xl border border-gray-200 bg-[#FAFAFA] p-5 text-center"
+              >
+                <div className="text-3xl mb-3">{c.icon}</div>
+                <p className="text-2xl font-bold text-[#6C47FF]">{c.credits}</p>
+                <p className="text-xs font-semibold text-gray-400 mt-0.5">credits</p>
+                <p className="text-sm font-medium text-gray-700 mt-2">{c.action}</p>
+              </div>
+            ))}
+          </div>
+          <p className="text-center text-xs text-gray-400 mt-6">
+            A Starter plan (5,000 credits) can enrich ~2,500 emails or enroll ~227 leads into campaigns per month.
+          </p>
         </div>
-        <CreditEstimator />
+      </section>
+
+      {/* Feature comparison table */}
+      <section className="mx-auto max-w-5xl px-6 py-16">
+        <h2 className="text-2xl font-bold text-gray-900 text-center mb-8">
+          Full feature comparison
+        </h2>
+        <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-gray-100">
+                <th className="text-left px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider w-48">
+                  Feature
+                </th>
+                {PLANS.map((p) => (
+                  <th
+                    key={p.id}
+                    className={`text-center px-4 py-3.5 text-sm font-bold ${
+                      p.highlight ? 'text-[#6C47FF]' : 'text-gray-900'
+                    }`}
+                  >
+                    {p.name}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {COMPARISON_ROWS.map((row, idx) => (
+                <tr
+                  key={row.key}
+                  className={idx % 2 === 0 ? 'bg-gray-50/50' : ''}
+                >
+                  <td className="px-5 py-3 text-xs font-medium text-gray-600">
+                    {row.label}
+                  </td>
+                  {PLANS.map((plan) => {
+                    const val = plan.features[row.key]
+                    return (
+                      <td key={plan.id} className="text-center px-4 py-3">
+                        {row.isBool ? (
+                          val ? (
+                            <Check className="h-4 w-4 text-violet-500 mx-auto" />
+                          ) : (
+                            <X className="h-4 w-4 text-gray-300 mx-auto" />
+                          )
+                        ) : (
+                          <span className="text-xs text-gray-700">{String(val)}</span>
+                        )}
+                      </td>
+                    )
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      {/* Cost comparison */}
+      <section className="bg-gradient-to-br from-violet-50 to-pink-50 border-y border-gray-100 py-14">
+        <div className="mx-auto max-w-3xl px-6 text-center mb-8">
+          <h2 className="text-2xl font-bold text-gray-900">Why Arya?</h2>
+          <p className="text-gray-500 text-sm mt-2">A human SDR costs ₹80,000–₹1,20,000/month. Arya does the same job.</p>
+        </div>
+        <div className="mx-auto max-w-sm flex gap-5 px-6">
+          <div className="flex-1 bg-white border-2 border-red-300 rounded-2xl p-6 text-center shadow-sm">
+            <p className="text-xs text-red-400 font-semibold mb-2">Human SDR</p>
+            <p className="text-3xl font-bold text-red-500">₹80,000</p>
+            <p className="text-xs text-gray-400 mt-1">/month</p>
+          </div>
+          <div className="flex-1 bg-white border-2 border-[#6C47FF] rounded-2xl p-6 text-center shadow-sm">
+            <p className="text-xs text-[#6C47FF] font-semibold mb-2">Arya</p>
+            <p className="text-3xl font-bold text-[#6C47FF]">₹4,999</p>
+            <p className="text-xs text-gray-400 mt-1">/month</p>
+            <p className="text-xs text-emerald-600 font-bold mt-2">Save ₹75,000/mo</p>
+          </div>
+        </div>
       </section>
 
       {/* FAQ */}
       <section className="mx-auto max-w-3xl px-6 py-16">
-        <h2 className="text-2xl font-bold text-center mb-10">Frequently asked questions</h2>
-        <div className="space-y-4">
+        <h2 className="text-2xl font-bold text-center mb-10 text-gray-900">
+          Frequently asked questions
+        </h2>
+        <div className="space-y-3">
           {FAQ.map(({ q, a }) => (
             <details key={q} className="rounded-xl border border-gray-200 bg-white p-5 group">
-              <summary className="font-medium text-gray-900 cursor-pointer list-none flex items-center justify-between">
+              <summary className="font-medium text-gray-900 cursor-pointer list-none flex items-center justify-between text-sm">
                 {q}
-                <span className="text-gray-400 group-open:rotate-45 transition-transform text-xl">+</span>
+                <span className="text-gray-400 group-open:rotate-45 transition-transform text-xl leading-none ml-3">
+                  +
+                </span>
               </summary>
               <p className="text-sm text-gray-500 mt-3 leading-relaxed">{a}</p>
             </details>
@@ -232,14 +434,28 @@ export default function PricingPage() {
         </div>
       </section>
 
+      {/* CTA footer banner */}
+      <section className="bg-[#6C47FF] py-12 text-center text-white">
+        <h2 className="text-2xl font-bold mb-2">Start your 14-day free trial</h2>
+        <p className="text-violet-200 text-sm mb-6">
+          10,000 credits. All features. No credit card required.
+        </p>
+        <Link
+          href="/sign-up"
+          className="inline-block bg-white text-[#6C47FF] font-bold px-8 py-3 rounded-xl hover:bg-violet-50 transition-colors"
+        >
+          Get started free →
+        </Link>
+      </section>
+
       {/* Footer */}
       <footer className="border-t border-gray-200 px-6 py-8 bg-white">
         <div className="mx-auto max-w-6xl flex flex-col sm:flex-row items-center justify-between gap-4">
           <Link href="/" className="flex items-center gap-2">
             <AryaAvatar size="sm" />
-            <span className="text-sm font-semibold">AI SDR</span>
+            <span className="text-sm font-semibold text-gray-900">AryaSDR</span>
           </Link>
-          <p className="text-xs text-gray-400">&copy; 2026 AI SDR. GDPR & India DPDPA compliant.</p>
+          <p className="text-xs text-gray-400">&copy; 2026 AryaSDR. GDPR & India DPDPA compliant.</p>
           <div className="flex gap-4 text-xs text-gray-400">
             <Link href="/privacy" className="hover:text-gray-900 transition-colors">Privacy</Link>
             <Link href="/terms" className="hover:text-gray-900 transition-colors">Terms</Link>

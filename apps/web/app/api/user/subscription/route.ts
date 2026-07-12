@@ -11,6 +11,7 @@ export const dynamic = "force-dynamic";
 const DAY = 1000 * 60 * 60 * 24;
 const TRIAL_DAYS = 14;
 const TRIAL_LEADS_LIMIT = 10000;
+const FREE_PLAN_CREDITS = 300;
 
 // Idempotent — only runs the ALTER if the column is missing. Guards against
 // schema drift between the app code and the production DB.
@@ -132,6 +133,28 @@ export async function GET() {
     const daysLeft = trialEndsAt
       ? Math.max(0, Math.floor((trialEndsAt.getTime() - now) / DAY))
       : null;
+    const trialExpired = subscription.tier === "trial" && (daysLeft ?? 0) <= 0;
+
+    // Auto-downgrade expired trials to the free plan (300 credits/month).
+    // All campaigns are paused by the campaign runner when credits reach 0;
+    // the tier change here stops new enrollments from being allowed.
+    if (trialExpired) {
+      try {
+        await db
+          .update(subscriptions)
+          .set({
+            tier: "free",
+            status: "active",
+            leadsLimit: FREE_PLAN_CREDITS,
+            leadsUsed: 0,
+          })
+          .where(eq(subscriptions.userId, user.id));
+        subscription = { ...subscription, tier: "free", leadsLimit: FREE_PLAN_CREDITS, leadsUsed: 0 };
+      } catch (err) {
+        console.error("[subscription] trial-to-free downgrade failed:", err);
+      }
+    }
+
     const isTrialing =
       subscription.tier === "trial" && (daysLeft ?? 0) > 0;
 
