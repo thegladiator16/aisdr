@@ -70,6 +70,7 @@ export default function FindLeadsResultsPage() {
   const campaignMenuRef = useRef<HTMLDivElement | null>(null);
 
   /* filter state */
+  const [searchMode, setSearchMode] = useState<"people" | "companies">("people");
   const [openSections, setOpenSections] = useState<Set<FilterSection>>(new Set(["role"]));
   const [titlesToInclude, setTitlesToInclude] = useState<string[]>([]);
   const [titleInput, setTitleInput] = useState("");
@@ -255,6 +256,30 @@ export default function FindLeadsResultsPage() {
 
   const hasFilters = titlesToInclude.length > 0 || seniorities.size > 0 || departments.size > 0 || locationFilter || industryFilter || companyFilter || headcountMin || headcountMax;
 
+  /* Companies view: dedupe leads by companyName */
+  type CompanyRow = { name: string; website: string | null; location: string | null; industry: string | null; leadCount: number };
+  const filteredCompanies: CompanyRow[] = (() => {
+    if (searchMode !== "companies") return [];
+    const byName = new Map<string, CompanyRow>();
+    for (const lead of filteredLeads) {
+      const name = (lead.companyName ?? "").trim();
+      if (!name) continue;
+      const existing = byName.get(name);
+      if (existing) {
+        existing.leadCount += 1;
+      } else {
+        byName.set(name, {
+          name,
+          website: lead.companyWebsite ?? null,
+          location: lead.location ?? null,
+          industry: lead.industry ?? null,
+          leadCount: 1,
+        });
+      }
+    }
+    return Array.from(byName.values()).sort((a, b) => b.leadCount - a.leadCount);
+  })();
+
   return (
     <div className="flex h-[calc(100vh-64px)] overflow-hidden bg-gray-50">
       {/* ── Left filter panel ── */}
@@ -284,12 +309,35 @@ export default function FindLeadsResultsPage() {
           <div className="px-4 pt-4 pb-2 flex items-center justify-between">
             <span className="text-sm font-semibold text-gray-700">Search for</span>
             <div className="flex rounded-lg border border-gray-200 overflow-hidden text-xs">
-              <button className="px-3 py-1.5 bg-gray-100 font-medium text-gray-900">People</button>
-              <button className="px-3 py-1.5 text-gray-500 hover:bg-gray-50 transition">Companies</button>
+              <button
+                type="button"
+                onClick={() => setSearchMode("people")}
+                className={cn(
+                  "px-3 py-1.5 font-medium transition-colors",
+                  searchMode === "people"
+                    ? "bg-violet-50 text-violet-700"
+                    : "bg-white text-gray-500 hover:bg-gray-50"
+                )}
+              >
+                People
+              </button>
+              <button
+                type="button"
+                onClick={() => setSearchMode("companies")}
+                className={cn(
+                  "px-3 py-1.5 font-medium transition-colors border-l border-gray-200",
+                  searchMode === "companies"
+                    ? "bg-violet-50 text-violet-700"
+                    : "bg-white text-gray-500 hover:bg-gray-50"
+                )}
+              >
+                Companies
+              </button>
             </div>
           </div>
 
-          {/* Role & seniority */}
+          {/* Role & seniority — person-specific, hidden in Companies mode */}
+          {searchMode === "people" && (
           <FilterSection
             label="Role & seniority"
             icon={Briefcase}
@@ -364,8 +412,10 @@ export default function FindLeadsResultsPage() {
               </div>
             </div>
           </FilterSection>
+          )}
 
-          {/* Person location */}
+          {/* Person location — person-specific, hidden in Companies mode */}
+          {searchMode === "people" && (
           <FilterSection
             label="Person location"
             icon={MapPin}
@@ -381,6 +431,7 @@ export default function FindLeadsResultsPage() {
               className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-violet-500 transition"
             />
           </FilterSection>
+          )}
 
           {/* Company attributes */}
           <FilterSection
@@ -465,7 +516,7 @@ export default function FindLeadsResultsPage() {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search people..."
+              placeholder={searchMode === "companies" ? "Search companies..." : "Search people..."}
               className="w-full rounded-lg border border-gray-200 bg-gray-50 py-2 pl-9 pr-4 text-sm outline-none focus:border-violet-500 focus:bg-white transition"
             />
           </div>
@@ -474,8 +525,12 @@ export default function FindLeadsResultsPage() {
         <div className="flex-1 overflow-y-auto">
           <div className="px-6 py-3">
             <p className="text-sm text-gray-500">
-              Showing <span className="font-semibold text-gray-900">{filteredLeads.length}</span> of{" "}
-              <span className="font-semibold text-gray-900">{leads.length}</span> people
+              {searchMode === "companies" ? (
+                <>Showing <span className="font-semibold text-gray-900">{filteredCompanies.length}</span> companies from <span className="font-semibold text-gray-900">{filteredLeads.length}</span> leads</>
+              ) : (
+                <>Showing <span className="font-semibold text-gray-900">{filteredLeads.length}</span> of{" "}
+                <span className="font-semibold text-gray-900">{leads.length}</span> people</>
+              )}
             </p>
           </div>
 
@@ -499,6 +554,77 @@ export default function FindLeadsResultsPage() {
                 <UserPlus className="h-4 w-4" /> Add leads
               </Link>
             </div>
+          ) : searchMode === "companies" ? (
+            filteredCompanies.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-20 text-center px-6">
+                <div className="h-16 w-16 rounded-full bg-violet-100 flex items-center justify-center mb-4">
+                  <Building2 className="h-8 w-8 text-violet-600" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-1">No companies match your filters</h3>
+                <p className="text-sm text-gray-500 max-w-sm">
+                  Try widening your filters or clearing the search to see all companies.
+                </p>
+              </div>
+            ) : (
+            <div className="bg-white border-t border-gray-200">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-gray-100 bg-gray-50/50">
+                    {[
+                      { label: "Company" },
+                      { label: "Industry" },
+                      { label: "Location" },
+                      { label: "Website" },
+                      { label: "Leads" },
+                    ].map((col) => (
+                      <th key={col.label} className="py-3 px-4 text-left">
+                        <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                          {col.label}
+                        </span>
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredCompanies.map((c) => {
+                    const initials = c.name.split(" ").filter(Boolean).slice(0, 2).map((w) => w[0]?.toUpperCase() ?? "").join("");
+                    return (
+                      <tr key={c.name} className="border-b border-gray-50 transition-colors hover:bg-violet-50/30">
+                        <td className="py-3 px-4">
+                          <div className="flex items-center gap-3">
+                            <div className="h-8 w-8 rounded-lg bg-violet-100 text-violet-700 flex items-center justify-center shrink-0 text-xs font-semibold">
+                              {initials || <Building2 className="h-4 w-4" />}
+                            </div>
+                            <span className="text-sm font-medium text-gray-900">{c.name}</span>
+                          </div>
+                        </td>
+                        <td className="py-3 px-4 text-sm text-gray-600">{c.industry ?? "—"}</td>
+                        <td className="py-3 px-4 text-sm text-gray-600">{c.location ?? "—"}</td>
+                        <td className="py-3 px-4 text-sm text-gray-600">
+                          {c.website ? (
+                            <a
+                              href={c.website.startsWith("http") ? c.website : `https://${c.website}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-violet-600 hover:text-violet-800 hover:underline"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              {c.website.replace(/^https?:\/\//, "").replace(/\/$/, "")}
+                            </a>
+                          ) : "—"}
+                        </td>
+                        <td className="py-3 px-4">
+                          <span className="inline-flex items-center rounded-full bg-violet-50 text-violet-700 px-2 py-0.5 text-xs font-semibold ring-1 ring-violet-200">
+                            {c.leadCount}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            )
           ) : (
             <div className="bg-white border-t border-gray-200">
               <table className="w-full">
