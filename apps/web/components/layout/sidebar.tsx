@@ -165,9 +165,13 @@ export function Sidebar({ onChatOpen }: SidebarProps) {
   const credits = subscription?.credits ?? 10000;
   const creditsUsed = subscription?.creditsUsed ?? 0;
   const creditsRemaining = Math.max(0, credits - creditsUsed);
-  const creditsRemainingPct = credits > 0 ? Math.round((creditsRemaining / credits) * 100) : 0;
+  const creditsRemainingRatio = credits > 0 ? creditsRemaining / credits : 0;
+  // Bar width uses raw ratio (not rounded to int) so single-credit spends still
+  // register visually via sub-pixel width changes the browser can render.
+  const creditsRemainingPct = creditsRemainingRatio * 100;
+  const creditsRemainingPctLabel = Math.round(creditsRemainingPct);
   const creditsBarColor =
-    creditsRemainingPct > 50 ? "bg-violet-500" : creditsRemainingPct > 20 ? "bg-amber-400" : "bg-red-500";
+    creditsRemainingRatio > 0.5 ? "bg-violet-500" : creditsRemainingRatio > 0.2 ? "bg-amber-400" : "bg-red-500";
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -334,11 +338,12 @@ export function Sidebar({ onChatOpen }: SidebarProps) {
               exit={{ opacity: 0, height: 0 }}
               transition={{ duration: 0.2, ease: "easeOut" }}
               onClick={() => setShowCreditsModal(true)}
+              title={`${creditsUsed.toLocaleString()} of ${credits.toLocaleString()} used`}
               className="w-full rounded-lg px-3 py-2 hover:bg-violet-50 cursor-pointer transition-colors overflow-hidden"
             >
               <div className="flex items-center justify-between text-sm">
                 <span className="text-gray-500">Credits</span>
-                <span className="font-semibold text-gray-900">
+                <span className="font-semibold text-gray-900 tabular-nums">
                   {creditsRemaining.toLocaleString()}
                 </span>
               </div>
@@ -347,6 +352,10 @@ export function Sidebar({ onChatOpen }: SidebarProps) {
                   className={`h-full rounded-full transition-all duration-500 ${creditsBarColor}`}
                   style={{ width: `${creditsRemainingPct}%` }}
                 />
+              </div>
+              <div className="mt-1 flex items-center justify-between text-[10px] text-gray-400 tabular-nums">
+                <span>{creditsRemainingPctLabel}% left</span>
+                <span>of {credits.toLocaleString()}</span>
               </div>
             </motion.button>
           )}
