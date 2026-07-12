@@ -4,7 +4,7 @@ import { Clock } from "lucide-react";
 
 export function WelcomeModal({ onClose }: { onClose: () => void }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 backdrop-blur-sm">
       <div className="w-full max-w-md rounded-2xl bg-white shadow-xl overflow-hidden mx-4">
         {/* Top illustration */}
         <div className="relative bg-violet-50 px-6 pt-8 pb-6 flex items-center justify-center">

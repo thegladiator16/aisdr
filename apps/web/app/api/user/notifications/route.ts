@@ -34,6 +34,16 @@ let ensured = false;
 async function ensureNotificationsSchema() {
   if (ensured) return;
   try {
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS notifications_config (
+        id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        notification_type VARCHAR(100) NOT NULL,
+        email_enabled BOOLEAN DEFAULT true,
+        slack_enabled BOOLEAN DEFAULT false,
+        created_at TIMESTAMP DEFAULT now() NOT NULL
+      )
+    `);
     await db.execute(
       sql`CREATE UNIQUE INDEX IF NOT EXISTS idx_notifications_config_user_type ON notifications_config(user_id, notification_type)`
     );

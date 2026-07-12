@@ -12,6 +12,12 @@ import {
   Loader2,
   Trash2,
   CalendarClock,
+  ClipboardList,
+  Cpu,
+  Mail,
+  Clock,
+  CheckCircle2,
+  XCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Spinner } from "@/components/ui/spinner";
@@ -41,11 +47,6 @@ type Task = {
 };
 
 type Campaign = { id: string; name: string };
-
-/* op = the action a confirm-modal invocation will perform.
- * scope = "bulk" (act on every pending task currently in view) or a single
- * task id. Every mutating action funnels through this one modal so the
- * approve-all/schedule-all UX and the per-row actions share one code path. */
 type TaskOp = "approve" | "schedule" | "reject" | "delete";
 
 type PendingOp = {
@@ -63,10 +64,13 @@ const TAB_TASK_TYPE: Record<Tab, string> = {
   platform: "platform",
 };
 
-const TASK_STATUS_STYLE: Record<string, string> = {
-  pending: "bg-yellow-50 text-yellow-700 ring-1 ring-yellow-200",
-  scheduled: "bg-green-50 text-green-700 ring-1 ring-green-200",
-};
+const AVATAR_COLORS = [
+  "bg-violet-100 text-violet-700",
+  "bg-blue-100 text-blue-700",
+  "bg-emerald-100 text-emerald-700",
+  "bg-amber-100 text-amber-700",
+  "bg-rose-100 text-rose-700",
+];
 
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                            */
@@ -75,9 +79,21 @@ const TASK_STATUS_STYLE: Record<string, string> = {
 function getLeadName(task: Task) {
   return (
     task.leadFullName ??
-    (`${task.leadFirstName ?? ""} ${task.leadLastName ?? ""}`.trim() ||
-      "No lead")
+    (`${task.leadFirstName ?? ""} ${task.leadLastName ?? ""}`.trim() || "Unknown")
   );
+}
+
+function getInitials(name: string) {
+  const parts = name.split(" ").filter(Boolean);
+  return parts.length >= 2
+    ? `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase()
+    : name.slice(0, 2).toUpperCase();
+}
+
+function avatarColor(name: string) {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
+  return AVATAR_COLORS[h % AVATAR_COLORS.length];
 }
 
 function truncate(str: string, max: number) {
@@ -101,7 +117,6 @@ export default function TasksPage() {
   const [activeTab, setActiveTab] = useState<Tab>("outbound");
   const [search, setSearch] = useState("");
 
-  /* data */
   const [tasks, setTasks] = useState<Task[]>([]);
   const [tabCounts, setTabCounts] = useState<Record<Tab, number>>({
     outbound: 0,
@@ -111,11 +126,9 @@ export default function TasksPage() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
 
-  /* "Pending" status dropdown */
   const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("pending");
 
-  /* Filters slide-in panel — draft (uncommitted) values */
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [filterCampaign, setFilterCampaign] = useState("");
   const [filterCompany, setFilterCompany] = useState("");
@@ -123,8 +136,6 @@ export default function TasksPage() {
   const [filterDateStart, setFilterDateStart] = useState("");
   const [filterDateEnd, setFilterDateEnd] = useState("");
 
-  /* Filters slide-in panel — applied (committed) values that actually drive
-   * the fetch/filter pipeline */
   const [appliedCampaign, setAppliedCampaign] = useState("");
   const [appliedCompany, setAppliedCompany] = useState("");
   const [appliedLeadName, setAppliedLeadName] = useState("");
@@ -132,10 +143,7 @@ export default function TasksPage() {
   const [appliedDateEnd, setAppliedDateEnd] = useState("");
   const [appliedFilterCount, setAppliedFilterCount] = useState(0);
 
-  /* Approve dropdown */
   const [approveDropdownOpen, setApproveDropdownOpen] = useState(false);
-
-  /* Generalized confirm modal (bulk + per-row actions) */
   const [pendingOp, setPendingOp] = useState<PendingOp>(null);
   const [confirmDueDate, setConfirmDueDate] = useState("");
   const [confirmSubmitting, setConfirmSubmitting] = useState(false);
@@ -156,8 +164,7 @@ export default function TasksPage() {
   async function loadTasks() {
     setLoading(true);
     try {
-      const params = buildParams(true);
-      const res = await fetch(`/api/tasks?${params.toString()}`);
+      const res = await fetch(`/api/tasks?${buildParams(true).toString()}`);
       if (!res.ok) throw new Error("Failed to load tasks");
       const json = await res.json();
       setTasks(json.data ?? []);
@@ -170,8 +177,7 @@ export default function TasksPage() {
 
   async function loadTabCounts() {
     try {
-      const params = buildParams(false);
-      const res = await fetch(`/api/tasks?${params.toString()}`);
+      const res = await fetch(`/api/tasks?${buildParams(false).toString()}`);
       if (!res.ok) return;
       const json = await res.json();
       const counts: Record<Tab, number> = { outbound: 0, manual: 0, platform: 0 };
@@ -183,7 +189,7 @@ export default function TasksPage() {
       }
       setTabCounts(counts);
     } catch {
-      // non-critical — tab badge counts just won't refresh
+      /* non-critical */
     }
   }
 
@@ -194,7 +200,7 @@ export default function TasksPage() {
       const json = await res.json();
       setCampaigns(json.data ?? []);
     } catch {
-      // non-critical — campaign filter dropdown just stays empty
+      /* non-critical */
     }
   }
 
@@ -213,46 +219,38 @@ export default function TasksPage() {
   }, []);
 
   /* ---------------------------------------------------------------- */
-  /*  Client-side refinement (search box, lead-name text filter, date  */
-  /*  range) layered on top of the server-filtered `tasks` list         */
+  /*  Client-side filtering                                            */
   /* ---------------------------------------------------------------- */
 
   const displayedTasks = tasks.filter((t) => {
     const name = getLeadName(t).toLowerCase();
     const company = (t.leadCompanyName ?? "").toLowerCase();
     const message = (t.message ?? "").toLowerCase();
-
     const q = search.trim().toLowerCase();
-    if (q && !name.includes(q) && !company.includes(q) && !message.includes(q))
-      return false;
-
-    if (appliedLeadName.trim() && !name.includes(appliedLeadName.trim().toLowerCase()))
-      return false;
-
+    if (q && !name.includes(q) && !company.includes(q) && !message.includes(q)) return false;
+    if (appliedLeadName.trim() && !name.includes(appliedLeadName.trim().toLowerCase())) return false;
     if (appliedDateStart) {
-      const start = new Date(appliedDateStart).getTime();
-      if (new Date(t.createdAt).getTime() < start) return false;
+      if (new Date(t.createdAt).getTime() < new Date(appliedDateStart).getTime()) return false;
     }
     if (appliedDateEnd) {
       const end = new Date(appliedDateEnd).getTime() + 24 * 60 * 60 * 1000 - 1;
       if (new Date(t.createdAt).getTime() > end) return false;
     }
-
     return true;
   });
 
   const pendingCount = displayedTasks.filter((t) => t.status === "pending").length;
 
   /* ---------------------------------------------------------------- */
-  /*  Filter panel helpers                                              */
+  /*  Filter helpers                                                   */
   /* ---------------------------------------------------------------- */
 
   function applyFilters() {
     let count = 0;
-    if (filterCampaign) count += 1;
-    if (filterCompany.trim()) count += 1;
-    if (filterLeadName.trim()) count += 1;
-    if (filterDateStart || filterDateEnd) count += 1;
+    if (filterCampaign) count++;
+    if (filterCompany.trim()) count++;
+    if (filterLeadName.trim()) count++;
+    if (filterDateStart || filterDateEnd) count++;
     setAppliedFilterCount(count);
     setAppliedCampaign(filterCampaign);
     setAppliedCompany(filterCompany);
@@ -263,28 +261,18 @@ export default function TasksPage() {
   }
 
   function clearAllFilters() {
-    setFilterCampaign("");
-    setFilterCompany("");
-    setFilterLeadName("");
-    setFilterDateStart("");
-    setFilterDateEnd("");
-    setAppliedCampaign("");
-    setAppliedCompany("");
-    setAppliedLeadName("");
-    setAppliedDateStart("");
-    setAppliedDateEnd("");
+    setFilterCampaign(""); setFilterCompany(""); setFilterLeadName("");
+    setFilterDateStart(""); setFilterDateEnd("");
+    setAppliedCampaign(""); setAppliedCompany(""); setAppliedLeadName("");
+    setAppliedDateStart(""); setAppliedDateEnd("");
     setAppliedFilterCount(0);
   }
 
   /* ---------------------------------------------------------------- */
-  /*  Mutations                                                         */
+  /*  Mutations                                                        */
   /* ---------------------------------------------------------------- */
 
-  async function patchTask(
-    id: string,
-    action: "approve" | "schedule" | "reject",
-    dueDate?: string
-  ) {
+  async function patchTask(id: string, action: "approve" | "schedule" | "reject", dueDate?: string) {
     const res = await fetch(`/api/tasks/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -303,46 +291,28 @@ export default function TasksPage() {
     setConfirmSubmitting(true);
     try {
       if (pendingOp.scope === "bulk") {
-        const ids = displayedTasks
-          .filter((t) => t.status === "pending")
-          .map((t) => t.id);
-
+        const ids = displayedTasks.filter((t) => t.status === "pending").map((t) => t.id);
         if (ids.length === 0) return;
-
         const results = await Promise.all(
           ids.map(async (id) => ({
             id,
-            ok: await patchTask(
-              id,
-              pendingOp.op as "approve" | "schedule",
-              confirmDueDate
-            ),
+            ok: await patchTask(id, pendingOp.op as "approve" | "schedule", confirmDueDate),
           }))
         );
         const okIds = new Set(results.filter((r) => r.ok).map((r) => r.id));
         const failedCount = results.length - okIds.size;
-
         setTasks((prev) =>
           prev.map((t) =>
             okIds.has(t.id)
-              ? {
-                  ...t,
-                  status: "scheduled",
-                  dueDate: confirmDueDate
-                    ? new Date(confirmDueDate).toISOString()
-                    : t.dueDate,
-                }
+              ? { ...t, status: "scheduled", dueDate: confirmDueDate ? new Date(confirmDueDate).toISOString() : t.dueDate }
               : t
           )
         );
-
         const verb = pendingOp.op === "approve" ? "Approved" : "Scheduled";
         if (okIds.size > 0) toast.success(`${verb} ${okIds.size} task(s)`);
-        if (failedCount > 0)
-          toast.error(`Failed to ${pendingOp.op} ${failedCount} task(s)`);
+        if (failedCount > 0) toast.error(`Failed to ${pendingOp.op} ${failedCount} task(s)`);
       } else {
         const id = pendingOp.scope;
-
         if (pendingOp.op === "delete") {
           const res = await fetch(`/api/tasks/${id}`, { method: "DELETE" });
           if (res.ok) {
@@ -352,11 +322,7 @@ export default function TasksPage() {
             toast.error("Failed to delete task");
           }
         } else {
-          const ok = await patchTask(
-            id,
-            pendingOp.op,
-            pendingOp.op === "schedule" ? confirmDueDate : undefined
-          );
+          const ok = await patchTask(id, pendingOp.op, pendingOp.op === "schedule" ? confirmDueDate : undefined);
           if (!ok) {
             toast.error(`Failed to ${pendingOp.op} task`);
           } else if (pendingOp.op === "reject") {
@@ -366,20 +332,11 @@ export default function TasksPage() {
             setTasks((prev) =>
               prev.map((t) =>
                 t.id === id
-                  ? {
-                      ...t,
-                      status: "scheduled",
-                      dueDate:
-                        pendingOp.op === "schedule" && confirmDueDate
-                          ? new Date(confirmDueDate).toISOString()
-                          : t.dueDate,
-                    }
+                  ? { ...t, status: "scheduled", dueDate: pendingOp.op === "schedule" && confirmDueDate ? new Date(confirmDueDate).toISOString() : t.dueDate }
                   : t
               )
             );
-            toast.success(
-              pendingOp.op === "approve" ? "Task approved" : "Task scheduled"
-            );
+            toast.success(pendingOp.op === "approve" ? "Task approved" : "Task scheduled");
           }
         }
       }
@@ -392,109 +349,91 @@ export default function TasksPage() {
     }
   }
 
-  const tabs: { id: Tab; label: string }[] = [
-    { id: "outbound", label: "Outbound to approve" },
-    { id: "manual", label: "Manual tasks" },
-    { id: "platform", label: "Platform tasks" },
+  const TAB_CONFIG: { id: Tab; label: string; icon: React.ElementType; emptyTitle: string; emptyDesc: string }[] = [
+    {
+      id: "outbound",
+      label: "Outbound to approve",
+      icon: Send,
+      emptyTitle: "No outbound to approve",
+      emptyDesc: "Outbound messages waiting for your approval will appear here.",
+    },
+    {
+      id: "manual",
+      label: "Manual tasks",
+      icon: ClipboardList,
+      emptyTitle: "No manual tasks",
+      emptyDesc: "Manual tasks assigned to you will appear here.",
+    },
+    {
+      id: "platform",
+      label: "Platform tasks",
+      icon: Cpu,
+      emptyTitle: "No platform tasks",
+      emptyDesc: "Automated platform tasks will appear here.",
+    },
   ];
 
-  const modalCopy: Record<
-    TaskOp,
-    { title: string; body: (isBulk: boolean, n: number) => string; cta: string }
-  > = {
+  const modalCopy: Record<TaskOp, { title: string; body: (isBulk: boolean, n: number) => string; cta: string; danger?: boolean }> = {
     approve: {
       title: "Approve task(s)?",
-      body: (isBulk, n) =>
-        isBulk
-          ? `This will approve ${n} pending task(s) immediately.`
-          : "This will approve this task immediately.",
+      body: (isBulk, n) => isBulk ? `This will approve ${n} pending task(s) immediately.` : "This will approve this task immediately.",
       cta: "Approve",
     },
     schedule: {
       title: "Schedule task(s)?",
-      body: (isBulk, n) =>
-        isBulk
-          ? `This will schedule ${n} pending task(s).`
-          : "This will schedule this task.",
+      body: (isBulk, n) => isBulk ? `This will schedule ${n} pending task(s).` : "This will schedule this task.",
       cta: "Schedule",
     },
     reject: {
       title: "Reject this task?",
       body: () => "This permanently removes the task from the queue. This cannot be undone.",
       cta: "Reject",
+      danger: true,
     },
     delete: {
       title: "Delete this task?",
       body: () => "This permanently deletes the task. This cannot be undone.",
       cta: "Delete",
+      danger: true,
     },
   };
 
-  return (
-    <div className="p-6">
-      {/* Header */}
-      <h1 className="text-2xl font-bold text-gray-900 mb-6">Tasks</h1>
+  const currentTabConfig = TAB_CONFIG.find((t) => t.id === activeTab)!;
 
-      {/* Tabs + Controls Row */}
-      <div className="flex items-center justify-between border-b border-gray-200 mb-6">
-        {/* Tabs */}
-        <div className="flex gap-6">
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`pb-3 text-sm font-medium transition-colors ${
-                activeTab === tab.id
-                  ? "border-b-2 border-violet-600 text-violet-700"
-                  : "text-gray-500 hover:text-gray-700"
-              }`}
-            >
-              {tab.label}{" "}
-              <span
-                className={`ml-1 ${
-                  activeTab === tab.id ? "text-violet-500" : "text-gray-400"
-                }`}
-              >
-                [{tabCounts[tab.id]}]
-              </span>
-            </button>
-          ))}
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Tasks</h1>
+          <p className="text-sm text-gray-500 mt-1">
+            Review outbound messages and manage your task queue
+          </p>
         </div>
 
-        {/* Controls */}
-        <div className="flex items-center gap-2 pb-3">
-          {/* Pending/Scheduled dropdown */}
+        <div className="flex items-center gap-2">
+          {/* Status filter */}
           <div className="relative">
             <button
               onClick={() => setStatusDropdownOpen(!statusDropdownOpen)}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors capitalize"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors capitalize shadow-sm"
             >
+              <Clock className="h-3.5 w-3.5 text-gray-400" />
               {statusFilter}
-              <ChevronDown
-                className={`h-3.5 w-3.5 transition-transform ${statusDropdownOpen ? "rotate-180" : ""}`}
-              />
+              <ChevronDown className={cn("h-3.5 w-3.5 text-gray-400 transition-transform", statusDropdownOpen && "rotate-180")} />
             </button>
-
             {statusDropdownOpen && (
               <>
-                <div
-                  className="fixed inset-0 z-20"
-                  onClick={() => setStatusDropdownOpen(false)}
-                />
-                <div className="absolute left-0 top-10 z-30 w-40 rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
+                <div className="fixed inset-0 z-20" onClick={() => setStatusDropdownOpen(false)} />
+                <div className="absolute right-0 top-10 z-30 w-40 rounded-xl border border-gray-100 bg-white py-1 shadow-xl">
                   {(["pending", "scheduled"] as StatusFilter[]).map((status) => (
                     <button
                       key={status}
-                      onClick={() => {
-                        setStatusFilter(status);
-                        setStatusDropdownOpen(false);
-                      }}
+                      onClick={() => { setStatusFilter(status); setStatusDropdownOpen(false); }}
                       className="flex w-full items-center justify-between px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors capitalize"
                     >
                       {status}
-                      {statusFilter === status && (
-                        <Check className="h-3.5 w-3.5 text-[#6C47FF]" />
-                      )}
+                      {statusFilter === status && <Check className="h-3.5 w-3.5 text-[#6C47FF]" />}
                     </button>
                   ))}
                 </div>
@@ -506,16 +445,16 @@ export default function TasksPage() {
           <button
             onClick={() => setFiltersOpen(true)}
             className={cn(
-              "inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm transition-colors",
+              "inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm transition-colors shadow-sm",
               appliedFilterCount > 0
                 ? "border-violet-300 bg-violet-50 text-violet-700"
-                : "border-gray-300 text-gray-700 hover:bg-gray-50"
+                : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
             )}
           >
             <SlidersHorizontal className="h-3.5 w-3.5" />
             Filters
             {appliedFilterCount > 0 && (
-              <span className="ml-1 inline-flex h-4 w-4 items-center justify-center rounded-full bg-violet-600 text-[10px] font-bold text-white">
+              <span className="ml-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full bg-[#6C47FF] text-[10px] font-bold text-white">
                 {appliedFilterCount}
               </span>
             )}
@@ -523,74 +462,90 @@ export default function TasksPage() {
         </div>
       </div>
 
+      {/* Tabs */}
+      <div className="border-b border-gray-200">
+        <nav className="flex gap-1">
+          {TAB_CONFIG.map(({ id, label, icon: Icon }) => (
+            <button
+              key={id}
+              onClick={() => setActiveTab(id)}
+              className={cn(
+                "inline-flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors relative",
+                activeTab === id ? "text-[#6C47FF]" : "text-gray-500 hover:text-gray-700"
+              )}
+            >
+              <Icon className="h-4 w-4" />
+              {label}
+              <span
+                className={cn(
+                  "inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-semibold",
+                  activeTab === id
+                    ? "bg-violet-100 text-[#6C47FF]"
+                    : "bg-gray-100 text-gray-500"
+                )}
+              >
+                {tabCounts[id]}
+              </span>
+              {activeTab === id && (
+                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#6C47FF] rounded-full" />
+              )}
+            </button>
+          ))}
+        </nav>
+      </div>
+
       {/* Search + Approve All */}
-      <div className="flex items-center gap-3 mb-8">
-        <div className="relative w-full max-w-md">
+      <div className="flex items-center gap-3">
+        <div className="relative flex-1 max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
           <input
             type="text"
-            placeholder="Search lead, company, subject..."
+            placeholder="Search lead, company, subject…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 pl-9 text-sm text-gray-900 placeholder:text-gray-400 focus:border-[#6C47FF] focus:outline-none focus:ring-1 focus:ring-[#6C47FF]"
+            className="w-full rounded-lg border border-gray-200 bg-white pl-9 pr-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-[#6C47FF] focus:outline-none focus:ring-1 focus:ring-[#6C47FF]"
           />
         </div>
 
-        {/* Approve all button + dropdown */}
-        <div className="flex items-center">
+        {/* Approve all split button */}
+        <div className="flex items-center rounded-lg overflow-hidden border border-[#6C47FF] shadow-sm">
           <button
             disabled={pendingCount === 0}
-            onClick={() => {
-              if (pendingCount > 0) openOp("approve", "bulk");
-            }}
-            className={`rounded-l-lg bg-[#6C47FF] px-4 py-2 text-sm font-medium text-white transition-colors whitespace-nowrap ${
-              pendingCount === 0
-                ? "opacity-50 cursor-not-allowed"
-                : "hover:bg-[#5a3ad4]"
-            }`}
+            onClick={() => { if (pendingCount > 0) openOp("approve", "bulk"); }}
+            className={cn(
+              "px-4 py-2 text-sm font-semibold text-white bg-[#6C47FF] transition-colors whitespace-nowrap",
+              pendingCount === 0 ? "opacity-50 cursor-not-allowed" : "hover:bg-[#5a3ad4]"
+            )}
           >
             Approve all ({pendingCount})
           </button>
-
-          {/* Dropdown arrow */}
-          <div className="relative">
+          <div className="relative border-l border-violet-400">
             <button
-              onClick={() => setApproveDropdownOpen(!approveDropdownOpen)}
-              className={`rounded-r-lg border-l border-violet-400 bg-[#6C47FF] px-2 py-2 text-white transition-colors ${
-                pendingCount === 0
-                  ? "opacity-50 cursor-not-allowed"
-                  : "hover:bg-[#5a3ad4]"
-              }`}
               disabled={pendingCount === 0}
+              onClick={() => setApproveDropdownOpen(!approveDropdownOpen)}
+              className={cn(
+                "px-2 py-2 text-white bg-[#6C47FF] transition-colors",
+                pendingCount === 0 ? "opacity-50 cursor-not-allowed" : "hover:bg-[#5a3ad4]"
+              )}
             >
-              <ChevronDown
-                className={`h-4 w-4 transition-transform ${approveDropdownOpen ? "rotate-180" : ""}`}
-              />
+              <ChevronDown className={cn("h-4 w-4 transition-transform", approveDropdownOpen && "rotate-180")} />
             </button>
-
             {approveDropdownOpen && pendingCount > 0 && (
               <>
-                <div
-                  className="fixed inset-0 z-20"
-                  onClick={() => setApproveDropdownOpen(false)}
-                />
-                <div className="absolute right-0 top-10 z-30 w-40 rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
+                <div className="fixed inset-0 z-20" onClick={() => setApproveDropdownOpen(false)} />
+                <div className="absolute right-0 top-10 z-30 w-44 rounded-xl border border-gray-100 bg-white py-1 shadow-xl">
                   <button
-                    onClick={() => {
-                      openOp("approve", "bulk");
-                      setApproveDropdownOpen(false);
-                    }}
-                    className="flex w-full items-center px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                    onClick={() => { openOp("approve", "bulk"); setApproveDropdownOpen(false); }}
+                    className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                   >
+                    <CheckCircle2 className="h-4 w-4 text-[#6C47FF]" />
                     Approve all
                   </button>
                   <button
-                    onClick={() => {
-                      openOp("schedule", "bulk");
-                      setApproveDropdownOpen(false);
-                    }}
-                    className="flex w-full items-center px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                    onClick={() => { openOp("schedule", "bulk"); setApproveDropdownOpen(false); }}
+                    className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                   >
+                    <CalendarClock className="h-4 w-4 text-gray-500" />
                     Schedule all
                   </button>
                 </div>
@@ -604,136 +559,159 @@ export default function TasksPage() {
       {loading ? (
         <Spinner />
       ) : displayedTasks.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20">
-          <Send className="h-10 w-10 text-gray-300 mb-3" />
-          <p className="text-sm font-medium text-gray-500">
-            {activeTab === "outbound"
-              ? "No outbound to approve"
-              : activeTab === "manual"
-                ? "No manual tasks"
-                : "No platform tasks"}
-          </p>
-          <p className="text-xs text-gray-400 mt-1">
-            {activeTab === "outbound"
-              ? "Outbound messages waiting for approval will appear here."
-              : activeTab === "manual"
-                ? "Manual tasks assigned to you will appear here."
-                : "Platform tasks will appear here."}
-          </p>
+        <div className="rounded-2xl border border-gray-200 bg-white flex flex-col items-center justify-center py-20 text-center px-6">
+          <div className="h-14 w-14 rounded-full bg-gray-100 flex items-center justify-center mb-4">
+            <currentTabConfig.icon className="h-7 w-7 text-gray-400" />
+          </div>
+          <h3 className="text-base font-semibold text-gray-900 mb-1">{currentTabConfig.emptyTitle}</h3>
+          <p className="text-sm text-gray-500 max-w-xs">{currentTabConfig.emptyDesc}</p>
+          {appliedFilterCount > 0 && (
+            <button
+              onClick={clearAllFilters}
+              className="mt-4 text-sm text-[#6C47FF] hover:underline font-medium"
+            >
+              Clear all filters
+            </button>
+          )}
         </div>
       ) : (
-        <div className="rounded-xl border border-gray-200 bg-white overflow-hidden">
+        <div className="rounded-2xl border border-gray-200 bg-white overflow-hidden shadow-sm">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-gray-200 bg-gray-50">
-                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">
+              <tr className="border-b border-gray-100 bg-gray-50/80">
+                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">
                   Lead
                 </th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">
+                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">
                   Message
                 </th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 hidden md:table-cell">
+                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide hidden md:table-cell">
                   Campaign
                 </th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">
+                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">
                   Status
                 </th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 hidden lg:table-cell">
+                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide hidden lg:table-cell">
                   Created
                 </th>
-                <th className="text-right px-4 py-3 text-xs font-medium text-gray-500">
+                <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">
                   Actions
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
-              {displayedTasks.map((task) => (
-                <tr key={task.id} className="hover:bg-violet-50/40 transition-colors">
-                  <td className="px-4 py-3">
-                    <p className="font-medium text-gray-900">{getLeadName(task)}</p>
-                    <p className="text-xs text-gray-400">
-                      {task.leadCompanyName ?? "—"}
-                    </p>
-                  </td>
-                  <td className="px-4 py-3 text-gray-600 max-w-[280px]">
-                    {truncate(task.message ?? "", 90)}
-                  </td>
-                  <td className="px-4 py-3 hidden md:table-cell text-gray-500">
-                    {task.campaignName ?? "—"}
-                  </td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={cn(
-                        "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium capitalize",
-                        TASK_STATUS_STYLE[task.status ?? "pending"] ??
-                          "text-gray-500 bg-gray-100"
-                      )}
-                    >
-                      {task.status ?? "pending"}
-                    </span>
-                    {task.dueDate && (
-                      <p className="mt-1 flex items-center gap-1 text-[11px] text-gray-400">
-                        <CalendarClock className="h-3 w-3" />
-                        {formatDate(task.dueDate)}
-                      </p>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 hidden lg:table-cell text-xs text-gray-500">
-                    {formatDate(task.createdAt)}
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <div className="flex items-center justify-end gap-1">
-                      {task.status === "pending" ? (
-                        <>
-                          <button
-                            onClick={() => openOp("approve", task.id)}
-                            className="rounded-lg px-2 py-1 text-xs font-medium text-violet-700 hover:bg-violet-50 transition-colors"
-                          >
-                            Approve
-                          </button>
-                          <button
-                            onClick={() => openOp("schedule", task.id)}
-                            className="rounded-lg px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100 transition-colors"
-                          >
-                            Schedule
-                          </button>
-                          <button
-                            onClick={() => openOp("reject", task.id)}
-                            className="rounded-lg px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50 transition-colors"
-                          >
-                            Reject
-                          </button>
-                        </>
+            <tbody className="divide-y divide-gray-50">
+              {displayedTasks.map((task) => {
+                const name = getLeadName(task);
+                const initials = getInitials(name);
+                const colorClass = avatarColor(name);
+                return (
+                  <tr key={task.id} className="hover:bg-violet-50/30 transition-colors group">
+                    <td className="px-4 py-3.5">
+                      <div className="flex items-center gap-3">
+                        <div className={cn("h-8 w-8 rounded-full flex items-center justify-center text-xs font-semibold shrink-0", colorClass)}>
+                          {initials}
+                        </div>
+                        <div>
+                          <p className="font-medium text-gray-900 leading-snug">{name}</p>
+                          <p className="text-xs text-gray-400 mt-0.5">{task.leadEmail ?? task.leadCompanyName ?? "—"}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3.5 max-w-[260px]">
+                      {task.message ? (
+                        <div className="flex items-start gap-2">
+                          <Mail className="h-3.5 w-3.5 text-gray-300 mt-0.5 shrink-0" />
+                          <p className="text-sm text-gray-600 leading-snug">{truncate(task.message, 80)}</p>
+                        </div>
                       ) : (
-                        <button
-                          onClick={() => openOp("delete", task.id)}
-                          className="inline-flex items-center justify-center h-8 w-8 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
-                          title="Delete task"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
+                        <span className="text-gray-400">—</span>
                       )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                    <td className="px-4 py-3.5 hidden md:table-cell">
+                      {task.campaignName ? (
+                        <span className="inline-flex items-center rounded-full border border-violet-200 bg-violet-50 px-2.5 py-0.5 text-xs font-medium text-violet-700">
+                          {task.campaignName}
+                        </span>
+                      ) : (
+                        <span className="text-gray-400 text-sm">—</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3.5">
+                      <span
+                        className={cn(
+                          "inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium capitalize",
+                          task.status === "pending"
+                            ? "bg-amber-50 text-amber-700 ring-1 ring-amber-200"
+                            : "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200"
+                        )}
+                      >
+                        {task.status === "pending" ? (
+                          <Clock className="h-3 w-3" />
+                        ) : (
+                          <CheckCircle2 className="h-3 w-3" />
+                        )}
+                        {task.status ?? "pending"}
+                      </span>
+                      {task.dueDate && (
+                        <p className="mt-1 flex items-center gap-1 text-[11px] text-gray-400">
+                          <CalendarClock className="h-3 w-3" />
+                          {formatDate(task.dueDate)}
+                        </p>
+                      )}
+                    </td>
+                    <td className="px-4 py-3.5 hidden lg:table-cell text-xs text-gray-400">
+                      {formatDate(task.createdAt)}
+                    </td>
+                    <td className="px-4 py-3.5 text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        {task.status === "pending" ? (
+                          <>
+                            <button
+                              onClick={() => openOp("approve", task.id)}
+                              className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-[#6C47FF] bg-violet-50 hover:bg-violet-100 transition-colors"
+                            >
+                              <CheckCircle2 className="h-3.5 w-3.5" />
+                              Approve
+                            </button>
+                            <button
+                              onClick={() => openOp("schedule", task.id)}
+                              className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-100 transition-colors"
+                            >
+                              <CalendarClock className="h-3.5 w-3.5" />
+                              Schedule
+                            </button>
+                            <button
+                              onClick={() => openOp("reject", task.id)}
+                              className="inline-flex items-center justify-center h-7 w-7 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                              title="Reject"
+                            >
+                              <XCircle className="h-4 w-4" />
+                            </button>
+                          </>
+                        ) : (
+                          <button
+                            onClick={() => openOp("delete", task.id)}
+                            className="inline-flex items-center justify-center h-7 w-7 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                            title="Delete"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
       )}
 
-      {/* ========== FILTERS SLIDE-IN PANEL ========== */}
+      {/* ========== FILTERS PANEL ========== */}
       {filtersOpen && (
         <>
-          {/* backdrop */}
-          <div
-            className="fixed inset-0 z-40 bg-black/20"
-            onClick={() => setFiltersOpen(false)}
-          />
-
-          {/* panel */}
-          <div className="fixed top-0 right-0 z-50 h-full w-[360px] bg-white shadow-2xl border-l border-gray-200 flex flex-col">
-            {/* header */}
+          <div className="fixed inset-0 z-40 bg-black/20" onClick={() => setFiltersOpen(false)} />
+          <div className="fixed top-0 right-0 z-50 h-full w-[360px] bg-white shadow-2xl border-l border-gray-100 flex flex-col">
             <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
               <h2 className="text-base font-bold text-gray-900">Filters</h2>
               <button
@@ -744,13 +722,9 @@ export default function TasksPage() {
               </button>
             </div>
 
-            {/* body */}
-            <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
-              {/* Campaign */}
+            <div className="flex-1 overflow-y-auto px-5 py-5 space-y-5">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Campaign
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Campaign</label>
                 <select
                   value={filterCampaign}
                   onChange={(e) => setFilterCampaign(e.target.value)}
@@ -758,18 +732,13 @@ export default function TasksPage() {
                 >
                   <option value="">All campaigns</option>
                   {campaigns.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
+                    <option key={c.id} value={c.id}>{c.name}</option>
                   ))}
                 </select>
               </div>
 
-              {/* Lead name */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Lead name contains
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Lead name</label>
                 <input
                   type="text"
                   value={filterLeadName}
@@ -779,11 +748,8 @@ export default function TasksPage() {
                 />
               </div>
 
-              {/* Company */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Company contains
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Company</label>
                 <input
                   type="text"
                   value={filterCompany}
@@ -793,16 +759,11 @@ export default function TasksPage() {
                 />
               </div>
 
-              {/* Generated on: date range */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Generated on
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Generated on</label>
                 <div className="flex gap-2">
                   <div className="flex-1">
-                    <label className="block text-xs text-gray-400 mb-1">
-                      Start date
-                    </label>
+                    <label className="block text-xs text-gray-400 mb-1">From</label>
                     <input
                       type="date"
                       value={filterDateStart}
@@ -811,9 +772,7 @@ export default function TasksPage() {
                     />
                   </div>
                   <div className="flex-1">
-                    <label className="block text-xs text-gray-400 mb-1">
-                      End date
-                    </label>
+                    <label className="block text-xs text-gray-400 mb-1">To</label>
                     <input
                       type="date"
                       value={filterDateEnd}
@@ -825,7 +784,6 @@ export default function TasksPage() {
               </div>
             </div>
 
-            {/* footer */}
             <div className="flex items-center justify-between px-5 py-4 border-t border-gray-100">
               <button
                 onClick={clearAllFilters}
@@ -844,14 +802,23 @@ export default function TasksPage() {
         </>
       )}
 
-      {/* ========== CONFIRM MODAL (bulk + per-row actions) ========== */}
+      {/* ========== CONFIRM MODAL ========== */}
       {pendingOp && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="w-full max-w-sm rounded-2xl bg-white shadow-xl mx-4 p-6">
-            <h3 className="text-lg font-bold text-gray-900 mb-2">
-              {modalCopy[pendingOp.op].title}
-            </h3>
-            <p className="text-sm text-gray-500 mb-4">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="w-full max-w-sm rounded-2xl bg-white shadow-2xl p-6">
+            <div className="flex items-center gap-3 mb-3">
+              <div className={cn(
+                "h-9 w-9 rounded-full flex items-center justify-center",
+                modalCopy[pendingOp.op].danger ? "bg-red-100" : "bg-violet-100"
+              )}>
+                {modalCopy[pendingOp.op].danger
+                  ? <Trash2 className="h-4 w-4 text-red-600" />
+                  : <CheckCircle2 className="h-4 w-4 text-[#6C47FF]" />
+                }
+              </div>
+              <h3 className="text-base font-bold text-gray-900">{modalCopy[pendingOp.op].title}</h3>
+            </div>
+            <p className="text-sm text-gray-500 mb-4 pl-12">
               {modalCopy[pendingOp.op].body(pendingOp.scope === "bulk", pendingCount)}
             </p>
 
@@ -869,13 +836,10 @@ export default function TasksPage() {
               </div>
             )}
 
-            <div className="flex items-center justify-end gap-2">
+            <div className="flex items-center justify-end gap-2 pt-2">
               <button
                 disabled={confirmSubmitting}
-                onClick={() => {
-                  setPendingOp(null);
-                  setConfirmDueDate("");
-                }}
+                onClick={() => { setPendingOp(null); setConfirmDueDate(""); }}
                 className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
               >
                 Cancel
@@ -885,7 +849,7 @@ export default function TasksPage() {
                 onClick={confirmPendingOp}
                 className={cn(
                   "inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold text-white transition-colors disabled:opacity-60",
-                  pendingOp.op === "reject" || pendingOp.op === "delete"
+                  modalCopy[pendingOp.op].danger
                     ? "bg-red-600 hover:bg-red-700"
                     : "bg-[#6C47FF] hover:bg-[#5a39dd]"
                 )}

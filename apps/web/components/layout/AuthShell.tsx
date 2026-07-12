@@ -28,7 +28,7 @@ function UpgradeBanner({
 
   return (
     <div
-      className="w-full py-2.5 px-4 text-sm text-white text-center flex items-center justify-center gap-4"
+      className="relative z-[5] w-full py-2.5 px-4 text-sm text-white text-center flex items-center justify-center gap-4"
       style={{
         background: "linear-gradient(90deg, #7C3AED, #A855F7, #EC4899, #F97316)",
       }}

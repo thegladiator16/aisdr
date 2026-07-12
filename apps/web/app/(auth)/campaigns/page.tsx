@@ -27,6 +27,7 @@ import {
   ChevronDown,
   Trash2,
 } from "lucide-react";
+import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { Spinner } from "@/components/ui/spinner";
 
@@ -261,8 +262,13 @@ export default function CampaignsPage() {
         }),
       });
       if (!res.ok) throw new Error("Failed to create campaign");
+      const json = await res.json();
       toast.success("Campaign created");
       closeModal();
+      if (json.data?.id) {
+        router.push(`/campaigns/${json.data.id}`);
+        return;
+      }
       loadCampaigns();
     } catch (err) {
       setCreateError(
@@ -834,6 +840,16 @@ export default function CampaignsPage() {
                     ))}
                   </div>
 
+                  {/* Build link */}
+                  <div className="mt-3">
+                    <Link
+                      href={`/campaigns/${c.id}`}
+                      className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-violet-200 bg-violet-50 py-2 text-xs font-semibold text-violet-700 hover:bg-violet-100 transition"
+                    >
+                      <ChevronRight className="h-3.5 w-3.5" /> Open builder
+                    </Link>
+                  </div>
+
                   {/* require-approval toggle */}
                   <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between gap-2">
                     <div className="min-w-0">
@@ -991,7 +1007,7 @@ export default function CampaignsPage() {
 
       {/* ========== NEW TRIGGER MODAL ========== */}
       {showTriggerModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-2xl bg-white shadow-xl mx-4">
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
               <h2 className="text-lg font-bold text-gray-900">New trigger</h2>
@@ -1087,7 +1103,7 @@ export default function CampaignsPage() {
 
       {/* ========== REACTIVATE STALE LEADS MODAL ========== */}
       {reactivateTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-2xl bg-white shadow-xl mx-4">
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
               <h2 className="text-lg font-bold text-gray-900">
@@ -1179,7 +1195,7 @@ export default function CampaignsPage() {
 
       {/* ========== ARCHIVE CONFIRMATION MODAL ========== */}
       {archiveTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 backdrop-blur-sm">
           <div className="w-full max-w-sm rounded-2xl bg-white shadow-xl mx-4 p-6">
             <div className="flex items-center gap-3 mb-4">
               <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-50">
@@ -1215,7 +1231,7 @@ export default function CampaignsPage() {
 
       {/* ========== NEW CAMPAIGN MODAL ========== */}
       {modalState !== "closed" && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 backdrop-blur-sm">
           <div className="w-full max-w-lg rounded-2xl bg-white shadow-xl mx-4">
             {/* modal header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">

@@ -110,7 +110,7 @@ function BuyCreditsModal({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 backdrop-blur-sm">
       <div className="w-full max-w-2xl rounded-2xl bg-white shadow-xl mx-4 overflow-hidden max-h-[92vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-[#E5E7EB]">
@@ -388,48 +388,6 @@ function BuyCreditsModal({ onClose }: { onClose: () => void }) {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Add Payment Method Modal                                           */
-/* ------------------------------------------------------------------ */
-function AddPaymentModal({ onClose }: { onClose: () => void }) {
-  // AryaSDR never stores raw card numbers — cards are entered directly into
-  // Razorpay's PCI-compliant Checkout at the moment of payment (see
-  // useRazorpay()/openCheckout in BuyCreditsModal and ChangePlanModal). A
-  // form here that collected card details and just showed a fake "saved"
-  // toast without ever persisting or tokenizing anything would be actively
-  // misleading, so this modal explains the real flow instead of faking one.
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-      <div className="w-full max-w-md rounded-2xl bg-white shadow-xl mx-4">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
-          <h2 className="text-lg font-bold text-gray-900">Payment methods</h2>
-          <button onClick={onClose} className="p-1 text-gray-400 hover:text-gray-600 rounded">
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-        <div className="p-6 space-y-4">
-          <div className="flex items-start gap-3 rounded-lg bg-gray-50 border border-gray-200 p-4">
-            <Lock className="h-5 w-5 text-gray-400 shrink-0 mt-0.5" />
-            <p className="text-sm text-gray-600 leading-relaxed">
-              AryaSDR doesn&apos;t store card details on file. Every purchase — upgrading
-              your plan, buying credits, or adding mailboxes/seats — opens Razorpay&apos;s
-              secure checkout where you enter payment details directly.
-            </p>
-          </div>
-          <div className="flex justify-end pt-2">
-            <button
-              onClick={onClose}
-              className="px-4 py-2 bg-[#6C47FF] text-white text-sm font-medium rounded-lg hover:bg-[#5a3ad4] transition-colors"
-            >
-              Got it
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ------------------------------------------------------------------ */
 /*  Billing Page                                                       */
 /* ------------------------------------------------------------------ */
 type Transaction = {
@@ -465,7 +423,6 @@ export default function BillingPage() {
 
   const [showCreditsModal, setShowCreditsModal] = useState(false);
   const [showPlanModal, setShowPlanModal] = useState(false);
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
 
   // Edit billing details
   const [editingDetails, setEditingDetails] = useState(false);
@@ -608,9 +565,11 @@ export default function BillingPage() {
   const creditsRemaining = subscription
     ? Math.max(0, subscription.credits - subscription.creditsUsed)
     : 0;
-  const creditsUsagePct = subscription && subscription.credits > 0
-    ? Math.min(100, Math.round((subscription.creditsUsed / subscription.credits) * 100))
-    : 0;
+  const creditsRemainingPct = subscription && subscription.credits > 0
+    ? Math.round((creditsRemaining / subscription.credits) * 100)
+    : 100;
+  const creditsBarColor =
+    creditsRemainingPct > 50 ? "#6C47FF" : creditsRemainingPct > 20 ? "#F59E0B" : "#EF4444";
   const planLabel = subscription ? PLAN_LABELS[subscription.tier] ?? subscription.tier : "-";
   const renewalDate = subscription
     ? formatDate(subscription.isTrialing ? subscription.trialEndsAt : subscription.currentPeriodEnd)
@@ -655,10 +614,10 @@ export default function BillingPage() {
               : "Loading…"}
           </span>
         </div>
-        <div className="w-full h-1.5 bg-gray-200 rounded-full overflow-hidden">
+        <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
           <div
-            className="h-full bg-[#6C47FF] rounded-full transition-all"
-            style={{ width: `${creditsUsagePct}%` }}
+            className="h-full rounded-full transition-all duration-500"
+            style={{ width: `${creditsRemainingPct}%`, backgroundColor: creditsBarColor }}
           />
         </div>
       </div>
@@ -812,24 +771,16 @@ export default function BillingPage() {
       <div className="bg-white border border-gray-200 rounded-xl p-6">
         <div className="flex items-start justify-between mb-4">
           <h2 className="text-sm font-semibold text-gray-900">Payment details</h2>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setShowPaymentModal(true)}
-              className="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-            >
-              Add payment method
-            </button>
-            <button
-              onClick={() => {
-                setNameDraft(billingName);
-                setEmailDraft(billingEmail);
-                setEditingDetails(true);
-              }}
-              className="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-            >
-              Edit details
-            </button>
-          </div>
+          <button
+            onClick={() => {
+              setNameDraft(billingName);
+              setEmailDraft(billingEmail);
+              setEditingDetails(true);
+            }}
+            className="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            Edit details
+          </button>
         </div>
 
         {editingDetails ? (
@@ -980,7 +931,6 @@ export default function BillingPage() {
       {/* Modals */}
       {showCreditsModal && <BuyCreditsModal onClose={() => setShowCreditsModal(false)} />}
       {showPlanModal && <ChangePlanModal onClose={() => setShowPlanModal(false)} />}
-      {showPaymentModal && <AddPaymentModal onClose={() => setShowPaymentModal(false)} />}
     </div>
   );
 }

@@ -476,7 +476,7 @@ export default function OnboardingPage() {
   /* ---------------------------------------------------------------- */
 
   return (
-    <div className="fixed inset-0 z-50 flex bg-[#FAFAFA]">
+    <div className="fixed inset-0 z-[9999] flex bg-[#FAFAFA]">
       {/* ---- Left: Arya chat panel ---- */}
       <div className="hidden md:flex w-[40%] flex-col bg-gradient-to-br from-[#6C47FF] to-[#4F35CC] text-white">
         {/* Avatar */}
