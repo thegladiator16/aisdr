@@ -13,6 +13,12 @@ const leadRowSchema = z.object({
   email: z.string().optional(),
   companyName: z.string().optional(),
   jobTitle: z.string().optional(),
+  phone: z.string().optional(),
+  linkedinUrl: z.string().optional(),
+  companyWebsite: z.string().optional(),
+  location: z.string().optional(),
+  country: z.string().optional(),
+  industry: z.string().optional(),
 });
 
 const bulkSchema = z.object({
@@ -44,6 +50,12 @@ export async function POST(req: NextRequest) {
           email: row.email || undefined,
           companyName: row.companyName || undefined,
           jobTitle: row.jobTitle || undefined,
+          phone: row.phone || undefined,
+          linkedinUrl: row.linkedinUrl || undefined,
+          companyWebsite: row.companyWebsite || undefined,
+          location: row.location || undefined,
+          country: row.country || undefined,
+          industry: row.industry || undefined,
           status: "new" as const,
           source: "csv_import" as const,
         };

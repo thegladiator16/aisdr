@@ -15,6 +15,12 @@ const createLeadSchema = z.object({
   email: z.string().email().optional().or(z.literal("")),
   companyName: z.string().optional(),
   jobTitle: z.string().optional(),
+  phone: z.string().optional(),
+  linkedinUrl: z.string().optional(),
+  companyWebsite: z.string().optional(),
+  location: z.string().optional(),
+  country: z.string().optional(),
+  industry: z.string().optional(),
   status: z.string().optional(),
 });
 
@@ -102,6 +108,12 @@ export async function POST(req: NextRequest) {
         email: parsed.email || undefined,
         companyName: parsed.companyName,
         jobTitle: parsed.jobTitle,
+        phone: parsed.phone || undefined,
+        linkedinUrl: parsed.linkedinUrl || undefined,
+        companyWebsite: parsed.companyWebsite || undefined,
+        location: parsed.location || undefined,
+        country: parsed.country || undefined,
+        industry: parsed.industry || undefined,
         status: parsed.status ?? "new",
       })
       .returning();

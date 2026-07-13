@@ -32,6 +32,9 @@ import {
   ExternalLink,
   Save,
   Building2,
+  Columns3,
+  MapPin,
+  Globe,
 } from "lucide-react";
 import { cn, STATUS_COLOR } from "@/lib/utils";
 import { Spinner } from "@/components/ui/spinner";
@@ -54,8 +57,13 @@ type Lead = {
   score: number | null;
   country: string | null;
   location: string | null;
+  phone?: string | null;
+  linkedinUrl?: string | null;
+  companyWebsite?: string | null;
+  industry?: string | null;
   tags?: string[] | null;
   createdAt?: string | null;
+  lastActivityAt?: string | null;
 };
 
 type CampaignSummary = { id: string; name: string };
@@ -85,6 +93,39 @@ const STATUSES = [
 const STATUS_OPTIONS = ["All", "New", "Contacted", "Qualified", "Converted"];
 const SORT_OPTIONS = ["Newest first", "Oldest first", "Score: High to Low", "Score: Low to High", "Name A-Z"];
 const LEADS_PER_PAGE = 10;
+
+/* ---------------- Table column config ---------------- */
+
+type ColumnKey =
+  | "email"
+  | "title"
+  | "phone"
+  | "location"
+  | "website"
+  | "score"
+  | "status"
+  | "lastActivity";
+
+const COLUMN_DEFS: { key: ColumnKey; label: string }[] = [
+  { key: "email", label: "Email" },
+  { key: "title", label: "Title" },
+  { key: "phone", label: "Phone" },
+  { key: "location", label: "Location" },
+  { key: "website", label: "Website" },
+  { key: "score", label: "Intent Score" },
+  { key: "status", label: "Status" },
+  { key: "lastActivity", label: "Last Activity" },
+];
+
+const DEFAULT_VISIBLE_COLUMNS: ColumnKey[] = [
+  "email",
+  "title",
+  "score",
+  "status",
+  "lastActivity",
+];
+
+const COLUMNS_STORAGE_KEY = "aryasdr.leads.visibleColumns";
 
 type TimelineEvent =
   | { type: "lead_created"; when: string }
@@ -163,6 +204,58 @@ export default function LeadsPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [notes, setNotes] = useState("");
+
+  /* ---------- column visibility ---------- */
+  const [visibleColumns, setVisibleColumns] = useState<Set<ColumnKey>>(
+    new Set(DEFAULT_VISIBLE_COLUMNS)
+  );
+  const [columnsMenuOpen, setColumnsMenuOpen] = useState(false);
+  const columnsMenuRef = useRef<HTMLDivElement | null>(null);
+  const columnsHydrated = useRef(false);
+
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem(COLUMNS_STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved) as unknown;
+        if (Array.isArray(parsed)) {
+          const valid = parsed.filter(
+            (k): k is ColumnKey =>
+              typeof k === "string" && COLUMN_DEFS.some((d) => d.key === k)
+          );
+          if (valid.length > 0) setVisibleColumns(new Set(valid));
+        }
+      }
+    } catch {
+      /* localStorage disabled or corrupt — fall through to defaults */
+    } finally {
+      columnsHydrated.current = true;
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!columnsHydrated.current) return;
+    try {
+      window.localStorage.setItem(
+        COLUMNS_STORAGE_KEY,
+        JSON.stringify(Array.from(visibleColumns))
+      );
+    } catch {
+      /* best-effort persistence — ignore */
+    }
+  }, [visibleColumns]);
+
+  function toggleColumn(key: ColumnKey) {
+    setVisibleColumns((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
+
+  const visibleColumnCount = 3 /* checkbox + name + actions */ +
+    COLUMN_DEFS.filter((c) => visibleColumns.has(c.key)).length;
 
   /* ---------- lead detail / timeline state ---------- */
   const [leadDetail, setLeadDetail] = useState<LeadDetail | null>(null);
@@ -410,6 +503,9 @@ export default function LeadsPage() {
       if (singleCampaignMenuRef.current && !singleCampaignMenuRef.current.contains(target)) {
         setSingleCampaignMenuOpen(false);
       }
+      if (columnsMenuRef.current && !columnsMenuRef.current.contains(target)) {
+        setColumnsMenuOpen(false);
+      }
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
@@ -470,16 +566,38 @@ export default function LeadsPage() {
     Papa.parse(file, {
       header: true,
       skipEmptyLines: true,
+      transformHeader: (h) => h.trim(),
       complete: async (results) => {
         try {
+          // Case-insensitive header lookup so CSVs from Apollo / ZoomInfo /
+          // Lusha / HubSpot (which use inconsistent header casing) don't
+          // silently drop columns.
+          const pick = (row: Record<string, string>, keys: string[]) => {
+            const normalized: Record<string, string> = {};
+            for (const [k, v] of Object.entries(row)) {
+              normalized[k.toLowerCase().replace(/[\s_-]/g, "")] = v;
+            }
+            for (const key of keys) {
+              const nk = key.toLowerCase().replace(/[\s_-]/g, "");
+              const v = normalized[nk];
+              if (v && v.trim()) return v.trim();
+            }
+            return undefined;
+          };
           const rows = (results.data as Record<string, string>[]).map(
             (row) => ({
-              firstName: row.first_name ?? row.firstName ?? row["First Name"],
-              lastName: row.last_name ?? row.lastName ?? row["Last Name"],
-              fullName: row.full_name ?? row.fullName ?? row["Full Name"],
-              email: row.email ?? row.Email,
-              companyName: row.company ?? row.company_name ?? row.Company,
-              jobTitle: row.title ?? row.job_title ?? row["Job Title"],
+              firstName: pick(row, ["first_name", "firstName", "First Name", "Firstname"]),
+              lastName: pick(row, ["last_name", "lastName", "Last Name", "Lastname"]),
+              fullName: pick(row, ["full_name", "fullName", "Full Name", "name", "Name"]),
+              email: pick(row, ["email", "Email", "Email Address", "work_email"]),
+              companyName: pick(row, ["company", "company_name", "Company", "Company Name", "organization", "Organization"]),
+              jobTitle: pick(row, ["title", "job_title", "Job Title", "Title", "position", "Position"]),
+              phone: pick(row, ["phone", "Phone", "Phone Number", "mobile", "Mobile", "work_phone"]),
+              linkedinUrl: pick(row, ["linkedin", "linkedin_url", "LinkedIn", "linkedinUrl", "LinkedIn URL", "linkedin_profile"]),
+              companyWebsite: pick(row, ["website", "Website", "domain", "Domain", "company_website", "Company Website", "url", "URL"]),
+              location: pick(row, ["location", "Location", "city", "City"]),
+              country: pick(row, ["country", "Country"]),
+              industry: pick(row, ["industry", "Industry"]),
             })
           );
 
@@ -1091,6 +1209,58 @@ export default function LeadsPage() {
           ))}
         </select>
 
+        {/* Columns visibility menu */}
+        <div className="relative" ref={columnsMenuRef}>
+          <button
+            type="button"
+            onClick={() => setColumnsMenuOpen((v) => !v)}
+            aria-haspopup="menu"
+            aria-expanded={columnsMenuOpen}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-white px-3 py-2 text-sm text-foreground hover:bg-gray-50 transition-colors focus:outline-none focus:ring-2 focus:ring-[#6C47FF]/30"
+          >
+            <Columns3 className="h-4 w-4" />
+            Columns
+          </button>
+          {columnsMenuOpen && (
+            <div className="absolute right-0 top-11 z-30 w-52 rounded-lg border border-gray-200 bg-white p-1 shadow-lg">
+              <p className="px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                Show columns
+              </p>
+              {COLUMN_DEFS.map((col) => {
+                const on = visibleColumns.has(col.key);
+                return (
+                  <button
+                    key={col.key}
+                    type="button"
+                    onClick={() => toggleColumn(col.key)}
+                    className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                  >
+                    <span
+                      className={cn(
+                        "flex h-4 w-4 items-center justify-center rounded border transition-colors",
+                        on
+                          ? "border-[#6C47FF] bg-[#6C47FF] text-white"
+                          : "border-gray-300 bg-white"
+                      )}
+                    >
+                      {on && <CheckCircle2 className="h-3 w-3" />}
+                    </span>
+                    <span className="flex-1">{col.label}</span>
+                  </button>
+                );
+              })}
+              <div className="my-1 border-t border-gray-100" />
+              <button
+                type="button"
+                onClick={() => setVisibleColumns(new Set(DEFAULT_VISIBLE_COLUMNS))}
+                className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-xs text-gray-500 hover:bg-gray-50 hover:text-gray-700 transition-colors"
+              >
+                Reset to default
+              </button>
+            </div>
+          )}
+        </div>
+
         {selectedIds.size > 0 && (
           <div className="relative" ref={listsMenuRef}>
             <button
@@ -1329,21 +1499,49 @@ export default function LeadsPage() {
                 <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">
                   Name
                 </th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground hidden lg:table-cell">
-                  Title
-                </th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">
-                  <span className="inline-flex items-center gap-1">
-                    Intent Score
-                    <ArrowUpDown className="h-3 w-3" />
-                  </span>
-                </th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">
-                  Status
-                </th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground hidden md:table-cell">
-                  Last Activity
-                </th>
+                {visibleColumns.has("email") && (
+                  <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">
+                    Email
+                  </th>
+                )}
+                {visibleColumns.has("title") && (
+                  <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">
+                    Title
+                  </th>
+                )}
+                {visibleColumns.has("phone") && (
+                  <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">
+                    Phone
+                  </th>
+                )}
+                {visibleColumns.has("location") && (
+                  <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">
+                    Location
+                  </th>
+                )}
+                {visibleColumns.has("website") && (
+                  <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">
+                    Website
+                  </th>
+                )}
+                {visibleColumns.has("score") && (
+                  <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">
+                    <span className="inline-flex items-center gap-1">
+                      Intent Score
+                      <ArrowUpDown className="h-3 w-3" />
+                    </span>
+                  </th>
+                )}
+                {visibleColumns.has("status") && (
+                  <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">
+                    Status
+                  </th>
+                )}
+                {visibleColumns.has("lastActivity") && (
+                  <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">
+                    Last Activity
+                  </th>
+                )}
                 <th className="text-right px-4 py-3 text-xs font-medium text-muted-foreground">
                   Actions
                 </th>
@@ -1351,11 +1549,11 @@ export default function LeadsPage() {
             </thead>
             <tbody className="divide-y divide-border">
               {loading ? (
-                <LeadsTableSkeleton rows={8} />
+                <LeadsTableSkeleton rows={8} visibleColumns={visibleColumns} />
               ) : paginated.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={7}
+                    colSpan={visibleColumnCount}
                     className="text-center py-16 text-sm text-muted-foreground"
                   >
                     No leads match your filters.
@@ -1397,39 +1595,108 @@ export default function LeadsPage() {
                         {lead.companyName ?? ""}
                       </p>
                     </td>
-                    <td className="px-4 py-3 hidden lg:table-cell text-muted-foreground truncate max-w-[180px]">
-                      {lead.jobTitle ?? "—"}
-                    </td>
-                    <td className="px-4 py-3">
-                      {lead.score != null ? (
+                    {visibleColumns.has("email") && (
+                      <td className="px-4 py-3 text-muted-foreground truncate max-w-[220px]">
+                        {lead.email ? (
+                          <a
+                            href={`mailto:${lead.email}`}
+                            onClick={(e) => e.stopPropagation()}
+                            className="text-[#6C47FF] hover:underline"
+                          >
+                            {lead.email}
+                          </a>
+                        ) : (
+                          "—"
+                        )}
+                      </td>
+                    )}
+                    {visibleColumns.has("title") && (
+                      <td className="px-4 py-3 text-muted-foreground truncate max-w-[180px]">
+                        {lead.jobTitle ?? "—"}
+                      </td>
+                    )}
+                    {visibleColumns.has("phone") && (
+                      <td className="px-4 py-3 text-muted-foreground">
+                        {lead.phone ? (
+                          <a
+                            href={`tel:${lead.phone}`}
+                            onClick={(e) => e.stopPropagation()}
+                            className="text-[#6C47FF] hover:underline whitespace-nowrap"
+                          >
+                            {lead.phone}
+                          </a>
+                        ) : (
+                          "—"
+                        )}
+                      </td>
+                    )}
+                    {visibleColumns.has("location") && (
+                      <td className="px-4 py-3 text-xs text-muted-foreground truncate max-w-[180px]">
+                        {[lead.location, lead.country].filter(Boolean).join(", ") || "—"}
+                      </td>
+                    )}
+                    {visibleColumns.has("website") && (
+                      <td className="px-4 py-3 truncate max-w-[180px]">
+                        {lead.companyWebsite ? (
+                          <a
+                            href={
+                              lead.companyWebsite.startsWith("http")
+                                ? lead.companyWebsite
+                                : `https://${lead.companyWebsite}`
+                            }
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="inline-flex items-center gap-1 text-[#6C47FF] hover:underline"
+                          >
+                            {lead.companyWebsite.replace(/^https?:\/\//, "").replace(/\/$/, "")}
+                            <ExternalLink className="h-3 w-3" />
+                          </a>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </td>
+                    )}
+                    {visibleColumns.has("score") && (
+                      <td className="px-4 py-3">
+                        {lead.score != null ? (
+                          <span
+                            className={cn(
+                              "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold",
+                              getScoreColor(lead.score)
+                            )}
+                          >
+                            {lead.score}
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground text-xs">
+                            —
+                          </span>
+                        )}
+                      </td>
+                    )}
+                    {visibleColumns.has("status") && (
+                      <td className="px-4 py-3">
                         <span
                           className={cn(
-                            "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold",
-                            getScoreColor(lead.score)
+                            "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium capitalize",
+                            STATUS_COLOR[lead.status ?? "new"] ??
+                              "text-zinc-500 bg-zinc-100"
                           )}
                         >
-                          {lead.score}
+                          {formatStatus(lead.status ?? "new")}
                         </span>
-                      ) : (
-                        <span className="text-muted-foreground text-xs">
-                          —
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3">
-                      <span
-                        className={cn(
-                          "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium capitalize",
-                          STATUS_COLOR[lead.status ?? "new"] ??
-                            "text-zinc-500 bg-zinc-100"
-                        )}
-                      >
-                        {formatStatus(lead.status ?? "new")}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 hidden md:table-cell text-xs text-muted-foreground">
-                      {lead.country ?? lead.location ?? "—"}
-                    </td>
+                      </td>
+                    )}
+                    {visibleColumns.has("lastActivity") && (
+                      <td className="px-4 py-3 text-xs text-muted-foreground">
+                        {lead.lastActivityAt
+                          ? new Date(lead.lastActivityAt).toLocaleDateString()
+                          : lead.createdAt
+                          ? new Date(lead.createdAt).toLocaleDateString()
+                          : "—"}
+                      </td>
+                    )}
                     <td
                       className="px-4 py-3 text-right"
                       onClick={(e) => e.stopPropagation()}
@@ -1797,7 +2064,13 @@ export default function LeadsPage() {
 /*  Skeleton + Empty State                                             */
 /* ------------------------------------------------------------------ */
 
-function LeadsTableSkeleton({ rows = 8 }: { rows?: number }) {
+function LeadsTableSkeleton({
+  rows = 8,
+  visibleColumns,
+}: {
+  rows?: number;
+  visibleColumns: Set<ColumnKey>;
+}) {
   return (
     <>
       {Array.from({ length: rows }).map((_, i) => (
@@ -1814,18 +2087,46 @@ function LeadsTableSkeleton({ rows = 8 }: { rows?: number }) {
               </div>
             </div>
           </td>
-          <td className="px-4 py-4 hidden lg:table-cell">
-            <div className="h-3 w-28 rounded bg-gray-200 animate-pulse" />
-          </td>
-          <td className="px-4 py-4">
-            <div className="h-5 w-10 rounded-full bg-gray-200 animate-pulse" />
-          </td>
-          <td className="px-4 py-4">
-            <div className="h-5 w-16 rounded-full bg-gray-200 animate-pulse" />
-          </td>
-          <td className="px-4 py-4 hidden md:table-cell">
-            <div className="h-3 w-20 rounded bg-gray-200 animate-pulse" />
-          </td>
+          {visibleColumns.has("email") && (
+            <td className="px-4 py-4">
+              <div className="h-3 w-40 rounded bg-gray-200 animate-pulse" />
+            </td>
+          )}
+          {visibleColumns.has("title") && (
+            <td className="px-4 py-4">
+              <div className="h-3 w-28 rounded bg-gray-200 animate-pulse" />
+            </td>
+          )}
+          {visibleColumns.has("phone") && (
+            <td className="px-4 py-4">
+              <div className="h-3 w-24 rounded bg-gray-200 animate-pulse" />
+            </td>
+          )}
+          {visibleColumns.has("location") && (
+            <td className="px-4 py-4">
+              <div className="h-3 w-24 rounded bg-gray-200 animate-pulse" />
+            </td>
+          )}
+          {visibleColumns.has("website") && (
+            <td className="px-4 py-4">
+              <div className="h-3 w-32 rounded bg-gray-200 animate-pulse" />
+            </td>
+          )}
+          {visibleColumns.has("score") && (
+            <td className="px-4 py-4">
+              <div className="h-5 w-10 rounded-full bg-gray-200 animate-pulse" />
+            </td>
+          )}
+          {visibleColumns.has("status") && (
+            <td className="px-4 py-4">
+              <div className="h-5 w-16 rounded-full bg-gray-200 animate-pulse" />
+            </td>
+          )}
+          {visibleColumns.has("lastActivity") && (
+            <td className="px-4 py-4">
+              <div className="h-3 w-20 rounded bg-gray-200 animate-pulse" />
+            </td>
+          )}
           <td className="px-4 py-4">
             <div className="flex justify-end">
               <div className="h-6 w-6 rounded bg-gray-200 animate-pulse" />
