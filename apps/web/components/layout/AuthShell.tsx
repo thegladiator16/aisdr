@@ -97,15 +97,24 @@ export function AuthShell({ children }: { children: React.ReactNode }) {
       )}
       <div className="flex flex-1 overflow-hidden">
         <Sidebar onChatOpen={() => setChatOpen(true)} />
-        <main className="flex-1 overflow-y-auto">
-          {/* No AnimatePresence mode="wait" here — it added a 180ms exit tween
-              that blocked the incoming page's first paint on every nav. The
-              loading.tsx fallback under (auth) gives the perceived transition
-              instead, and Next.js handles the actual page swap. */}
-          <div key={pathname} className="mx-auto max-w-7xl p-6 animate-in fade-in slide-in-from-top-1 duration-150">
-            {children}
-          </div>
-        </main>
+        {/* Settings routes own their own two-column scroll layout (sticky
+            sub-nav on the left, independently-scrolling pane on the right).
+            The shell hands them a full-height, non-scrolling container so
+            they can manage overflow themselves. Every other route keeps the
+            classic centered-with-padding scroll pane. */}
+        {pathname.startsWith("/settings") ? (
+          <main className="flex-1 overflow-hidden">
+            <div key={pathname} className="h-full animate-in fade-in slide-in-from-top-1 duration-150">
+              {children}
+            </div>
+          </main>
+        ) : (
+          <main className="flex-1 overflow-y-auto">
+            <div key={pathname} className="mx-auto max-w-7xl p-6 animate-in fade-in slide-in-from-top-1 duration-150">
+              {children}
+            </div>
+          </main>
+        )}
         {chatOpen && <ChatWithArya onClose={() => setChatOpen(false)} />}
       </div>
       {showPlanModal && <ChangePlanModal onClose={() => setShowPlanModal(false)} />}

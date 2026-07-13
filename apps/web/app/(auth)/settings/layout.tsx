@@ -30,34 +30,41 @@ export default function SettingsLayout({
   const pathname = usePathname();
 
   return (
-    <div className="flex min-h-screen">
-      {/* Sticky sub-nav so it stays put while the main pane scrolls. Height
-          is calc(100vh - <top offset>) so it doesn't shrink below the fold. */}
-      <aside className="w-64 border-r border-gray-200 bg-white p-4 sticky top-0 self-start h-screen overflow-y-auto shrink-0">
-        <h2 className="px-3 mb-4 text-lg font-semibold text-gray-900">
-          Settings
-        </h2>
-        <nav className="flex flex-col gap-1">
-          {navItems.map(({ label, href, icon: Icon }) => {
-            const isActive = pathname.startsWith(href);
-            return (
-              <Link
-                key={href}
-                href={href}
-                className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
-                  isActive
-                    ? "bg-violet-50 text-violet-700"
-                    : "text-gray-600 hover:bg-gray-50"
-                }`}
-              >
-                <Icon className="h-4 w-4" />
-                {label}
-              </Link>
-            );
-          })}
-        </nav>
+    // Two independent scroll columns. Outer container fills AuthShell's
+    // full-height settings pane (overflow-hidden from the shell), then each
+    // column gets its OWN overflow-y-auto so wheeling the nav doesn't
+    // scroll the billing pane and vice versa. overscroll-contain on both
+    // stops wheel events from bubbling to the outer container.
+    <div className="flex h-full overflow-hidden">
+      <aside className="w-64 shrink-0 border-r border-gray-200 bg-white overflow-y-auto overscroll-contain">
+        <div className="p-4">
+          <h2 className="px-3 mb-4 text-lg font-semibold text-gray-900">
+            Settings
+          </h2>
+          <nav className="flex flex-col gap-1">
+            {navItems.map(({ label, href, icon: Icon }) => {
+              const isActive = pathname.startsWith(href);
+              return (
+                <Link
+                  key={href}
+                  href={href}
+                  className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
+                    isActive
+                      ? "bg-violet-50 text-violet-700"
+                      : "text-gray-600 hover:bg-gray-50"
+                  }`}
+                >
+                  <Icon className="h-4 w-4" />
+                  {label}
+                </Link>
+              );
+            })}
+          </nav>
+        </div>
       </aside>
-      <main className="flex-1 p-6 bg-gray-50 min-w-0">{children}</main>
+      <div className="flex-1 overflow-y-auto overscroll-contain bg-gray-50 min-w-0">
+        <div className="p-6">{children}</div>
+      </div>
     </div>
   );
 }
