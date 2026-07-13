@@ -131,7 +131,7 @@ export default async function SettingsIntegrationsPage({
             return (
               <div
                 key={type}
-                className="bg-white border border-gray-200 rounded-xl p-6 flex flex-col gap-4"
+                className="bg-white border border-gray-200 rounded-xl p-6 flex flex-col gap-4 h-full"
               >
                 <div className="flex items-center gap-3">
                   <div className="rounded-lg bg-gray-50 p-2 flex items-center justify-center">
@@ -156,7 +156,7 @@ export default async function SettingsIntegrationsPage({
                 </div>
                 <p className="text-xs text-gray-500">{description}</p>
                 {isConnected ? (
-                  <div className="grid grid-cols-3 gap-3">
+                  <div className="grid grid-cols-3 gap-3 mt-auto">
                     <div className="text-center">
                       <p className="text-sm font-bold text-gray-900">
                         {gmailIntegration?.emailsSentToday ?? 0}
@@ -179,7 +179,7 @@ export default async function SettingsIntegrationsPage({
                 ) : (
                   <Link
                     href={connectUrl}
-                    className="inline-flex items-center justify-center rounded-lg bg-[#6C47FF] px-4 py-2 text-sm font-medium text-white hover:bg-[#5a3ad4] transition-colors"
+                    className="mt-auto inline-flex items-center justify-center rounded-lg bg-[#6C47FF] px-4 py-2 text-sm font-medium text-white hover:bg-[#5a3ad4] active:scale-[0.98] transition-all duration-150"
                   >
                     Connect {label}
                   </Link>
