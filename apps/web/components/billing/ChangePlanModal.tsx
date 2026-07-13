@@ -7,8 +7,8 @@ import { X, Check, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { useRazorpay } from "@/hooks/useRazorpay";
 import {
-  detectCurrencyFromBrowser,
-  readStoredCurrency,
+  resolveCurrency,
+  isIndianByPhone,
   writeStoredCurrency,
   formatMoney,
   inrToUsdDisplay,
@@ -98,18 +98,41 @@ export function ChangePlanModal({ onClose }: { onClose: () => void }) {
 
   const [billing, setBilling] = useState<"monthly" | "yearly">("monthly");
   const [currency, setCurrencyState] = useState<Currency>("INR");
+  // Locked to INR when the user's Clerk profile has a +91 phone number.
+  // Manual USD selection is refused with a "You are in India" toast.
+  const [currencyLocked, setCurrencyLocked] = useState(false);
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
   const [paymentsAvailable, setPaymentsAvailable] = useState<boolean | null>(null);
 
+  // Extract the user's phone number(s) once — Clerk sometimes populates
+  // primaryPhoneNumber, sometimes phoneNumbers[]; check both.
+  const clerkPhones = useMemo(() => {
+    const list: string[] = [];
+    const primary = user?.primaryPhoneNumber?.phoneNumber;
+    if (primary) list.push(primary);
+    if (Array.isArray(user?.phoneNumbers)) {
+      for (const p of user.phoneNumbers) {
+        if (p?.phoneNumber && p.phoneNumber !== primary) list.push(p.phoneNumber);
+      }
+    }
+    return list;
+  }, [user]);
+
   useEffect(() => {
-    // Currency picked on /pricing survives here via localStorage; fall back
-    // to browser-locale detection so an international user landing straight
-    // in the app still sees USD.
-    const stored = readStoredCurrency();
-    setCurrencyState(stored ?? detectCurrencyFromBrowser());
-  }, []);
+    // Priority: +91 phone → INR (locked) > stored preference > browser locale.
+    // If a +91 user had previously toggled to USD and localStorage remembers
+    // it, we override that here and rewrite the preference back to INR.
+    const { currency: resolved, locked } = resolveCurrency({ phones: clerkPhones });
+    setCurrencyState(resolved);
+    setCurrencyLocked(locked);
+    if (locked) writeStoredCurrency("INR");
+  }, [clerkPhones]);
 
   const setCurrency = (next: Currency) => {
+    if (currencyLocked && next === "USD") {
+      toast.error("You are in India. Please pay in INR.");
+      return;
+    }
     setCurrencyState(next);
     writeStoredCurrency(next);
   };
@@ -197,11 +220,12 @@ export function ChangePlanModal({ onClose }: { onClose: () => void }) {
             <div className="inline-flex items-center rounded-full border border-gray-200 bg-white p-1">
               <button
                 onClick={() => setCurrency("INR")}
+                disabled={currencyLocked && currency === "INR"}
                 className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
                   currency === "INR"
                     ? "bg-[#6C47FF] text-white"
                     : "text-gray-600 hover:text-gray-900"
-                }`}
+                } disabled:cursor-default`}
                 aria-pressed={currency === "INR"}
               >
                 <span aria-hidden>🇮🇳</span>
@@ -209,12 +233,15 @@ export function ChangePlanModal({ onClose }: { onClose: () => void }) {
               </button>
               <button
                 onClick={() => setCurrency("USD")}
+                disabled={currencyLocked}
                 className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
                   currency === "USD"
                     ? "bg-[#6C47FF] text-white"
                     : "text-gray-600 hover:text-gray-900"
-                }`}
+                } ${currencyLocked ? "opacity-40 cursor-not-allowed" : ""}`}
                 aria-pressed={currency === "USD"}
+                aria-disabled={currencyLocked}
+                title={currencyLocked ? "You are in India. Please pay in INR." : undefined}
               >
                 <span aria-hidden>🌍</span>
                 $ USD
@@ -247,16 +274,19 @@ export function ChangePlanModal({ onClose }: { onClose: () => void }) {
               </button>
             </div>
 
-            {/* Payment method disclosure — makes the split flow explicit.
-                For USD we can't force PayPal-only in Razorpay Checkout
-                (their international payments bundle Cards + PayPal on the
-                merchant account), so we tell the user to pick PayPal at
-                the next screen. */}
-            <p className="text-[11px] text-gray-400 text-center max-w-md">
-              {currency === "USD"
-                ? "International payments are processed securely via PayPal. On the next screen, select PayPal from the payment options."
-                : "Indian payments via Razorpay — UPI / Cards / NetBanking."}
-            </p>
+            {/* Payment method disclosure. For a +91 user the INR lock
+                trumps everything — surface why the USD toggle is off. */}
+            {currencyLocked ? (
+              <p className="text-[11px] text-violet-600 text-center max-w-md font-medium">
+                🇮🇳 You are in India. Payments are processed in INR via Razorpay (UPI / Cards / NetBanking).
+              </p>
+            ) : (
+              <p className="text-[11px] text-gray-400 text-center max-w-md">
+                {currency === "USD"
+                  ? "International payments are processed securely via PayPal. On the next screen, select PayPal from the payment options."
+                  : "Indian payments via Razorpay — UPI / Cards / NetBanking."}
+              </p>
+            )}
           </div>
 
           {/* Plan cards */}

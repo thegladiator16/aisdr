@@ -20,8 +20,7 @@ import { CardBrandLogo, type CardBrand } from "@/components/brand/CardBrandLogo"
 import { useRazorpay } from "@/hooks/useRazorpay";
 import { useSubscription } from "@/lib/hooks/useSubscription";
 import {
-  detectCurrencyFromBrowser,
-  readStoredCurrency,
+  resolveCurrency,
   formatMoney as formatCurrencyMoney,
   inrToUsdDisplay,
   type Currency as PrefCurrency,
@@ -442,13 +441,25 @@ export default function BillingPage() {
   const [loadingTransactions, setLoadingTransactions] = useState(true);
 
   // Currency preference — used for the dual-currency price display and the
-  // payment-method disclosure. Populated on mount from localStorage (set by
-  // /pricing or ChangePlanModal), with browser-locale fallback for direct
-  // arrivals to /settings/billing.
+  // payment-method disclosure. Priority: +91 phone in Clerk profile → INR
+  // (locked) > localStorage (set by /pricing or ChangePlanModal) > browser
+  // locale > INR fallback.
   const [currencyPref, setCurrencyPref] = useState<PrefCurrency>("INR");
   useEffect(() => {
-    setCurrencyPref(readStoredCurrency() ?? detectCurrencyFromBrowser());
-  }, []);
+    const phones: string[] = [];
+    if (user?.primaryPhoneNumber?.phoneNumber) {
+      phones.push(user.primaryPhoneNumber.phoneNumber);
+    }
+    if (Array.isArray(user?.phoneNumbers)) {
+      for (const p of user.phoneNumbers) {
+        if (p?.phoneNumber && p.phoneNumber !== user?.primaryPhoneNumber?.phoneNumber) {
+          phones.push(p.phoneNumber);
+        }
+      }
+    }
+    const { currency } = resolveCurrency({ phones });
+    setCurrencyPref(currency);
+  }, [user]);
 
   useEffect(() => {
     if (user?.primaryEmailAddress?.emailAddress) {

@@ -1,13 +1,14 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Check, X, Zap } from 'lucide-react'
+import { useUser } from '@clerk/nextjs'
+import { toast } from 'sonner'
 import { AryaAvatar } from "@/components/arya/AryaAvatar"
 import {
-  detectCurrencyFromBrowser,
-  readStoredCurrency,
+  resolveCurrency,
   writeStoredCurrency,
   formatMoney,
   inrToUsdDisplay,
@@ -193,22 +194,40 @@ const stagger = {
 }
 
 export default function PricingPage() {
+  const { user } = useUser()
   const [billing, setBilling] = useState<'monthly' | 'yearly'>('monthly')
-  // Start on INR (matches SSR) then hydrate from localStorage / browser
-  // locale in useEffect to avoid a hydration mismatch. First paint may
-  // briefly show INR for a non-Indian user; on next tick we snap to USD.
+  // Start on INR (matches SSR) then hydrate from Clerk phone / localStorage /
+  // browser locale in useEffect to avoid a hydration mismatch.
   const [currency, setCurrencyState] = useState<Currency>('INR')
+  // Locked when the signed-in user's Clerk profile has a +91 phone. Public
+  // visitors without a session never see the lock — locale detection alone
+  // decides their default.
+  const [currencyLocked, setCurrencyLocked] = useState(false)
+
+  const clerkPhones = useMemo(() => {
+    const list: string[] = []
+    const primary = user?.primaryPhoneNumber?.phoneNumber
+    if (primary) list.push(primary)
+    if (Array.isArray(user?.phoneNumbers)) {
+      for (const p of user.phoneNumbers) {
+        if (p?.phoneNumber && p.phoneNumber !== primary) list.push(p.phoneNumber)
+      }
+    }
+    return list
+  }, [user])
 
   useEffect(() => {
-    const stored = readStoredCurrency()
-    if (stored) {
-      setCurrencyState(stored)
-      return
-    }
-    setCurrencyState(detectCurrencyFromBrowser())
-  }, [])
+    const { currency: resolved, locked } = resolveCurrency({ phones: clerkPhones })
+    setCurrencyState(resolved)
+    setCurrencyLocked(locked)
+    if (locked) writeStoredCurrency('INR')
+  }, [clerkPhones])
 
   const setCurrency = (next: Currency) => {
+    if (currencyLocked && next === 'USD') {
+      toast.error('You are in India. Please pay in INR.')
+      return
+    }
     setCurrencyState(next)
     writeStoredCurrency(next)
   }
@@ -281,15 +300,23 @@ export default function PricingPage() {
             </button>
             <button
               onClick={() => setCurrency('USD')}
+              disabled={currencyLocked}
               className={`relative z-10 flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
                 currency === 'USD' ? 'text-white' : 'text-gray-600 hover:text-gray-900'
-              }`}
+              } ${currencyLocked ? 'opacity-40 cursor-not-allowed' : ''}`}
               aria-pressed={currency === 'USD'}
+              aria-disabled={currencyLocked}
+              title={currencyLocked ? 'You are in India. Please pay in INR.' : undefined}
             >
               <span aria-hidden>🌍</span>
               $ USD
             </button>
           </div>
+          {currencyLocked && (
+            <p className="text-[11px] text-violet-600 font-medium">
+              🇮🇳 You are in India. Prices shown in INR.
+            </p>
+          )}
 
           {/* Billing cycle */}
           <div className="flex items-center justify-center gap-2">

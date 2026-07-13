@@ -18,25 +18,70 @@ export type Currency = SupportedCurrency;
 const STORAGE_KEY = "aryasdr.currency.preferred";
 
 /**
+ * True if any of the given phone numbers has a +91 country code — the
+ * highest-priority signal that a signed-in user is Indian. Overrides
+ * both stored preference and browser locale.
+ */
+export function isIndianByPhone(
+  phones: (string | null | undefined)[] | null | undefined
+): boolean {
+  if (!phones || phones.length === 0) return false;
+  return phones.some((p) => {
+    if (!p) return false;
+    // Strip separators so "+91 62018 35709" also matches. Country codes
+    // never contain digits shared with +9XX so a startsWith check is safe.
+    return p.replace(/[\s-()]/g, "").startsWith("+91");
+  });
+}
+
+/**
+ * True if the browser locale looks Indian (Asia/Kolkata timezone or an
+ * *-IN language). Server-side always returns false — this is the client
+ * fallback used when no Clerk phone is available yet.
+ */
+export function isIndianByLocale(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const lang = (navigator.language ?? "").toLowerCase();
+    return (
+      tz === "Asia/Kolkata" ||
+      tz === "Asia/Calcutta" ||
+      lang.endsWith("-in") ||
+      lang === "hi"
+    );
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Best-effort auto-detect. Any of these signals a non-Indian user:
  *   - browser timezone is not Asia/Kolkata
  *   - browser language is not en-IN / hi-IN / any *-IN
  * Falls back to INR when we can't tell (e.g. locked-down browser).
  */
 export function detectCurrencyFromBrowser(): Currency {
-  if (typeof window === "undefined") return "INR";
-  try {
-    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    const lang = navigator.language ?? "";
-    const isIndian =
-      tz === "Asia/Kolkata" ||
-      tz === "Asia/Calcutta" ||
-      lang.toLowerCase().endsWith("-in") ||
-      lang.toLowerCase() === "hi";
-    return isIndian ? "INR" : "USD";
-  } catch {
-    return "INR";
+  return isIndianByLocale() ? "INR" : "USD";
+}
+
+/**
+ * Resolve the user's currency in priority order:
+ *   1. Clerk phone with +91 → INR (locked — cannot be overridden)
+ *   2. Stored preference (localStorage) if the user has manually toggled
+ *      AND the phone check didn't force a lock
+ *   3. Browser locale detection
+ *   4. INR as ultimate fallback
+ */
+export function resolveCurrency(opts: {
+  phones?: (string | null | undefined)[] | null;
+}): { currency: Currency; locked: boolean } {
+  if (isIndianByPhone(opts.phones)) {
+    return { currency: "INR", locked: true };
   }
+  const stored = readStoredCurrency();
+  if (stored) return { currency: stored, locked: false };
+  return { currency: detectCurrencyFromBrowser(), locked: false };
 }
 
 export function readStoredCurrency(): Currency | null {
