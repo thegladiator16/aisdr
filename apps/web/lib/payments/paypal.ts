@@ -72,11 +72,19 @@ export interface CreatePayPalOrderInput {
   description: string;
   /** Internal reference we later reconcile against on capture. */
   referenceId: string;
+  /** Absolute URL PayPal redirects to after successful approval. */
+  returnUrl?: string;
+  /** Absolute URL PayPal redirects to if the user cancels. */
+  cancelUrl?: string;
+  /** Merchant-facing brand name shown on the PayPal checkout page. */
+  brandName?: string;
 }
 
 export interface PayPalOrder {
   id: string;
   status: string;
+  /** URL the customer must be redirected to for approval (redirect flow). */
+  approveUrl: string | null;
 }
 
 export async function createPayPalOrder(
@@ -84,28 +92,53 @@ export async function createPayPalOrder(
 ): Promise<PayPalOrder> {
   const token = await getAccessToken();
   const dollars = (input.amountCents / 100).toFixed(2);
+  const body: Record<string, unknown> = {
+    intent: "CAPTURE",
+    purchase_units: [
+      {
+        reference_id: input.referenceId,
+        description: input.description.slice(0, 127),
+        amount: { currency_code: "USD", value: dollars },
+      },
+    ],
+  };
+  if (input.returnUrl || input.cancelUrl || input.brandName) {
+    body.application_context = {
+      brand_name: (input.brandName ?? "AryaSDR").slice(0, 127),
+      landing_page: "LOGIN",
+      shipping_preference: "NO_SHIPPING",
+      user_action: "PAY_NOW",
+      ...(input.returnUrl ? { return_url: input.returnUrl } : {}),
+      ...(input.cancelUrl ? { cancel_url: input.cancelUrl } : {}),
+    };
+  }
   const res = await fetch(`${baseUrl()}/v2/checkout/orders`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${token}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({
-      intent: "CAPTURE",
-      purchase_units: [
-        {
-          reference_id: input.referenceId,
-          description: input.description.slice(0, 127),
-          amount: { currency_code: "USD", value: dollars },
-        },
-      ],
-    }),
+    body: JSON.stringify(body),
   });
   if (!res.ok) {
     const text = await res.text().catch(() => "");
     throw new Error(`PAYPAL_CREATE_HTTP_${res.status}:${text.slice(0, 200)}`);
   }
-  return (await res.json()) as PayPalOrder;
+  const json = (await res.json()) as {
+    id: string;
+    status: string;
+    links?: Array<{ href: string; rel: string; method?: string }>;
+  };
+  // Extract the approval URL from PayPal's HATEOAS `links` array. Newer v2
+  // orders use rel="payer-action"; older responses use rel="approve".
+  const approveLink =
+    json.links?.find((l) => l.rel === "payer-action") ??
+    json.links?.find((l) => l.rel === "approve");
+  return {
+    id: json.id,
+    status: json.status,
+    approveUrl: approveLink?.href ?? null,
+  };
 }
 
 export interface CapturedPayment {

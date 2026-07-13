@@ -408,7 +408,8 @@ export function ChangePlanModal({ onClose }: { onClose: () => void }) {
                           plan: plan.key as "starter" | "growth",
                           billing,
                         }}
-                        labelForDescription={`${plan.name} plan`}
+                        buttonLabel={`Get ${plan.name}${priceLabel ? ` — ${priceLabel}/mo` : ""}`}
+                        colorClass={ctaColorClass}
                         onSuccess={() => {
                           onClose();
                           router.refresh();

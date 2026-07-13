@@ -110,17 +110,33 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid amount" }, { status: 400 });
   }
 
+  // Compose return + cancel URLs off the request's own origin so this works
+  // in preview / prod / local dev without an app-URL env var. The client
+  // gets the approveUrl back and just redirects window.location to it.
+  const origin = new URL(req.url).origin;
+  const returnParams = new URLSearchParams();
+  if (plan) returnParams.set("plan", plan);
+  if (billing) returnParams.set("billing", billing);
+  if (type) returnParams.set("type", type);
+  if (quantity != null) returnParams.set("quantity", String(quantity));
+  const returnUrl = `${origin}/api/billing/paypal-return?${returnParams.toString()}`;
+  const cancelUrl = `${origin}/settings/billing?paypal=cancelled`;
+
   try {
     const order = await createPayPalOrder({
       amountCents,
       description,
       referenceId: `aryasdr_${userId}_${Date.now()}`.slice(0, 100),
+      returnUrl,
+      cancelUrl,
+      brandName: "AryaSDR",
     });
     return NextResponse.json({
       id: order.id,
       status: order.status,
       amountCents,
       currency: "USD",
+      approveUrl: order.approveUrl,
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);

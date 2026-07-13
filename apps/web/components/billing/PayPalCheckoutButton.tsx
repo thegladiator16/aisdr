@@ -1,136 +1,111 @@
 "use client";
 
 import { useState } from "react";
-import { PayPalScriptProvider, PayPalButtons } from "@paypal/react-paypal-js";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
+/**
+ * PayPal checkout button — redirect flow.
+ *
+ * Earlier iterations tried @paypal/react-paypal-js's PayPalButtons component
+ * (an embedded Smart Button widget) but on this deployment the SDK either
+ * silently failed to render buttons or produced an empty payment options
+ * screen, leaving the Change Plan modal with no visible CTA at all.
+ *
+ * This version is a normal HTML button styled like the INR "Get Starter"
+ * button. On click:
+ *   1. POST /api/billing/create-paypal-order      — server creates the order
+ *      and returns { id, approveUrl }.
+ *   2. window.location.href = approveUrl           — browser navigates to
+ *      PayPal's own checkout page.
+ *   3. After the customer approves or cancels on paypal.com, PayPal
+ *      redirects back to /api/billing/paypal-return which captures the
+ *      payment and redirects to /settings/billing?paypal=(success|error|
+ *      cancelled).
+ *
+ * The button is ALWAYS visible — no SDK to fail. If the server isn't
+ * configured (missing PAYPAL_CLIENT_ID env vars) we surface a friendly
+ * toast instead of a scary embedded warning card.
+ */
 interface PayPalCheckoutButtonProps {
-  /** What we send to /api/billing/create-paypal-order + verify-paypal-payment. */
   purchase:
     | { plan: "starter" | "growth"; billing: "monthly" | "yearly" }
     | { type: "credits" | "dialer" | "mailbox" | "phone"; quantity: number };
-  /** Label shown next to the amount in the description. */
-  labelForDescription: string;
-  /** Called after the payment is captured AND the subscription is updated. */
-  onSuccess: () => void;
-  /** Optional inline disable (e.g. while another plan is in flight). */
+  /** Label used in the button copy (e.g., "Get Starter — $59/mo"). */
+  buttonLabel: string;
+  /** Tailwind color classes for the button — parent picks per plan. */
+  colorClass: string;
+  /** Called after PayPal returns and the subscription is updated. Currently
+   *  unused (the paypal-return route redirects the browser directly), but
+   *  kept for API symmetry with the previous SDK-based component. */
+  onSuccess?: () => void;
   disabled?: boolean;
 }
 
-/**
- * Renders PayPal Smart Payment Buttons via @paypal/react-paypal-js. Everything
- * price-sensitive happens on the server:
- *   createOrder → POST /api/billing/create-paypal-order (returns the order id)
- *   onApprove  → POST /api/billing/verify-paypal-payment (captures + upserts sub)
- *
- * Env: reads NEXT_PUBLIC_PAYPAL_CLIENT_ID at load. When missing we render a
- * friendly "not configured" state instead of the button so the modal doesn't
- * silently break on preview environments.
- */
 export function PayPalCheckoutButton({
   purchase,
-  labelForDescription,
-  onSuccess,
+  buttonLabel,
+  colorClass,
   disabled,
 }: PayPalCheckoutButtonProps) {
-  const clientId = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID;
   const [busy, setBusy] = useState(false);
 
-  if (!clientId) {
-    return (
-      <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 space-y-1.5">
-        <p className="text-xs font-medium text-gray-700">
-          International checkout coming soon
-        </p>
-        <p className="text-[11px] text-gray-500 leading-relaxed">
-          Email{" "}
-          <a
-            href="mailto:sales@aryasdr.in?subject=International%20subscription"
-            className="text-[#6C47FF] hover:underline font-medium"
-          >
-            sales@aryasdr.in
-          </a>{" "}
-          and we&rsquo;ll activate your plan manually while we finish PayPal
-          setup.
-        </p>
-      </div>
-    );
+  async function handleClick() {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const res = await fetch("/api/billing/create-paypal-order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(purchase),
+      });
+
+      if (res.status === 403) {
+        toast.error("You are in India. Please pay in INR.");
+        return;
+      }
+      if (res.status === 503) {
+        toast.error(
+          "International payments are being set up. Email sales@aryasdr.in and we'll activate your plan manually."
+        );
+        return;
+      }
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        toast.error(data?.error || "Could not start PayPal checkout");
+        return;
+      }
+
+      const json = (await res.json()) as { approveUrl?: string | null };
+      if (!json.approveUrl) {
+        toast.error("PayPal did not return a checkout URL — please try again.");
+        return;
+      }
+
+      // Hand off to PayPal. `busy` stays true so the button reflects the
+      // pending state until the browser actually leaves this tab.
+      window.location.href = json.approveUrl;
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "PayPal error");
+      setBusy(false);
+    }
   }
 
   return (
-    <PayPalScriptProvider
-      options={{
-        clientId,
-        currency: "USD",
-        intent: "capture",
-      }}
+    <button
+      type="button"
+      onClick={handleClick}
+      disabled={busy || disabled}
+      className={`w-full rounded-lg py-2.5 text-sm font-semibold transition-all duration-150 flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed active:scale-[0.98] ${colorClass}`}
     >
-      <div className={disabled ? "pointer-events-none opacity-60" : undefined}>
-        {busy && (
-          <div className="mb-2 flex items-center gap-2 text-xs text-gray-500">
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            Confirming with PayPal…
-          </div>
-        )}
-        <PayPalButtons
-          style={{
-            layout: "vertical",
-            color: "blue",
-            shape: "rect",
-            label: "paypal",
-          }}
-          disabled={disabled || busy}
-          forceReRender={[JSON.stringify(purchase)]}
-          createOrder={async () => {
-            const res = await fetch("/api/billing/create-paypal-order", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(purchase),
-            });
-            if (!res.ok) {
-              const data = await res.json().catch(() => ({}));
-              const err = data?.error || "Could not start PayPal payment";
-              toast.error(err);
-              throw new Error(err);
-            }
-            const json = (await res.json()) as { id: string };
-            return json.id;
-          }}
-          onApprove={async (data) => {
-            setBusy(true);
-            try {
-              const res = await fetch("/api/billing/verify-paypal-payment", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  paypalOrderId: data.orderID,
-                  ...purchase,
-                }),
-              });
-              const json = await res.json().catch(() => ({}));
-              if (!res.ok || !json?.success) {
-                toast.error(
-                  (json && json.error) ||
-                    "Payment captured but activation failed. Please contact support."
-                );
-                return;
-              }
-              toast.success(`${labelForDescription} activated`);
-              onSuccess();
-            } finally {
-              setBusy(false);
-            }
-          }}
-          onError={(err) => {
-            console.error("[paypal] onError", err);
-            toast.error("PayPal reported an error. Please try again.");
-          }}
-          onCancel={() => {
-            // Not an error — user closed the PayPal window.
-          }}
-        />
-      </div>
-    </PayPalScriptProvider>
+      {busy ? (
+        <>
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Redirecting to PayPal…
+        </>
+      ) : (
+        buttonLabel
+      )}
+    </button>
   );
 }
