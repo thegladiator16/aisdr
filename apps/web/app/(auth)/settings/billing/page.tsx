@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useUser } from "@clerk/nextjs";
 import { toast } from "sonner";
 import {
@@ -416,9 +416,50 @@ const PLAN_LABELS: Record<string, string> = {
 
 export default function BillingPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user } = useUser();
   const { openCheckout } = useRazorpay();
-  const { data: subscription } = useSubscription();
+  const { data: subscription, refresh: refreshSubscription } = useSubscription();
+
+  // Feedback for PayPal redirect flow (?paypal=success|cancelled|error&code=…).
+  // paypal-return sets these when the browser lands back on /settings/billing
+  // after PayPal approves, the user cancels, or the capture fails. We toast
+  // once, refresh the subscription so the plan card flips to "Current Plan",
+  // then strip the query string so a refresh doesn't re-fire.
+  useEffect(() => {
+    const paypal = searchParams.get("paypal");
+    if (!paypal) return;
+    if (paypal === "success") {
+      toast.success("Your subscription is active — welcome aboard!", {
+        duration: 6000,
+      });
+      // Nudge the subscription hook so the "Current Plan" chip flips
+      // without waiting for the next focus refetch.
+      refreshSubscription();
+      router.refresh();
+    } else if (paypal === "cancelled") {
+      toast("Checkout cancelled — no charge was made.", { duration: 5000 });
+    } else if (paypal === "error") {
+      const code = searchParams.get("code");
+      toast.error(
+        code
+          ? `PayPal couldn't complete the payment (${code}). Please try again or email sales@aryasdr.in.`
+          : "PayPal couldn't complete the payment. Please try again or email sales@aryasdr.in.",
+        { duration: 8000 }
+      );
+    }
+    // Clean the URL so a refresh doesn't re-trigger the toast. We use
+    // history.replaceState instead of router.replace so this stays a
+    // client-side no-op and doesn't kick off a re-render.
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      url.searchParams.delete("paypal");
+      url.searchParams.delete("code");
+      window.history.replaceState(null, "", url.toString());
+    }
+    // Intentionally run once on mount — searchParams is stable per navigation.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const [otherCosts, setOtherCosts] = useState<OtherCost[]>([
     { label: "Mailbox slots", quantity: 0, unitPrice: 599, unitLabel: "/mo", type: "mailbox" },
