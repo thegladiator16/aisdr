@@ -200,7 +200,7 @@ export default function CampaignsPage() {
     setLoading(true);
     try {
       // Fetch everything (including archived) once and apply status/type/
-      // date/performance filtering client-side — matches how the other
+      // date/performance filtering client-side â€” matches how the other
       // filter dimensions already work in this page.
       const res = await fetch("/api/campaigns?status=all");
       if (!res.ok) throw new Error("Failed to load campaigns");
@@ -295,7 +295,7 @@ export default function CampaignsPage() {
   /* ---- campaign actions ---- */
 
   async function handleToggleApproval(c: Campaign, next: boolean) {
-    // Optimistic — flip locally, revert on failure.
+    // Optimistic â€” flip locally, revert on failure.
     setCampaigns((prev) =>
       prev.map((x) => (x.id === c.id ? { ...x, requireApproval: next } : x))
     );
@@ -555,7 +555,7 @@ export default function CampaignsPage() {
     const status = c.status ?? "draft";
     if (appliedFilters.statuses.has("all")) {
       // "All" mirrors every mailbox-style UI (e.g. Gmail's "All Mail"
-      // excludes Trash) — archived campaigns only show when explicitly
+      // excludes Trash) â€” archived campaigns only show when explicitly
       // selected below, so they don't silently reappear in the main view.
       if (status === "archived") return false;
     } else if (!appliedFilters.statuses.has(status)) {
@@ -955,7 +955,7 @@ export default function CampaignsPage() {
                 </div>
                 {triggersLoading ? (
                   <div className="py-6 text-center text-sm text-gray-400">
-                    Loading…
+                    Loadingâ€¦
                   </div>
                 ) : triggers.length === 0 ? (
                   <div className="py-6 text-center text-sm text-gray-400">
@@ -974,7 +974,7 @@ export default function CampaignsPage() {
                           </p>
                           <p className="text-xs text-gray-500 mt-0.5">
                             <span className="font-mono">{t.triggerType}</span>{" "}
-                            when threshold ≥{" "}
+                            when threshold â‰¥{" "}
                             <span className="font-semibold">
                               {t.threshold}
                               {t.triggerType === "credits_used_pct" ? "%" : ""}
@@ -1020,7 +1020,7 @@ export default function CampaignsPage() {
 
       {/* ========== NEW TRIGGER MODAL ========== */}
       {showTriggerModal && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-md">
           <div className="w-full max-w-md rounded-2xl bg-white shadow-xl mx-4">
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
               <h2 className="text-lg font-bold text-gray-900">New trigger</h2>
@@ -1041,7 +1041,7 @@ export default function CampaignsPage() {
                   onChange={(e) => setNewTriggerCampaignId(e.target.value)}
                   className="w-full rounded-lg border border-gray-200 h-11 px-3 text-sm text-gray-900 focus:border-[#6C47FF] focus:ring-1 focus:ring-[#6C47FF] focus:outline-none"
                 >
-                  <option value="">Select a campaign…</option>
+                  <option value="">Select a campaignâ€¦</option>
                   {campaigns
                     .filter((c) => c.status !== "archived")
                     .map((c) => (
@@ -1087,7 +1087,7 @@ export default function CampaignsPage() {
                   {newTriggerType === "credits_used_pct" &&
                     "Fires when leads-used / leads-limit crosses this percentage (0-100)."}
                   {newTriggerType === "manual" &&
-                    "Manual triggers don't fire on a threshold — they're kicked off by a workflow."}
+                    "Manual triggers don't fire on a threshold â€” they're kicked off by a workflow."}
                 </p>
               </div>
             </div>
@@ -1107,7 +1107,7 @@ export default function CampaignsPage() {
                 {creatingTrigger && (
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
                 )}
-                {creatingTrigger ? "Creating…" : "Create trigger"}
+                {creatingTrigger ? "Creatingâ€¦" : "Create trigger"}
               </button>
             </div>
           </div>
@@ -1116,7 +1116,7 @@ export default function CampaignsPage() {
 
       {/* ========== REACTIVATE STALE LEADS MODAL ========== */}
       {reactivateTarget && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-md">
           <div className="w-full max-w-md rounded-2xl bg-white shadow-xl mx-4">
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
               <h2 className="text-lg font-bold text-gray-900">
@@ -1199,7 +1199,7 @@ export default function CampaignsPage() {
                 {reactivating && (
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
                 )}
-                {reactivating ? "Enrolling…" : "Enroll stale leads"}
+                {reactivating ? "Enrollingâ€¦" : "Enroll stale leads"}
               </button>
             </div>
           </div>
@@ -1208,7 +1208,7 @@ export default function CampaignsPage() {
 
       {/* ========== ARCHIVE CONFIRMATION MODAL ========== */}
       {archiveTarget && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-md">
           <div className="w-full max-w-sm rounded-2xl bg-white shadow-xl mx-4 p-6">
             <div className="flex items-center gap-3 mb-4">
               <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-50">
@@ -1244,7 +1244,7 @@ export default function CampaignsPage() {
 
       {/* ========== NEW CAMPAIGN MODAL ========== */}
       {modalState !== "closed" && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-md">
           <div className="w-full max-w-lg rounded-2xl bg-white shadow-xl mx-4">
             {/* modal header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
@@ -1472,7 +1472,7 @@ export default function CampaignsPage() {
                         onChange={(e) => setFilterMinReplies(e.target.value)}
                         className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-[#6C47FF] focus:outline-none focus:ring-1 focus:ring-[#6C47FF]"
                       />
-                      <span className="text-gray-400 text-sm">–</span>
+                      <span className="text-gray-400 text-sm">â€“</span>
                       <input
                         type="number"
                         placeholder="Max"
@@ -1492,7 +1492,7 @@ export default function CampaignsPage() {
                         onChange={(e) => setFilterMinMeetings(e.target.value)}
                         className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-[#6C47FF] focus:outline-none focus:ring-1 focus:ring-[#6C47FF]"
                       />
-                      <span className="text-gray-400 text-sm">–</span>
+                      <span className="text-gray-400 text-sm">â€“</span>
                       <input
                         type="number"
                         placeholder="Max"

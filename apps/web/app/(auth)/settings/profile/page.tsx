@@ -46,7 +46,7 @@ function ConnectMailboxModal({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-md">
       <div className="w-full max-w-md rounded-2xl bg-white shadow-xl mx-4">
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
           <h2 className="text-lg font-bold text-gray-900">Connect mailbox</h2>
@@ -132,7 +132,7 @@ function ChangePasswordModal({
   };
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-md">
       <div className="w-full max-w-md rounded-2xl bg-white shadow-xl mx-4">
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
           <h2 className="text-lg font-bold text-gray-900">
@@ -235,14 +235,14 @@ function TwoFactorModal({
       onEnable();
       onClose();
     } catch (err: any) {
-      toast.error(err?.errors?.[0]?.message ?? "Invalid code — try again");
+      toast.error(err?.errors?.[0]?.message ?? "Invalid code â€” try again");
     } finally {
       setVerifying(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-md">
       <div className="w-full max-w-md rounded-2xl bg-white shadow-xl mx-4">
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
           <h2 className="text-lg font-bold text-gray-900">
@@ -254,7 +254,7 @@ function TwoFactorModal({
         </div>
         <div className="p-6 space-y-6">
           <p className="text-sm text-gray-600">
-            Add this key to your authenticator app (Google Authenticator, Authy, etc.) —
+            Add this key to your authenticator app (Google Authenticator, Authy, etc.) â€”
             look for &quot;enter a setup key&quot; instead of scanning a QR code.
           </p>
           <div className="flex items-center justify-center">
@@ -674,7 +674,7 @@ export default function ProfilePage() {
         ) : signature.trim() ? (
           <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
             {/^\s*<[a-z][\s\S]*>/i.test(signature) ? (
-              // NOTE: dangerouslySetInnerHTML is safe here — this is the current
+              // NOTE: dangerouslySetInnerHTML is safe here â€” this is the current
               // user's own signature, only rendered back to themselves.
               <div
                 className="text-sm text-gray-800"
@@ -688,7 +688,7 @@ export default function ProfilePage() {
           </div>
         ) : (
           <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50 p-4 text-sm text-gray-500">
-            No signature yet — set one up so Arya can sign off properly.
+            No signature yet â€” set one up so Arya can sign off properly.
           </div>
         )}
       </div>
@@ -705,7 +705,7 @@ export default function ProfilePage() {
               <p className="text-xs text-gray-500">
                 {user.passwordEnabled
                   ? "Update the password used to sign in"
-                  : `Signed in via ${user.externalAccounts[0]?.provider ?? "an external provider"} — set a password to also sign in directly`}
+                  : `Signed in via ${user.externalAccounts[0]?.provider ?? "an external provider"} â€” set a password to also sign in directly`}
               </p>
             </div>
             <button

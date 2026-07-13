@@ -211,7 +211,7 @@ export default function ListsPage() {
 
       {/* ========== DELETE CONFIRMATION MODAL ========== */}
       {deleteTarget && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-md">
           <div className="w-full max-w-sm rounded-2xl bg-white shadow-xl mx-4 p-6">
             <div className="flex items-center gap-3 mb-4">
               <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-50">
@@ -246,7 +246,7 @@ export default function ListsPage() {
 
       {/* ========== CREATE LIST MODAL ========== */}
       {showModal && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-md">
           <div className="w-full max-w-lg rounded-2xl bg-white shadow-xl mx-4">
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
               <h2 className="text-lg font-bold text-gray-900">New list</h2>

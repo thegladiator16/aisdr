@@ -33,7 +33,7 @@ const emptyFields: StructuredFields = {
   website: "",
 };
 
-/** Original template — auto-composes a plain-text signature from the fields. */
+/** Original template â€” auto-composes a plain-text signature from the fields. */
 function composePlainText(f: StructuredFields): string {
   const lines: string[] = [];
   if (f.signOff.trim()) lines.push(`${f.signOff.trim()},`);
@@ -42,7 +42,7 @@ function composePlainText(f: StructuredFields): string {
 
   const titleCompany = [f.jobTitle.trim(), f.companyName.trim()]
     .filter(Boolean)
-    .join(" · ");
+    .join(" Â· ");
   if (titleCompany) lines.push(titleCompany);
 
   if (f.website.trim()) lines.push(f.website.trim());
@@ -96,7 +96,7 @@ export default function SignatureEditor({ onClose, onSaved }: SignatureEditorPro
 
   // Load existing signature. We can't reliably tell whether the stored signature
   // was auto-composed or custom, so we drop the user into "Custom" mode if
-  // anything is already there — safest behavior.
+  // anything is already there â€” safest behavior.
   useEffect(() => {
     let cancelled = false;
     fetch("/api/user/signature", { cache: "no-store" })
@@ -113,7 +113,7 @@ export default function SignatureEditor({ onClose, onSaved }: SignatureEditorPro
         }
       })
       .catch(() => {
-        // silent — treat as no existing signature
+        // silent â€” treat as no existing signature
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -160,7 +160,7 @@ export default function SignatureEditor({ onClose, onSaved }: SignatureEditorPro
   };
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-md p-4">
       <div className="w-full max-w-4xl rounded-2xl bg-white shadow-xl flex flex-col max-h-[90vh]">
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
           <div className="flex items-center gap-2">
@@ -235,12 +235,12 @@ export default function SignatureEditor({ onClose, onSaved }: SignatureEditorPro
                     placeholder={
                       mode === "html"
                         ? "<div>Best,</div>..."
-                        : "Best,\n\nJane Doe\nHead of Sales · Acme"
+                        : "Best,\n\nJane Doe\nHead of Sales Â· Acme"
                     }
                     className="w-full px-3 py-2 text-sm font-mono border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent resize-none"
                   />
                   <p className="text-xs text-gray-500 mt-1">
-                    Editing the raw signature — structured fields are ignored.
+                    Editing the raw signature â€” structured fields are ignored.
                   </p>
                 </div>
               ) : (
@@ -292,7 +292,7 @@ export default function SignatureEditor({ onClose, onSaved }: SignatureEditorPro
               <div className="bg-white border border-gray-200 rounded-lg p-4 min-h-[280px] text-sm text-gray-800">
                 {renderedSignature.trim() ? (
                   mode === "html" ? (
-                    // NOTE: dangerouslySetInnerHTML is intentional here — this
+                    // NOTE: dangerouslySetInnerHTML is intentional here â€” this
                     // is the user's OWN signature content, only ever rendered
                     // back to themselves in this local preview. It never
                     // renders untrusted HTML from another user or the network.

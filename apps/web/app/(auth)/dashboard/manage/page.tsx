@@ -285,7 +285,7 @@ export default function ManageAryaPage() {
         meetingsBooked: d.meetingsBooked ?? 0,
       });
     } catch {
-      // Leave zeros — analytics is best-effort. No fake toast.
+      // Leave zeros â€” analytics is best-effort. No fake toast.
     } finally {
       setAnalyticsLoading(false);
     }
@@ -347,8 +347,8 @@ export default function ManageAryaPage() {
     []
   );
 
-  // Positive-reply campaign score — expose the field TS thinks may be missing.
-  // (`positiveReplies` isn't on the /api/campaigns response — the calling
+  // Positive-reply campaign score â€” expose the field TS thinks may be missing.
+  // (`positiveReplies` isn't on the /api/campaigns response â€” the calling
   // agent's audit noted these fields but the current route doesn't select
   // it; fall back to totalReplies. Kept in a type-safe extension:)
   // (No-op; the sort above already handles undefined.)
@@ -360,7 +360,7 @@ export default function ManageAryaPage() {
     refreshTasks();
     refreshCampaigns();
     refreshActivity();
-    // Kick off configuration list fetches in parallel — a single grouped
+    // Kick off configuration list fetches in parallel â€” a single grouped
     // /api/agent-config call would work too, but per-category keeps the
     // wire types trivial and lets each section reload independently.
     fetchCategory(CAT.coaching).then(setCoachingPoints);
@@ -444,7 +444,7 @@ export default function ManageAryaPage() {
         action: "Coming soon",
         completed: false,
         disabled: true,
-        disabledReason: "Not available yet — get in touch to enable multi-mailbox sending",
+        disabledReason: "Not available yet â€” get in touch to enable multi-mailbox sending",
       },
       {
         key: "autopilot",
@@ -470,7 +470,7 @@ export default function ManageAryaPage() {
   const handleQuestAction = useCallback(
     (quest: Quest) => {
       if (quest.disabled) {
-        toast(quest.disabledReason ?? "Coming soon", { icon: "🛠️" });
+        toast(quest.disabledReason ?? "Coming soon", { icon: "ðŸ› ï¸" });
         return;
       }
       switch (quest.action) {
@@ -503,7 +503,7 @@ export default function ManageAryaPage() {
         ? filterByTitle(dncDomains, dncSearchQuery)
         : dncSub === "phones"
           ? filterByTitle(dncPhones, dncSearchQuery)
-          : []; // "crm" — intentionally empty, handled as its own message below
+          : []; // "crm" â€” intentionally empty, handled as its own message below
 
   const filteredBannedPhrases = filterByTitle(bannedPhrases, bannedSearchQuery);
 
@@ -566,7 +566,7 @@ export default function ManageAryaPage() {
     []
   );
 
-  // Map: which setter belongs to which category — used by the shared edit modal.
+  // Map: which setter belongs to which category â€” used by the shared edit modal.
   const setterForCategory = useCallback(
     (category: string): React.Dispatch<React.SetStateAction<AgentItem[]>> => {
       switch (category) {
@@ -640,7 +640,7 @@ export default function ManageAryaPage() {
     footer: React.ReactNode
   ) => (
     <div
-      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 backdrop-blur-sm"
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-md"
       onClick={closeModal}
     >
       <div
@@ -793,7 +793,7 @@ export default function ManageAryaPage() {
               }}
               className="text-sm font-medium text-[#6C47FF] hover:text-[#5A38E0]"
             >
-              Use the full signature editor →
+              Use the full signature editor â†’
             </button>
           </div>,
           <>{cancelBtn}</>
@@ -1360,7 +1360,7 @@ export default function ManageAryaPage() {
                 <div className="flex items-center gap-3">
                   <h2 className="font-bold text-gray-900">Onboarding quests</h2>
                   <span className="text-sm text-gray-500">
-                    {questsLoading ? "Loading…" : `${completedCount}/${totalQuests} complete`}
+                    {questsLoading ? "Loadingâ€¦" : `${completedCount}/${totalQuests} complete`}
                   </span>
                 </div>
                 <button
@@ -1518,12 +1518,12 @@ export default function ManageAryaPage() {
                       <p className="text-sm font-medium text-gray-900 truncate">
                         {taskLeadName(t)}
                         {t.campaignName ? (
-                          <span className="text-gray-500 font-normal"> · {t.campaignName}</span>
+                          <span className="text-gray-500 font-normal"> Â· {t.campaignName}</span>
                         ) : null}
                       </p>
                       <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">
                         {t.taskType.replaceAll("_", " ")}
-                        {t.message ? ` — ${t.message}` : ""}
+                        {t.message ? ` â€” ${t.message}` : ""}
                       </p>
                     </div>
                     <span className="text-xs text-gray-400 shrink-0">
@@ -1571,7 +1571,7 @@ export default function ManageAryaPage() {
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-medium text-gray-900 truncate">{c.name}</p>
                       <p className="text-xs text-gray-500 mt-0.5">
-                        {(c.emailsSent ?? 0).toLocaleString()} sent · {(c.totalReplies ?? 0).toLocaleString()} replies · {(c.meetingsBooked ?? 0).toLocaleString()} meetings
+                        {(c.emailsSent ?? 0).toLocaleString()} sent Â· {(c.totalReplies ?? 0).toLocaleString()} replies Â· {(c.meetingsBooked ?? 0).toLocaleString()} meetings
                       </p>
                     </div>
                     <span className="text-xs text-gray-500 shrink-0 ml-3">{c.status}</span>
@@ -1749,7 +1749,7 @@ export default function ManageAryaPage() {
                     {proofHighlights.length === 0 ? (
                       <div className="flex flex-col items-center justify-center py-10 text-center">
                         <p className="text-sm text-gray-500">
-                          No highlights yet. Add wins Arya can drop into outreach — e.g.
+                          No highlights yet. Add wins Arya can drop into outreach â€” e.g.
                           &quot;3x more meetings&quot;.
                         </p>
                       </div>
@@ -2029,7 +2029,7 @@ export default function ManageAryaPage() {
                   <p className="font-medium text-gray-900">CRM sync not available yet</p>
                   <p className="text-sm text-gray-500 mt-1 max-w-md">
                     Connect a CRM integration to sync do-not-contact entries automatically. This is on
-                    the roadmap — for now, add DNC entries directly to the Email, Domain, or Phone tabs.
+                    the roadmap â€” for now, add DNC entries directly to the Email, Domain, or Phone tabs.
                   </p>
                 </div>
               ) : (

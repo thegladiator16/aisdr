@@ -111,7 +111,7 @@ function BuyFlow({
         >
           <Plus className="h-3.5 w-3.5" />
         </button>
-        <span className="text-xs text-gray-400">₹{pricePerCredit.toFixed(2)} / credit</span>
+        <span className="text-xs text-gray-400">â‚¹{pricePerCredit.toFixed(2)} / credit</span>
       </div>
 
       {/* Price breakdown */}
@@ -132,7 +132,7 @@ function BuyFlow({
         disabled={processing}
         className="w-full h-10 rounded-lg bg-[#6C47FF] text-white text-sm font-semibold hover:bg-[#5538DD] transition-colors flex items-center justify-center gap-2 disabled:opacity-70"
       >
-        {processing ? <><Loader2 className="h-4 w-4 animate-spin" /> Processing…</> : `Pay ${formatINR(total)}`}
+        {processing ? <><Loader2 className="h-4 w-4 animate-spin" /> Processingâ€¦</> : `Pay ${formatINR(total)}`}
       </button>
     </div>
   );
@@ -151,7 +151,7 @@ export function CreditsModal({ onClose }: { onClose: () => void }) {
   const renewalDate = formatRenewalDate(subscription?.currentPeriodEnd ?? null);
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-md">
       <div className="w-full max-w-sm rounded-2xl bg-white shadow-xl mx-4">
         {/* Header */}
         <div className="flex items-center justify-between px-5 pt-5 pb-1">

@@ -52,9 +52,9 @@ function BuyCreditsModal({ onClose }: { onClose: () => void }) {
       .catch(() => setPaymentsAvailable(false));
   }, []);
 
-  // ₹2.50/credit (250 paise) — matches app/api/billing/create-order/route.ts
+  // â‚¹2.50/credit (250 paise) â€” matches app/api/billing/create-order/route.ts
   // `qty * 250`. This modal previously showed USD ($0.03/credit) while the
-  // actual Razorpay charge was always INR — currency AND amount shown to
+  // actual Razorpay charge was always INR â€” currency AND amount shown to
   // the user were both wrong versus what got charged.
   const pricePerCredit = 2.5;
   const GST_RATE = 0.18;
@@ -116,7 +116,7 @@ function BuyCreditsModal({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-md">
       <div className="w-full max-w-2xl rounded-2xl bg-white shadow-xl mx-4 overflow-hidden max-h-[92vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-[#E5E7EB]">
@@ -151,7 +151,7 @@ function BuyCreditsModal({ onClose }: { onClose: () => void }) {
               <Plus className="h-4 w-4" />
             </button>
             <span className="text-xs text-[#6B7280] ml-2">
-              ₹{pricePerCredit.toFixed(2)} / credit
+              â‚¹{pricePerCredit.toFixed(2)} / credit
             </span>
           </div>
         </div>
@@ -172,7 +172,7 @@ function BuyCreditsModal({ onClose }: { onClose: () => void }) {
               </div>
               <div className="flex justify-between text-xs">
                 <span className="text-[#6B7280]">
-                  ₹{pricePerCredit.toFixed(2)} × {quantity.toLocaleString("en-US")}
+                  â‚¹{pricePerCredit.toFixed(2)} Ã— {quantity.toLocaleString("en-US")}
                 </span>
                 <span className="text-[#6B7280]"></span>
               </div>
@@ -307,7 +307,7 @@ function BuyCreditsModal({ onClose }: { onClose: () => void }) {
                       <p className="text-sm font-semibold text-[#111827]">Pay by UPI</p>
                       <p className="text-xs text-[#6B7280] mt-1">
                         Enter your UPI ID, scan a QR code, or approve the request
-                        directly in your UPI app — Razorpay handles the whole flow
+                        directly in your UPI app â€” Razorpay handles the whole flow
                         securely.
                       </p>
                     </div>
@@ -339,7 +339,7 @@ function BuyCreditsModal({ onClose }: { onClose: () => void }) {
 
                 <p className="text-xs text-[#6B7280] flex items-center gap-1.5">
                   <Lock className="h-3 w-3" /> UPI PIN is entered on your bank&apos;s
-                  secure screen — never on ours.
+                  secure screen â€” never on ours.
                 </p>
               </div>
             )}
@@ -440,8 +440,8 @@ export default function BillingPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loadingTransactions, setLoadingTransactions] = useState(true);
 
-  // Currency preference — used for the dual-currency price display and the
-  // payment-method disclosure. Priority: +91 phone in Clerk profile → INR
+  // Currency preference â€” used for the dual-currency price display and the
+  // payment-method disclosure. Priority: +91 phone in Clerk profile â†’ INR
   // (locked) > localStorage (set by /pricing or ChangePlanModal) > browser
   // locale > INR fallback.
   const [currencyPref, setCurrencyPref] = useState<PrefCurrency>("INR");
@@ -477,7 +477,7 @@ export default function BillingPage() {
         setTransactions(Array.isArray(json.transactions) ? json.transactions : []);
       }
     } catch {
-      // leave transactions empty — table falls back to "No transactions yet"
+      // leave transactions empty â€” table falls back to "No transactions yet"
     } finally {
       setLoadingTransactions(false);
     }
@@ -540,14 +540,14 @@ export default function BillingPage() {
         currency,
         keyId,
         name: "AryaSDR",
-        description: `${cost.quantity} × ${cost.label}`,
+        description: `${cost.quantity} Ã— ${cost.label}`,
         prefill: {
           email: user?.primaryEmailAddress?.emailAddress,
           name: user?.fullName ?? undefined,
         },
         verifyBody: { type: cost.type, quantity: cost.quantity },
         onVerified: () => {
-          toast.success(`Purchased ${cost.quantity} × ${cost.label}`);
+          toast.success(`Purchased ${cost.quantity} Ã— ${cost.label}`);
           loadTransactions();
           router.refresh();
         },
@@ -638,7 +638,7 @@ export default function BillingPage() {
           <span className="text-sm text-gray-500">
             {subscription
               ? `${subscription.creditsUsed.toLocaleString("en-US")} / ${subscription.credits.toLocaleString("en-US")} used`
-              : "Loading…"}
+              : "Loadingâ€¦"}
           </span>
         </div>
         <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
@@ -710,7 +710,7 @@ export default function BillingPage() {
                       <span className="inline-flex flex-col leading-tight">
                         <span>{primary} / mo</span>
                         <span className="text-[11px] text-gray-400">
-                          ≈ {secondary} / mo · {currencyPref === "USD" ? "PayPal (via Razorpay)" : "Razorpay"}
+                          â‰ˆ {secondary} / mo Â· {currencyPref === "USD" ? "PayPal (via Razorpay)" : "Razorpay"}
                         </span>
                       </span>
                     );
@@ -785,7 +785,7 @@ export default function BillingPage() {
                     disabled={purchasingIdx === idx || cost.quantity <= 0}
                     className="px-3 py-1.5 text-xs font-medium text-white bg-[#6C47FF] rounded-md hover:bg-[#5a3ad4] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                   >
-                    {purchasingIdx === idx ? "Processing…" : "Buy"}
+                    {purchasingIdx === idx ? "Processingâ€¦" : "Buy"}
                   </button>
                 </td>
               </tr>
@@ -937,7 +937,7 @@ export default function BillingPage() {
             {loadingTransactions ? (
               <tr>
                 <td colSpan={4} className="py-8 text-center text-sm text-gray-400">
-                  Loading…
+                  Loadingâ€¦
                 </td>
               </tr>
             ) : transactions.length === 0 ? (

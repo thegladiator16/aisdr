@@ -104,7 +104,7 @@ export function ChangePlanModal({ onClose }: { onClose: () => void }) {
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
   const [paymentsAvailable, setPaymentsAvailable] = useState<boolean | null>(null);
 
-  // Extract the user's phone number(s) once — Clerk sometimes populates
+  // Extract the user's phone number(s) once â€” Clerk sometimes populates
   // primaryPhoneNumber, sometimes phoneNumbers[]; check both.
   const clerkPhones = useMemo(() => {
     const list: string[] = [];
@@ -119,7 +119,7 @@ export function ChangePlanModal({ onClose }: { onClose: () => void }) {
   }, [user]);
 
   useEffect(() => {
-    // Priority: +91 phone → INR (locked) > stored preference > browser locale.
+    // Priority: +91 phone â†’ INR (locked) > stored preference > browser locale.
     // If a +91 user had previously toggled to USD and localStorage remembers
     // it, we override that here and rewrite the preference back to INR.
     const { currency: resolved, locked } = resolveCurrency({ phones: clerkPhones });
@@ -177,7 +177,7 @@ export function ChangePlanModal({ onClose }: { onClose: () => void }) {
         currency: orderCurrency,
         keyId,
         name: "AryaSDR",
-        description: `${plan.name} plan — ${billing}`,
+        description: `${plan.name} plan â€” ${billing}`,
         prefill: {
           email: user?.primaryEmailAddress?.emailAddress,
           name: user?.fullName ?? undefined,
@@ -204,7 +204,7 @@ export function ChangePlanModal({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-md">
       <div className="w-full max-w-4xl rounded-2xl bg-white shadow-xl mx-4 overflow-hidden max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
@@ -228,8 +228,8 @@ export function ChangePlanModal({ onClose }: { onClose: () => void }) {
                 } disabled:cursor-default`}
                 aria-pressed={currency === "INR"}
               >
-                <span aria-hidden>🇮🇳</span>
-                ₹ INR
+                <span aria-hidden>ðŸ‡®ðŸ‡³</span>
+                â‚¹ INR
               </button>
               <button
                 onClick={() => setCurrency("USD")}
@@ -243,7 +243,7 @@ export function ChangePlanModal({ onClose }: { onClose: () => void }) {
                 aria-disabled={currencyLocked}
                 title={currencyLocked ? "You are in India. Please pay in INR." : undefined}
               >
-                <span aria-hidden>🌍</span>
+                <span aria-hidden>ðŸŒ</span>
                 $ USD
               </button>
             </div>
@@ -275,16 +275,16 @@ export function ChangePlanModal({ onClose }: { onClose: () => void }) {
             </div>
 
             {/* Payment method disclosure. For a +91 user the INR lock
-                trumps everything — surface why the USD toggle is off. */}
+                trumps everything â€” surface why the USD toggle is off. */}
             {currencyLocked ? (
               <p className="text-[11px] text-violet-600 text-center max-w-md font-medium">
-                🇮🇳 You are in India. Payments are processed in INR via Razorpay (UPI / Cards / NetBanking).
+                ðŸ‡®ðŸ‡³ You are in India. Payments are processed in INR via Razorpay (UPI / Cards / NetBanking).
               </p>
             ) : (
               <p className="text-[11px] text-gray-400 text-center max-w-md">
                 {currency === "USD"
                   ? "International payments are processed securely via PayPal. On the next screen, select PayPal from the payment options."
-                  : "Indian payments via Razorpay — UPI / Cards / NetBanking."}
+                  : "Indian payments via Razorpay â€” UPI / Cards / NetBanking."}
               </p>
             )}
           </div>
@@ -318,7 +318,7 @@ export function ChangePlanModal({ onClose }: { onClose: () => void }) {
                   </p>
                   {plan.monthly != null && plan.monthly > 0 && (
                     <p className="text-[11px] text-gray-400 mb-1">
-                      ≈ {displayPrice(
+                      â‰ˆ {displayPrice(
                         billing === "monthly" ? plan.monthly : plan.yearly!,
                         currency === "USD" ? "INR" : "USD",
                       )}/mo
@@ -337,7 +337,7 @@ export function ChangePlanModal({ onClose }: { onClose: () => void }) {
                     {isLoading ? (
                       <>
                         <Loader2 className="h-4 w-4 animate-spin" />
-                        Processing…
+                        Processingâ€¦
                       </>
                     ) : plan.key === "scale" ? (
                       "Contact sales"
@@ -346,7 +346,7 @@ export function ChangePlanModal({ onClose }: { onClose: () => void }) {
                     )}
                   </button>
                   <p className="text-xs text-gray-500 mt-3 flex items-center gap-1">
-                    <span className="text-gray-400">ℹ</span> {plan.replies}
+                    <span className="text-gray-400">â„¹</span> {plan.replies}
                   </p>
                   <hr className="my-4 border-gray-100" />
                   <p className="text-xs font-medium text-gray-700 mb-2">{plan.includes}</p>

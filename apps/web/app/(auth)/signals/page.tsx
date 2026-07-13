@@ -31,10 +31,10 @@ interface Signal {
   categories: FilterTab[];
 }
 
-// Static catalog of signal *types* Arya can detect — this is a fixed product
+// Static catalog of signal *types* Arya can detect â€” this is a fixed product
 // catalog (like the campaign-type picker on the Campaigns page), not fetched
 // data. What IS real and persisted is which of these a user has subscribed
-// to, and for which campaign — see `signalSubscriptions` below.
+// to, and for which campaign â€” see `signalSubscriptions` below.
 const signals: Signal[] = [
   {
     id: 1,
@@ -353,7 +353,7 @@ export default function SignalsPage() {
                 <div
                   key={signal.id}
                   onClick={() => handleSignalClick(signal)}
-                  title={signal.comingSoon ? "Coming soon — join waitlist" : undefined}
+                  title={signal.comingSoon ? "Coming soon â€” join waitlist" : undefined}
                   className={`relative rounded-xl border border-gray-200 bg-white p-5 transition ${
                     signal.comingSoon
                       ? "opacity-60 cursor-default"
@@ -391,7 +391,7 @@ export default function SignalsPage() {
                           className="flex items-center justify-between text-xs text-gray-500"
                         >
                           <span className="truncate">
-                            → {sub.campaignName ?? "Unknown campaign"}
+                            â†’ {sub.campaignName ?? "Unknown campaign"}
                           </span>
                           <button
                             onClick={(e) => {
@@ -415,7 +415,7 @@ export default function SignalsPage() {
 
       {/* Signal Setup Modal */}
       {signalModalOpen && selectedSignal && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-md">
           <div className="w-full max-w-md rounded-xl bg-white shadow-2xl">
             {/* Header */}
             <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">

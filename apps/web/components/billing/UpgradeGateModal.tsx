@@ -40,7 +40,7 @@ export function UpgradeGateModal({ feature = "campaigns", onClose, onUpgrade }: 
   const gate = GATE_FEATURES[feature] ?? GATE_FEATURES.campaigns;
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-md">
       <div className="w-full max-w-md rounded-2xl bg-white shadow-xl mx-4">
         <div className="flex items-center justify-between px-5 pt-5 pb-4 border-b border-gray-100">
           <div className="flex items-center gap-2.5">
@@ -89,7 +89,7 @@ export function UpgradeGateModal({ feature = "campaigns", onClose, onUpgrade }: 
               }}
               className="flex-1 h-10 rounded-lg bg-[#6C47FF] text-white text-sm font-semibold hover:bg-[#5538DD] transition-colors"
             >
-              See plans →
+              See plans â†’
             </button>
           </div>
         </div>
