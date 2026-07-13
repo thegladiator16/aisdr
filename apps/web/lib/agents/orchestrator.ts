@@ -31,6 +31,7 @@ import { ensureAgentTables } from "./schema";
 import { agentLLM, isAgentsConfigured } from "./llm";
 import {
   ORCHESTRATOR_PROMPT,
+  ICP_TO_COMPANIES_PROMPT,
   PROSPECTING_PROMPT,
   RESEARCH_PROMPT,
   COPYWRITER_PROMPT,
@@ -38,6 +39,7 @@ import {
   REPLY_HANDLER_PROMPT,
   MEETING_BOOKER_PROMPT,
 } from "./prompts";
+import { findByCompanies, isHunterConfigured } from "./tools/hunter";
 
 /* ---------- Types ---------- */
 
@@ -79,6 +81,13 @@ interface Lead {
   companyName: string;
   industry: string;
   location: string;
+  // Present when the lead came from Hunter.io; absent for synthesised
+  // fallback leads. `source` lets the copywriter tell the difference so
+  // it can call out demo-mode runs.
+  email?: string;
+  confidence?: number;
+  linkedin?: string | null;
+  source?: "hunter" | "synthesized";
 }
 
 interface Researched {
@@ -123,7 +132,15 @@ type StateT = typeof AgentState.State;
 
 /* ---------- Helpers ---------- */
 
-let currentOnEvent: OnAgentEvent | null = null;
+// runId → onEvent — a warm serverless container can hold two concurrent
+// runs (two overlapping SSE connections). A module-level singleton was
+// clobbering the earlier run's SSE stream when the later run arrived;
+// keying by runId keeps them isolated.
+const eventSinks = new Map<string, OnAgentEvent>();
+
+function emit(runId: string, e: AgentEvent): void {
+  eventSinks.get(runId)?.(e);
+}
 
 async function startTask(
   runId: string,
@@ -141,7 +158,7 @@ async function startTask(
       input: input as Record<string, unknown>,
     })
     .returning({ id: agentTasks.id });
-  currentOnEvent?.({
+  emit(runId, {
     kind: "task_started",
     runId,
     taskId: row.id,
@@ -153,7 +170,7 @@ async function startTask(
 
 async function logTask(runId: string, taskId: string, message: string): Promise<void> {
   await db.insert(agentLogs).values({ taskId, message, level: "info" });
-  currentOnEvent?.({ kind: "task_log", runId, taskId, message });
+  emit(runId, { kind: "task_log", runId, taskId, message });
 }
 
 async function completeTask(
@@ -166,7 +183,7 @@ async function completeTask(
     .update(agentTasks)
     .set({ status: "completed", output: output as Record<string, unknown>, completedAt: new Date() })
     .where(eq(agentTasks.id, taskId));
-  currentOnEvent?.({ kind: "task_completed", runId, taskId, agent, data: output });
+  emit(runId, { kind: "task_completed", runId, taskId, agent, data: output });
 }
 
 async function failTask(
@@ -181,7 +198,7 @@ async function failTask(
     .set({ status: "failed", errorMessage: msg, completedAt: new Date() })
     .where(eq(agentTasks.id, taskId));
   await db.insert(agentLogs).values({ taskId, level: "error", message: msg });
-  currentOnEvent?.({ kind: "task_failed", runId, taskId, agent, message: msg });
+  emit(runId, { kind: "task_failed", runId, taskId, agent, message: msg });
   throw new Error(`${agent}: ${msg}`);
 }
 
@@ -238,30 +255,191 @@ async function orchestratorNode(state: StateT): Promise<Partial<StateT>> {
   return {};
 }
 
+/**
+ * Prospecting node — two-path strategy.
+ *
+ * Primary (HUNTER_API_KEY set): ask Claude for a list of REAL company
+ * names that fit the ICP, fan those out to Hunter.io's Domain Search in
+ * parallel, aggregate + dedupe. Result: leads with real emails +
+ * Hunter's own confidence score.
+ *
+ * Fallback (no HUNTER_API_KEY, or Hunter returned zero hits): synthesise
+ * plausible prospects via PROSPECTING_PROMPT so the graph can finish and
+ * the copywriter has something to work with. These leads are marked
+ * source: "synthesized" so downstream nodes can distinguish them.
+ */
 async function prospectingNode(state: StateT): Promise<Partial<StateT>> {
   const seq = state.sequence + 1;
   const taskId = await startTask(state.runId, "prospecting", seq, {
     icp: state.icp,
     audienceSize: state.audienceSize,
+    hunterConfigured: isHunterConfigured(),
   });
+
   try {
+    if (isHunterConfigured()) {
+      await logTask(
+        state.runId,
+        taskId,
+        "Hunter.io configured — asking Claude for target companies matching the ICP…"
+      );
+      const { companies } = await callAgent<{ companies: string[] }>(
+        ICP_TO_COMPANIES_PROMPT,
+        `ICP: ${JSON.stringify(state.icp)}\nGoal: ${state.goal}\nRoughly need: ${state.audienceSize} leads`
+      );
+      // Keep any non-empty trimmed name — 2-char legitimate companies
+      // like "3M", "GE", "HP", "BP", "IBM" (yes, 3 but still) must not
+      // be dropped by an overzealous length filter.
+      const targetCompanies = (companies ?? [])
+        .map((c) => (typeof c === "string" ? c.trim() : ""))
+        .filter((c) => c.length > 0);
+      await logTask(
+        state.runId,
+        taskId,
+        `Target companies (${targetCompanies.length}): ${targetCompanies.slice(0, 8).join(", ")}${targetCompanies.length > 8 ? "…" : ""}`
+      );
+
+      if (targetCompanies.length === 0) {
+        await logTask(
+          state.runId,
+          taskId,
+          "Claude returned no target companies — falling back to synthesised prospects."
+        );
+        return await fallbackProspecting(state, taskId, seq);
+      }
+
+      const roleForHunter = state.icp.jobTitles?.[0];
+      const totalTarget = Math.min(Math.max(state.audienceSize || 10, 5), 50);
+      const perCompany = Math.max(
+        2,
+        Math.ceil(totalTarget / Math.max(targetCompanies.length, 1))
+      );
+
+      await logTask(
+        state.runId,
+        taskId,
+        `Calling Hunter.io Domain Search for ${targetCompanies.length} companies (up to ${perCompany}/co, ${totalTarget} total)…`
+      );
+      const { leads: hunterLeads, errors } = await findByCompanies(
+        targetCompanies,
+        roleForHunter,
+        perCompany,
+        totalTarget
+      );
+
+      // Detect "the key itself is bad" (401 / 403) vs. individual
+      // company misses. If EVERY Hunter call failed with an auth error,
+      // silently falling back to synthesised leads would hide a
+      // configuration bug from a paying user — surface it as a task
+      // failure instead.
+      const authErrorCount = errors.filter((e) =>
+        /HUNTER_HTTP_(401|403)/.test(e)
+      ).length;
+      if (
+        authErrorCount > 0 &&
+        authErrorCount === errors.length &&
+        hunterLeads.length === 0
+      ) {
+        throw new Error(
+          `Hunter.io rejected every request with auth error (${authErrorCount}/${targetCompanies.length}) — check HUNTER_API_KEY.`
+        );
+      }
+
+      if (errors.length > 0) {
+        await logTask(
+          state.runId,
+          taskId,
+          `Hunter reported ${errors.length} partial failures (bad domain / rate limit / etc.) — continuing with the ${hunterLeads.length} that came back.`
+        );
+      }
+
+      if (hunterLeads.length === 0) {
+        await logTask(
+          state.runId,
+          taskId,
+          "Hunter returned zero leads across all target companies — falling back to synthesised prospects so the run can complete."
+        );
+        return await fallbackProspecting(state, taskId, seq);
+      }
+
+      const industryTag = state.icp.industry?.[0] ?? "";
+      const locationTag = state.icp.location?.[0] ?? "";
+      const leads: Lead[] = hunterLeads.map((h) => ({
+        firstName: h.firstName ?? "",
+        lastName: h.lastName ?? "",
+        // Never fall back to the ICP's role here — the copywriter will
+        // read jobTitle back verbatim into the email opener, and
+        // labelling an intern "VP of Sales" because that's what the ICP
+        // asked for is the worst kind of hallucination in a cold email.
+        jobTitle: h.position ?? "",
+        companyName: h.company ?? "",
+        industry: industryTag,
+        location: locationTag,
+        email: h.email,
+        confidence: h.confidence,
+        linkedin: h.linkedin,
+        source: "hunter",
+      }));
+
+      await logTask(
+        state.runId,
+        taskId,
+        `Hunter returned ${leads.length} verified leads with real emails (avg confidence ${Math.round(
+          leads.reduce((s, l) => s + (l.confidence ?? 0), 0) / leads.length
+        )}%).`
+      );
+      await completeTask(state.runId, taskId, "prospecting", {
+        count: leads.length,
+        source: "hunter",
+        companiesTried: targetCompanies.length,
+        hunterErrors: errors.length,
+        sampleEmails: leads.slice(0, 3).map((l) => l.email),
+      });
+      return { leads, sequence: seq };
+    }
+
     await logTask(
       state.runId,
       taskId,
-      `Searching for ~${state.audienceSize} leads matching ICP…`
+      "HUNTER_API_KEY not configured — synthesising plausible prospects (demo mode). Add HUNTER_API_KEY to unlock real emails."
     );
-    const out = await callAgent<{ leads: Lead[] }>(
-      PROSPECTING_PROMPT,
-      `ICP: ${JSON.stringify(state.icp)}\nDesired count: ${state.audienceSize}`
-    );
-    const leads = (out.leads ?? []).slice(0, 50);
-    await logTask(state.runId, taskId, `Returned ${leads.length} prospects.`);
-    await completeTask(state.runId, taskId, "prospecting", { count: leads.length });
-    return { leads, sequence: seq };
+    return await fallbackProspecting(state, taskId, seq);
   } catch (err) {
     await failTask(state.runId, taskId, "prospecting", err);
   }
   return {};
+}
+
+/** Fallback lead generation via the LLM. Used when HUNTER_API_KEY is
+ *  missing, when Claude fails to name any target companies, or when
+ *  every Hunter call comes up empty. */
+async function fallbackProspecting(
+  state: StateT,
+  taskId: string,
+  seq: number
+): Promise<Partial<StateT>> {
+  const out = await callAgent<{ leads: Partial<Lead>[] }>(
+    PROSPECTING_PROMPT,
+    `ICP: ${JSON.stringify(state.icp)}\nDesired count: ${state.audienceSize}`
+  );
+  // Normalise — Claude occasionally drops a field when the prompt
+  // drifts. The rest of the graph assumes strings, not undefined, so
+  // we backfill empty strings here to keep downstream nodes safe.
+  const leads: Lead[] = (out.leads ?? []).slice(0, 50).map((l) => ({
+    firstName: l.firstName ?? "",
+    lastName: l.lastName ?? "",
+    jobTitle: l.jobTitle ?? "",
+    companyName: l.companyName ?? "",
+    industry: l.industry ?? state.icp.industry?.[0] ?? "",
+    location: l.location ?? state.icp.location?.[0] ?? "",
+    source: "synthesized",
+  }));
+  await logTask(state.runId, taskId, `Returned ${leads.length} synthesised prospects.`);
+  await completeTask(state.runId, taskId, "prospecting", {
+    count: leads.length,
+    source: "synthesized",
+  });
+  return { leads, sequence: seq };
 }
 
 async function researchNode(state: StateT): Promise<Partial<StateT>> {
@@ -395,7 +573,7 @@ export async function runCampaignGraph(
     })
     .returning({ id: agentRuns.id });
 
-  currentOnEvent = onEvent ?? null;
+  if (onEvent) eventSinks.set(run.id, onEvent);
   onEvent?.({ kind: "run_started", runId: run.id, message: "Autonomous run started" });
 
   const graph = buildGraph();
@@ -415,6 +593,7 @@ export async function runCampaignGraph(
       emails: [],
       schedule: [],
     });
+    const leadSource = final.leads.find((l) => l.source)?.source ?? "unknown";
     await db
       .update(agentRuns)
       .set({
@@ -424,6 +603,14 @@ export async function runCampaignGraph(
           leadCount: final.leads.length,
           emailCount: final.emails.length,
           firstSendAt: final.schedule[0]?.sendAt ?? null,
+          leadSource,
+          sampleLeads: final.leads.slice(0, 5).map((l) => ({
+            name: [l.firstName, l.lastName].filter(Boolean).join(" ").trim(),
+            title: l.jobTitle || "",
+            company: l.companyName || "",
+            email: l.email ?? null,
+            confidence: l.confidence ?? null,
+          })),
         },
         completedAt: new Date(),
         updatedAt: new Date(),
@@ -449,7 +636,7 @@ export async function runCampaignGraph(
     onEvent?.({ kind: "run_failed", runId: run.id, message: msg });
     return { runId: run.id, status: "failed", error: msg };
   } finally {
-    currentOnEvent = null;
+    eventSinks.delete(run.id);
   }
 }
 

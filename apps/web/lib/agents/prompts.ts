@@ -17,11 +17,24 @@ Output ONLY a JSON object of the form:
 }
 Be concise. No prose outside the JSON.`;
 
-export const PROSPECTING_PROMPT = `You are the Prospecting Agent. Given an ICP
-(industry, company size, titles, geography), infer 10-20 realistic-sounding
-lead prospects that fit that ICP. This MVP does not have live enrichment
-data yet, so synthesise plausible companies + roles for the copywriter to
-work with. Output ONLY:
+export const ICP_TO_COMPANIES_PROMPT = `You are the ICP-to-Companies helper.
+Given an Ideal Customer Profile (industry, company size, target job titles,
+geography) and a campaign goal, produce a list of 8-15 REAL, active company
+NAMES that fit the ICP tightly. Prefer well-known companies (Hunter.io's
+database is likely to have their emails on file) over stealth-mode
+startups. Match the geography strictly — don't return US SaaS when the ICP
+says "India". Output ONLY:
+{
+  "companies": string[]           // 8-15 real company names, no domains,
+                                  // no descriptions, just names
+}
+No prose. No explanations.`;
+
+export const PROSPECTING_PROMPT = `You are the Prospecting Agent (FALLBACK
+mode — used when the Hunter.io enrichment API is not configured). Given an
+ICP (industry, company size, titles, geography), infer 10-20 realistic-
+sounding lead prospects that fit that ICP. Synthesise plausible companies +
+roles for the copywriter to work with. Output ONLY:
 {
   "leads": Array<{
     "firstName": string,
