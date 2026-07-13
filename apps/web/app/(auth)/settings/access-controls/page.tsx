@@ -158,7 +158,7 @@ function NewRoleModal({
               disabled={creating}
               className="px-4 py-2 bg-[#6C47FF] text-white text-sm font-medium rounded-lg hover:bg-[#5a3ad4] transition-colors disabled:opacity-60"
             >
-              {creating ? "Creatingâ€¦" : "Create"}
+              {creating ? "Creating…" : "Create"}
             </button>
           </div>
         </div>
@@ -201,12 +201,12 @@ function criteriaSummary(c: MatchCriteria): string {
   if (c.region) parts.push(`region = ${c.region}`);
   if (c.seniority) parts.push(`seniority = ${c.seniority}`);
   if (c.minCompanySize !== undefined)
-    parts.push(`companySize â‰¥ ${c.minCompanySize}`);
+    parts.push(`companySize ≥ ${c.minCompanySize}`);
   if (c.maxCompanySize !== undefined)
-    parts.push(`companySize â‰¤ ${c.maxCompanySize}`);
+    parts.push(`companySize ≤ ${c.maxCompanySize}`);
   if (c.jobTitleContains)
     parts.push(`jobTitle contains "${c.jobTitleContains}"`);
-  return parts.length === 0 ? "(matches every lead)" : parts.join(" Â· ");
+  return parts.length === 0 ? "(matches every lead)" : parts.join(" · ");
 }
 
 function RuleModal({
@@ -422,11 +422,11 @@ function RuleModal({
               onChange={(e) => setAssignTo(e.target.value)}
               className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
             >
-              <option value="">â€” unassigned (fall through) â€”</option>
+              <option value="">— unassigned (fall through) —</option>
               {members.map((m) => (
                 <option key={m.id} value={m.id}>
                   {m.email}
-                  {m.status ? ` Â· ${m.status}` : ""}
+                  {m.status ? ` · ${m.status}` : ""}
                 </option>
               ))}
             </select>
@@ -449,7 +449,7 @@ function RuleModal({
             className="px-4 py-2 bg-[#6C47FF] text-white text-sm font-medium rounded-lg hover:bg-[#5a3ad4] disabled:opacity-60 inline-flex items-center gap-2"
           >
             {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-            {saving ? "Savingâ€¦" : initial ? "Save changes" : "Create rule"}
+            {saving ? "Saving…" : initial ? "Save changes" : "Create rule"}
           </button>
         </div>
       </div>
@@ -562,7 +562,7 @@ function LeadRoutingSection() {
           </h2>
           <p className="text-sm text-gray-500 mt-1">
             Assign incoming leads to team members based on industry, region,
-            company size, and more. Rules run in priority order â€” first match
+            company size, and more. Rules run in priority order — first match
             wins.
           </p>
         </div>
@@ -581,7 +581,7 @@ function LeadRoutingSection() {
       <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
         {loading ? (
           <div className="px-6 py-10 text-center text-sm text-gray-400">
-            Loading routing rulesâ€¦
+            Loading routing rules…
           </div>
         ) : rules.length === 0 ? (
           <div className="px-6 py-10 text-center text-sm text-gray-400">
@@ -707,7 +707,7 @@ export default function AccessControlsPage() {
     const nextValue = !role.permissions[feature];
     // Optimistic-but-verified: update local state only after the request
     // confirms success, so a failed request doesn't show a fake "updated"
-    // state (this exact bug class â€” unchecked fetch showing fake success â€”
+    // state (this exact bug class — unchecked fetch showing fake success —
     // was already found and fixed once this session in Leads bulk-delete).
     try {
       const res = await fetch(`/api/team/roles/${role.id}`, {
@@ -812,7 +812,7 @@ export default function AccessControlsPage() {
                   colSpan={roles.length + 2}
                   className="px-6 py-10 text-center text-sm text-gray-400"
                 >
-                  Loading rolesâ€¦
+                  Loading roles…
                 </td>
               </tr>
             ) : (
@@ -851,7 +851,7 @@ export default function AccessControlsPage() {
         />
       )}
 
-      {/* Lead routing rules â€” sits under the roles matrix because
+      {/* Lead routing rules — sits under the roles matrix because
           access-controls is the natural home for "who gets what
           incoming lead". */}
       <div className="pt-6 border-t border-gray-100">

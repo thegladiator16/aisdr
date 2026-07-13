@@ -97,11 +97,11 @@ function avatarColor(name: string) {
 }
 
 function truncate(str: string, max: number) {
-  return str.length > max ? `${str.slice(0, max)}â€¦` : str;
+  return str.length > max ? `${str.slice(0, max)}…` : str;
 }
 
 function formatDate(value: string | null) {
-  if (!value) return "â€”";
+  if (!value) return "—";
   return new Date(value).toLocaleDateString("en-IN", {
     month: "short",
     day: "numeric",
@@ -500,7 +500,7 @@ export default function TasksPage() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
           <input
             type="text"
-            placeholder="Search lead, company, subjectâ€¦"
+            placeholder="Search lead, company, subject…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full rounded-lg border border-gray-200 bg-white pl-9 pr-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-[#6C47FF] focus:outline-none focus:ring-1 focus:ring-[#6C47FF]"
@@ -619,7 +619,7 @@ export default function TasksPage() {
                         </div>
                         <div>
                           <p className="font-medium text-gray-900 leading-snug">{name}</p>
-                          <p className="text-xs text-gray-400 mt-0.5">{task.leadEmail ?? task.leadCompanyName ?? "â€”"}</p>
+                          <p className="text-xs text-gray-400 mt-0.5">{task.leadEmail ?? task.leadCompanyName ?? "—"}</p>
                         </div>
                       </div>
                     </td>
@@ -630,7 +630,7 @@ export default function TasksPage() {
                           <p className="text-sm text-gray-600 leading-snug">{truncate(task.message, 80)}</p>
                         </div>
                       ) : (
-                        <span className="text-gray-400">â€”</span>
+                        <span className="text-gray-400">—</span>
                       )}
                     </td>
                     <td className="px-4 py-3.5 hidden md:table-cell">
@@ -639,7 +639,7 @@ export default function TasksPage() {
                           {task.campaignName}
                         </span>
                       ) : (
-                        <span className="text-gray-400 text-sm">â€”</span>
+                        <span className="text-gray-400 text-sm">—</span>
                       )}
                     </td>
                     <td className="px-4 py-3.5">

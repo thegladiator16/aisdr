@@ -89,7 +89,7 @@ export function UpgradeGateModal({ feature = "campaigns", onClose, onUpgrade }: 
               }}
               className="flex-1 h-10 rounded-lg bg-[#6C47FF] text-white text-sm font-semibold hover:bg-[#5538DD] transition-colors"
             >
-              See plans â†’
+              See plans →
             </button>
           </div>
         </div>

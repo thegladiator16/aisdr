@@ -79,7 +79,7 @@ export default function WebsiteVisitorsPage() {
   const [verifyError, setVerifyError] = useState<string | null>(null);
   const [verified, setVerified] = useState(false);
 
-  // Filter panel (draft state â€” committed to appliedFilters on "Apply filters")
+  // Filter panel (draft state — committed to appliedFilters on "Apply filters")
   const [filterOpen, setFilterOpen] = useState(false);
   const [lastSeen, setLastSeen] = useState("any");
   const [firstSeen, setFirstSeen] = useState("any");
@@ -411,7 +411,7 @@ export default function WebsiteVisitorsPage() {
                 All domains
               </button>
               {loadingDomains ? (
-                <div className="px-4 py-3 text-sm text-gray-400">Loadingâ€¦</div>
+                <div className="px-4 py-3 text-sm text-gray-400">Loading…</div>
               ) : domains.length === 0 ? (
                 <div className="px-4 py-3 text-sm text-gray-400">No domains added</div>
               ) : (
@@ -585,7 +585,7 @@ export default function WebsiteVisitorsPage() {
               <p className="mt-2 max-w-md text-center text-sm text-gray-500">
                 Domain tracking and snippet verification are live, but matching an anonymous
                 pageview to a real person or company needs a reverse-IP identity data provider,
-                which isn&apos;t connected yet â€” so this list stays empty until that&apos;s wired up.
+                which isn&apos;t connected yet — so this list stays empty until that&apos;s wired up.
               </p>
             </>
           )}

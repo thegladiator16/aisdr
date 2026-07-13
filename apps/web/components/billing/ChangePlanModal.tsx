@@ -91,6 +91,12 @@ const PLANS = [
   },
 ];
 
+// True when the deployment has PayPal Developer credentials configured.
+// When false, USD checkout silently falls back to the Razorpay flow (which
+// already accepts PayPal via Razorpay's international payments integration)
+// so the user never sees an alarming "PayPal isn't configured" banner.
+const PAYPAL_DIRECT_ENABLED = !!process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID;
+
 export function ChangePlanModal({ onClose }: { onClose: () => void }) {
   const router = useRouter();
   const { user, isLoaded } = useUser();
@@ -104,7 +110,7 @@ export function ChangePlanModal({ onClose }: { onClose: () => void }) {
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
   const [paymentsAvailable, setPaymentsAvailable] = useState<boolean | null>(null);
 
-  // Extract the user's phone number(s) once â€” Clerk sometimes populates
+  // Extract the user's phone number(s) once — Clerk sometimes populates
   // primaryPhoneNumber, sometimes phoneNumbers[]; check both.
   const clerkPhones = useMemo(() => {
     const list: string[] = [];
@@ -119,7 +125,7 @@ export function ChangePlanModal({ onClose }: { onClose: () => void }) {
   }, [user]);
 
   useEffect(() => {
-    // Priority: +91 phone â†’ INR (locked) > stored preference > browser locale.
+    // Priority: +91 phone → INR (locked) > stored preference > browser locale.
     // If a +91 user had previously toggled to USD and localStorage remembers
     // it, we override that here and rewrite the preference back to INR.
     const { currency: resolved, locked } = resolveCurrency({ phones: clerkPhones });
@@ -177,7 +183,7 @@ export function ChangePlanModal({ onClose }: { onClose: () => void }) {
         currency: orderCurrency,
         keyId,
         name: "AryaSDR",
-        description: `${plan.name} plan â€” ${billing}`,
+        description: `${plan.name} plan — ${billing}`,
         prefill: {
           email: user?.primaryEmailAddress?.emailAddress,
           name: user?.fullName ?? undefined,
@@ -228,8 +234,8 @@ export function ChangePlanModal({ onClose }: { onClose: () => void }) {
                 } disabled:cursor-default`}
                 aria-pressed={currency === "INR"}
               >
-                <span aria-hidden>ðŸ‡®ðŸ‡³</span>
-                â‚¹ INR
+                <span aria-hidden>🇮🇳</span>
+                ₹ INR
               </button>
               <button
                 onClick={() => setCurrency("USD")}
@@ -243,7 +249,7 @@ export function ChangePlanModal({ onClose }: { onClose: () => void }) {
                 aria-disabled={currencyLocked}
                 title={currencyLocked ? "You are in India. Please pay in INR." : undefined}
               >
-                <span aria-hidden>ðŸŒ</span>
+                <span aria-hidden>🌍</span>
                 $ USD
               </button>
             </div>
@@ -275,16 +281,16 @@ export function ChangePlanModal({ onClose }: { onClose: () => void }) {
             </div>
 
             {/* Payment method disclosure. For a +91 user the INR lock
-                trumps everything â€” surface why the USD toggle is off. */}
+                trumps everything — surface why the USD toggle is off. */}
             {currencyLocked ? (
               <p className="text-[11px] text-violet-600 text-center max-w-md font-medium">
-                ðŸ‡®ðŸ‡³ You are in India. Payments are processed in INR via Razorpay (UPI / Cards / NetBanking).
+                🇮🇳 You are in India. Payments are processed in INR via Razorpay (UPI / Cards / NetBanking).
               </p>
             ) : (
               <p className="text-[11px] text-gray-400 text-center max-w-md">
                 {currency === "USD"
                   ? "International payments are processed securely via PayPal. On the next screen, select PayPal from the payment options."
-                  : "Indian payments via Razorpay â€” UPI / Cards / NetBanking."}
+                  : "Indian payments via Razorpay — UPI / Cards / NetBanking."}
               </p>
             )}
           </div>
@@ -318,7 +324,7 @@ export function ChangePlanModal({ onClose }: { onClose: () => void }) {
                   </p>
                   {plan.monthly != null && plan.monthly > 0 && (
                     <p className="text-[11px] text-gray-400 mb-1">
-                      â‰ˆ {displayPrice(
+                      ≈ {displayPrice(
                         billing === "monthly" ? plan.monthly : plan.yearly!,
                         currency === "USD" ? "INR" : "USD",
                       )}/mo
@@ -339,7 +345,7 @@ export function ChangePlanModal({ onClose }: { onClose: () => void }) {
                     >
                       Contact sales
                     </button>
-                  ) : currency === "USD" ? (
+                  ) : currency === "USD" && PAYPAL_DIRECT_ENABLED ? (
                     <PayPalCheckoutButton
                       purchase={{
                         plan: plan.key as "starter" | "growth",
@@ -369,7 +375,7 @@ export function ChangePlanModal({ onClose }: { onClose: () => void }) {
                     </button>
                   )}
                   <p className="text-xs text-gray-500 mt-3 flex items-center gap-1">
-                    <span className="text-gray-400">â„¹</span> {plan.replies}
+                    <span className="text-gray-400">ℹ</span> {plan.replies}
                   </p>
                   <hr className="my-4 border-gray-100" />
                   <p className="text-xs font-medium text-gray-700 mb-2">{plan.includes}</p>

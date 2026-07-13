@@ -111,7 +111,7 @@ function BuyFlow({
         >
           <Plus className="h-3.5 w-3.5" />
         </button>
-        <span className="text-xs text-gray-400">â‚¹{pricePerCredit.toFixed(2)} / credit</span>
+        <span className="text-xs text-gray-400">₹{pricePerCredit.toFixed(2)} / credit</span>
       </div>
 
       {/* Price breakdown */}
@@ -132,7 +132,7 @@ function BuyFlow({
         disabled={processing}
         className="w-full h-10 rounded-lg bg-[#6C47FF] text-white text-sm font-semibold hover:bg-[#5538DD] transition-colors flex items-center justify-center gap-2 disabled:opacity-70"
       >
-        {processing ? <><Loader2 className="h-4 w-4 animate-spin" /> Processingâ€¦</> : `Pay ${formatINR(total)}`}
+        {processing ? <><Loader2 className="h-4 w-4 animate-spin" /> Processing…</> : `Pay ${formatINR(total)}`}
       </button>
     </div>
   );

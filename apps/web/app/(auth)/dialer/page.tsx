@@ -38,7 +38,7 @@ const FEATURES = [
   {
     icon: Users,
     title: "Past interaction summary",
-    desc: "See every email, reply, and note before you dial â€” no prep time needed.",
+    desc: "See every email, reply, and note before you dial — no prep time needed.",
   },
   {
     icon: BarChart3,
@@ -48,7 +48,7 @@ const FEATURES = [
   {
     icon: Shield,
     title: "Local presence calling",
-    desc: "Show local numbers to improve answer rates by up to 4Ã—.",
+    desc: "Show local numbers to improve answer rates by up to 4×.",
   },
 ];
 
@@ -208,7 +208,7 @@ export default function DialerPage() {
                 Close more deals with AI-assisted calls
               </h2>
               <p className="text-violet-100 text-sm leading-relaxed mb-6">
-                Arya listens in real-time and surfaces the perfect talking points, objection handlers, and competitor insights â€” right when you need them.
+                Arya listens in real-time and surfaces the perfect talking points, objection handlers, and competitor insights — right when you need them.
               </p>
               <button
                 onClick={() => setDialerModalOpen(true)}
@@ -245,7 +245,7 @@ export default function DialerPage() {
             <div>
               <p className="text-sm font-medium text-amber-800">Telephony provider required</p>
               <p className="text-xs text-amber-700 mt-0.5">
-                Placing real calls requires a connected telephony provider (e.g. Twilio). Seat purchases are real, but dialing won&apos;t work until that integration is configured in Settings â†’ Integrations.
+                Placing real calls requires a connected telephony provider (e.g. Twilio). Seat purchases are real, but dialing won&apos;t work until that integration is configured in Settings → Integrations.
               </p>
             </div>
           </div>
@@ -369,7 +369,7 @@ export default function DialerPage() {
                     <div className="mt-6 space-y-3">
                       <div className="flex items-center justify-between text-sm">
                         <span className="text-gray-500">
-                          Subtotal ({fmt(unitPrice)} Ã— {quantity})
+                          Subtotal ({fmt(unitPrice)} × {quantity})
                         </span>
                         <span className="font-medium text-gray-900">{fmt(subtotal)}</span>
                       </div>
@@ -382,7 +382,7 @@ export default function DialerPage() {
                         <span className="font-semibold text-gray-900">Total</span>
                         <span className="text-xl font-bold text-gray-900">{fmt(total)}</span>
                       </div>
-                      <p className="text-xs text-gray-400">Billed monthly Â· Cancel anytime</p>
+                      <p className="text-xs text-gray-400">Billed monthly · Cancel anytime</p>
                     </div>
                   </div>
 
@@ -396,7 +396,7 @@ export default function DialerPage() {
                       <div className="flex items-start gap-2">
                         <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
                         <p className="text-xs text-amber-800 leading-relaxed">
-                          Dialer seats require a Twilio (or equivalent) telephony integration to place real calls. The integration isn&apos;t configured yet â€” purchases are real, but calling won&apos;t work until you set it up.
+                          Dialer seats require a Twilio (or equivalent) telephony integration to place real calls. The integration isn&apos;t configured yet — purchases are real, but calling won&apos;t work until you set it up.
                         </p>
                       </div>
                     </div>
@@ -424,7 +424,7 @@ export default function DialerPage() {
                     {purchasing ? (
                       <>
                         <Loader2 className="h-4 w-4 animate-spin" />
-                        Processingâ€¦
+                        Processing…
                       </>
                     ) : paymentsAvailable === false ? (
                       "Payments not configured"
