@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
-import { motion, AnimatePresence } from "framer-motion";
 import { Sidebar } from "@/components/layout/sidebar";
 import { ChatWithArya } from "@/components/ChatWithArya";
 import { AryaChatWidget } from "@/components/arya/AryaChatWidget";
@@ -99,18 +98,13 @@ export function AuthShell({ children }: { children: React.ReactNode }) {
       <div className="flex flex-1 overflow-hidden">
         <Sidebar onChatOpen={() => setChatOpen(true)} />
         <main className="flex-1 overflow-y-auto">
-          <AnimatePresence mode="wait" initial={false}>
-            <motion.div
-              key={pathname}
-              initial={{ opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -6 }}
-              transition={{ duration: 0.18, ease: "easeOut" }}
-              className="mx-auto max-w-7xl p-6"
-            >
-              {children}
-            </motion.div>
-          </AnimatePresence>
+          {/* No AnimatePresence mode="wait" here — it added a 180ms exit tween
+              that blocked the incoming page's first paint on every nav. The
+              loading.tsx fallback under (auth) gives the perceived transition
+              instead, and Next.js handles the actual page swap. */}
+          <div key={pathname} className="mx-auto max-w-7xl p-6 animate-in fade-in slide-in-from-top-1 duration-150">
+            {children}
+          </div>
         </main>
         {chatOpen && <ChatWithArya onClose={() => setChatOpen(false)} />}
       </div>

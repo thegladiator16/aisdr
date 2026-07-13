@@ -68,6 +68,75 @@ interface SidebarProps {
 const useIsomorphicLayoutEffect =
   typeof window !== "undefined" ? useLayoutEffect : useEffect;
 
+function NavItem({
+  href,
+  label,
+  icon: Icon,
+  badge,
+  active,
+  collapsed,
+}: {
+  href: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  badge?: boolean;
+  active: boolean;
+  collapsed: boolean;
+}) {
+  return (
+    <SidebarTooltip label={label} show={collapsed}>
+      <Link
+        href={href}
+        className={cn(
+          "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
+          active
+            ? "bg-violet-50 text-violet-700 font-medium"
+            : "text-gray-700 hover:bg-gray-50"
+        )}
+      >
+        <Icon
+          className={cn(
+            "h-4 w-4 shrink-0",
+            active ? "text-violet-600" : "text-gray-500"
+          )}
+        />
+        <AnimatePresence initial={false}>
+          {!collapsed && (
+            <motion.span
+              key="label"
+              initial={{ opacity: 0, width: 0 }}
+              animate={{ opacity: 1, width: "auto" }}
+              exit={{ opacity: 0, width: 0 }}
+              transition={{ duration: 0.18, ease: "easeOut" }}
+              className="flex flex-1 items-center gap-1 overflow-hidden whitespace-nowrap"
+            >
+              <span className="flex-1">{label}</span>
+              {badge && (
+                <span className="ml-auto h-2 w-2 rounded-full bg-violet-600 shrink-0" />
+              )}
+            </motion.span>
+          )}
+        </AnimatePresence>
+      </Link>
+    </SidebarTooltip>
+  );
+}
+
+function SectionHeader({
+  title,
+  collapsed,
+}: {
+  title: string;
+  collapsed: boolean;
+}) {
+  if (collapsed) return <div className="my-2 border-t border-gray-100" />;
+  return (
+    <p className="px-3 pt-4 pb-1 text-xs font-semibold uppercase text-gray-400 tracking-wider">
+      {title}
+    </p>
+  );
+}
+
 function SidebarTooltip({
   label,
   show,
@@ -194,67 +263,6 @@ export function Sidebar({ onChatOpen }: SidebarProps) {
   const isActive = (href: string) =>
     pathname === href || pathname.startsWith(href + "/");
 
-  function NavItem({
-    href,
-    label,
-    icon: Icon,
-    badge,
-  }: {
-    href: string;
-    label: string;
-    icon: React.ComponentType<{ className?: string }>;
-    badge?: boolean;
-  }) {
-    const active = isActive(href);
-    return (
-      <SidebarTooltip label={label} show={collapsed}>
-        <Link
-          href={href}
-          className={cn(
-            "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
-            active
-              ? "bg-violet-50 text-violet-700 font-medium"
-              : "text-gray-700 hover:bg-gray-50"
-          )}
-        >
-          <Icon
-            className={cn(
-              "h-4 w-4 shrink-0",
-              active ? "text-violet-600" : "text-gray-500"
-            )}
-          />
-          <AnimatePresence initial={false}>
-            {!collapsed && (
-              <motion.span
-                key="label"
-                initial={{ opacity: 0, width: 0 }}
-                animate={{ opacity: 1, width: "auto" }}
-                exit={{ opacity: 0, width: 0 }}
-                transition={{ duration: 0.18, ease: "easeOut" }}
-                className="flex flex-1 items-center gap-1 overflow-hidden whitespace-nowrap"
-              >
-                <span className="flex-1">{label}</span>
-                {badge && (
-                  <span className="ml-auto h-2 w-2 rounded-full bg-violet-600 shrink-0" />
-                )}
-              </motion.span>
-            )}
-          </AnimatePresence>
-        </Link>
-      </SidebarTooltip>
-    );
-  }
-
-
-  function SectionHeader({ title }: { title: string }) {
-    if (collapsed) return <div className="my-2 border-t border-gray-100" />;
-    return (
-      <p className="px-3 pt-4 pb-1 text-xs font-semibold uppercase text-gray-400 tracking-wider">
-        {title}
-      </p>
-    );
-  }
-
   const displayName = user?.fullName || user?.firstName || "User";
   const displayEmail =
     user?.primaryEmailAddress?.emailAddress || "user@example.com";
@@ -295,24 +303,24 @@ export function Sidebar({ onChatOpen }: SidebarProps) {
 
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto px-2 py-1">
-        <SectionHeader title="Manage" />
+        <SectionHeader title="Manage" collapsed={collapsed} />
         {MANAGE_ITEMS.map((item) => (
-          <NavItem key={item.href} {...item} />
+          <NavItem key={item.href} {...item} active={isActive(item.href)} collapsed={collapsed} />
         ))}
 
-        <SectionHeader title="Engage" />
+        <SectionHeader title="Engage" collapsed={collapsed} />
         {ENGAGE_ITEMS.map((item) => (
-          <NavItem key={item.href} {...item} />
+          <NavItem key={item.href} {...item} active={isActive(item.href)} collapsed={collapsed} />
         ))}
 
-        <SectionHeader title="Lead discovery" />
+        <SectionHeader title="Lead discovery" collapsed={collapsed} />
         {DISCOVERY_ITEMS.map((item) => (
-          <NavItem key={item.href} {...item} />
+          <NavItem key={item.href} {...item} active={isActive(item.href)} collapsed={collapsed} />
         ))}
 
-        <SectionHeader title="Lead management" />
+        <SectionHeader title="Lead management" collapsed={collapsed} />
         {LEAD_MGMT_ITEMS.map((item) => (
-          <NavItem key={item.href} {...item} />
+          <NavItem key={item.href} {...item} active={isActive(item.href)} collapsed={collapsed} />
         ))}
       </nav>
 
