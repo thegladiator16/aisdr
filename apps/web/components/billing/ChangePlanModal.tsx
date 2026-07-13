@@ -6,6 +6,14 @@ import { useUser } from "@clerk/nextjs";
 import { X, Check, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { useRazorpay } from "@/hooks/useRazorpay";
+import {
+  detectCurrencyFromBrowser,
+  readStoredCurrency,
+  writeStoredCurrency,
+  formatMoney,
+  inrToUsdDisplay,
+  type Currency,
+} from "@/lib/payments/currency";
 
 function formatINR(n: number) {
   return new Intl.NumberFormat("en-IN", {
@@ -13,6 +21,12 @@ function formatINR(n: number) {
     currency: "INR",
     maximumFractionDigits: 0,
   }).format(n);
+}
+
+function displayPrice(inrAmount: number, currency: Currency): string {
+  if (inrAmount === 0) return formatMoney(0, currency);
+  const value = currency === "USD" ? inrToUsdDisplay(inrAmount) : inrAmount;
+  return formatMoney(value, currency);
 }
 
 const PLANS = [
@@ -83,8 +97,22 @@ export function ChangePlanModal({ onClose }: { onClose: () => void }) {
   const { openCheckout } = useRazorpay();
 
   const [billing, setBilling] = useState<"monthly" | "yearly">("monthly");
+  const [currency, setCurrencyState] = useState<Currency>("INR");
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
   const [paymentsAvailable, setPaymentsAvailable] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    // Currency picked on /pricing survives here via localStorage; fall back
+    // to browser-locale detection so an international user landing straight
+    // in the app still sees USD.
+    const stored = readStoredCurrency();
+    setCurrencyState(stored ?? detectCurrencyFromBrowser());
+  }, []);
+
+  const setCurrency = (next: Currency) => {
+    setCurrencyState(next);
+    writeStoredCurrency(next);
+  };
 
   useEffect(() => {
     fetch("/api/billing/status", { cache: "no-store" })
@@ -109,7 +137,7 @@ export function ChangePlanModal({ onClose }: { onClose: () => void }) {
       const res = await fetch("/api/billing/create-order", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ plan: planKey, billing }),
+        body: JSON.stringify({ plan: planKey, billing, currency }),
       });
 
       if (!res.ok) {
@@ -118,11 +146,12 @@ export function ChangePlanModal({ onClose }: { onClose: () => void }) {
         return;
       }
 
-      const { orderId, amount, currency, keyId } = await res.json();
+      const { orderId, amount, currency: orderCurrency, keyId } = await res.json();
+      const isUsd = String(orderCurrency).toUpperCase() === "USD";
       const result = await openCheckout({
         orderId,
         amount,
-        currency,
+        currency: orderCurrency,
         keyId,
         name: "AryaSDR",
         description: `${plan.name} plan — ${billing}`,
@@ -130,7 +159,10 @@ export function ChangePlanModal({ onClose }: { onClose: () => void }) {
           email: user?.primaryEmailAddress?.emailAddress,
           name: user?.fullName ?? undefined,
         },
-        verifyBody: { plan: planKey, billing },
+        // USD orders route through Razorpay's PayPal wallet only. INR orders
+        // get the default checkout (UPI / Cards / NetBanking).
+        paypalOnly: isUsd,
+        verifyBody: { plan: planKey, billing, currency: orderCurrency },
         onVerified: () => {
           toast.success(`${plan.name} plan activated`);
           onClose();
@@ -160,31 +192,69 @@ export function ChangePlanModal({ onClose }: { onClose: () => void }) {
         </div>
 
         <div className="p-6">
-          {/* Billing toggle */}
-          <div className="flex items-center justify-center gap-2 mb-8">
-            <button
-              onClick={() => setBilling("monthly")}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                billing === "monthly"
-                  ? "bg-gray-900 text-white"
-                  : "text-gray-600 hover:bg-gray-100"
-              }`}
-            >
-              Monthly
-            </button>
-            <button
-              onClick={() => setBilling("yearly")}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${
-                billing === "yearly"
-                  ? "bg-gray-900 text-white"
-                  : "text-gray-600 hover:bg-gray-100"
-              }`}
-            >
-              Yearly
-              <span className="bg-violet-100 text-violet-700 text-xs px-2 py-0.5 rounded-full">
-                Save 10%
-              </span>
-            </button>
+          {/* Currency + billing toggles */}
+          <div className="flex flex-col items-center gap-3 mb-8">
+            <div className="inline-flex items-center rounded-full border border-gray-200 bg-white p-1">
+              <button
+                onClick={() => setCurrency("INR")}
+                className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                  currency === "INR"
+                    ? "bg-[#6C47FF] text-white"
+                    : "text-gray-600 hover:text-gray-900"
+                }`}
+                aria-pressed={currency === "INR"}
+              >
+                <span aria-hidden>🇮🇳</span>
+                ₹ INR
+              </button>
+              <button
+                onClick={() => setCurrency("USD")}
+                className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                  currency === "USD"
+                    ? "bg-[#6C47FF] text-white"
+                    : "text-gray-600 hover:text-gray-900"
+                }`}
+                aria-pressed={currency === "USD"}
+              >
+                <span aria-hidden>🌍</span>
+                $ USD
+              </button>
+            </div>
+
+            <div className="flex items-center justify-center gap-2">
+              <button
+                onClick={() => setBilling("monthly")}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  billing === "monthly"
+                    ? "bg-gray-900 text-white"
+                    : "text-gray-600 hover:bg-gray-100"
+                }`}
+              >
+                Monthly
+              </button>
+              <button
+                onClick={() => setBilling("yearly")}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${
+                  billing === "yearly"
+                    ? "bg-gray-900 text-white"
+                    : "text-gray-600 hover:bg-gray-100"
+                }`}
+              >
+                Yearly
+                <span className="bg-violet-100 text-violet-700 text-xs px-2 py-0.5 rounded-full">
+                  Save 10%
+                </span>
+              </button>
+            </div>
+
+            {/* Payment method disclosure — makes the split flow explicit
+                so the user isn't surprised when Razorpay Checkout opens
+                straight into PayPal for USD. */}
+            <p className="text-[11px] text-gray-400 text-center max-w-md">
+              {currency === "USD"
+                ? "International payments are processed securely via PayPal."
+                : "Indian payments via Razorpay — UPI / Cards / NetBanking."}
+            </p>
           </div>
 
           {/* Plan cards */}
@@ -206,14 +276,22 @@ export function ChangePlanModal({ onClose }: { onClose: () => void }) {
                     {plan.name}
                   </span>
                   <p className="text-xs text-gray-500 mb-3">{plan.desc}</p>
-                  <p className="text-2xl font-bold text-gray-900 mb-1">
+                  <p className="text-2xl font-bold text-gray-900 mb-0.5">
                     {plan.monthly == null
                       ? "Custom"
-                      : formatINR(billing === "monthly" ? plan.monthly : plan.yearly!)}
+                      : displayPrice(billing === "monthly" ? plan.monthly : plan.yearly!, currency)}
                     {plan.monthly != null && (
                       <span className="text-sm font-normal text-gray-500">/mo</span>
                     )}
                   </p>
+                  {plan.monthly != null && plan.monthly > 0 && (
+                    <p className="text-[11px] text-gray-400 mb-1">
+                      ≈ {displayPrice(
+                        billing === "monthly" ? plan.monthly : plan.yearly!,
+                        currency === "USD" ? "INR" : "USD",
+                      )}/mo
+                    </p>
+                  )}
                   <p className="text-xs text-gray-500 mb-4">{plan.credits}</p>
                   <button
                     onClick={() => handleUpgrade(plan.key)}

@@ -5,8 +5,10 @@ import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import {
   razorpay,
-  getPlanAmountInPaise,
+  getPlanAmount,
+  getAddonUnitPrice,
   isRazorpayConfigured,
+  type SupportedCurrency,
 } from "@/lib/payments/razorpay";
 
 export async function POST(req: Request) {
@@ -38,37 +40,42 @@ export async function POST(req: Request) {
     billing,
     type,
     quantity,
+    currency: rawCurrency,
   }: {
     plan?: "starter" | "growth" | "scale";
     billing?: "monthly" | "yearly";
     type?: "credits" | "dialer" | "mailbox" | "phone";
     quantity?: number;
+    currency?: string;
   } = body ?? {};
+
+  // Currency: INR is the default; USD is the international route (goes
+  // through PayPal via Razorpay's PayPal wallet integration).
+  const currency: SupportedCurrency =
+    (typeof rawCurrency === "string" ? rawCurrency.toUpperCase() : "INR") === "USD"
+      ? "USD"
+      : "INR";
 
   let amount = 0;
 
   if (plan === "starter" || plan === "growth" || plan === "scale") {
-    const price = getPlanAmountInPaise(plan, billing === "yearly" ? "yearly" : "monthly");
+    const price = getPlanAmount(
+      plan,
+      billing === "yearly" ? "yearly" : "monthly",
+      currency
+    );
     if (!price) {
       return NextResponse.json({ error: "Invalid plan" }, { status: 400 });
     }
     amount = price;
-  } else if (type === "credits") {
+  } else if (
+    type === "credits" ||
+    type === "dialer" ||
+    type === "mailbox" ||
+    type === "phone"
+  ) {
     const qty = Number(quantity) || 0;
-    // ₹2.5 per credit = 250 paise
-    amount = qty * 250;
-  } else if (type === "dialer") {
-    const qty = Number(quantity) || 0;
-    // ₹6,299 per seat
-    amount = qty * 629900;
-  } else if (type === "mailbox") {
-    const qty = Number(quantity) || 0;
-    // ₹599 per mailbox
-    amount = qty * 59900;
-  } else if (type === "phone") {
-    const qty = Number(quantity) || 0;
-    // ₹499 per phone
-    amount = qty * 49900;
+    amount = qty * getAddonUnitPrice(type, currency);
   } else {
     return NextResponse.json(
       { error: "Invalid plan or type" },
@@ -83,13 +90,15 @@ export async function POST(req: Request) {
     );
   }
 
-  // 18% GST on top
-  const taxedAmount = Math.round(amount * 1.18);
+  // GST (18%) applies only to INR — international sales are outside the
+  // Indian tax net at the merchant side. USD amounts go through as-is.
+  const finalAmount =
+    currency === "INR" ? Math.round(amount * 1.18) : amount;
 
   try {
     const order = await razorpay.orders.create({
-      amount: taxedAmount,
-      currency: "INR",
+      amount: finalAmount,
+      currency,
       receipt: `aryasdr_${userId}_${Date.now()}`.slice(0, 40),
       notes: {
         userId,
@@ -97,6 +106,7 @@ export async function POST(req: Request) {
         billing: billing ?? "",
         type: type ?? "",
         quantity: quantity != null ? String(quantity) : "",
+        currency,
       },
     });
 

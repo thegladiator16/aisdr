@@ -34,6 +34,8 @@ export const razorpay = new Proxy({} as Razorpay, {
   },
 }) as Razorpay;
 
+/* ----------------- Plan pricing (INR + USD) ----------------- */
+
 // Amounts in paise (smallest INR unit — 1 INR = 100 paise).
 // Monthly prices in INR:
 //   Starter: ₹4,999   Growth: ₹9,999
@@ -45,13 +47,63 @@ export const PLAN_PRICES_INR: Record<string, { monthly: number; yearly: number }
   scale:   { monthly: 0, yearly: 0 }, // custom — contact sales
 };
 
+// Amounts in cents (smallest USD unit). Fixed FX at INR_PER_USD = 85 so USD
+// prices ladder with INR: Starter ₹4,999 → $59, Growth ₹9,999 → $118,
+// yearly-per-month $49 / $98. Total yearly = per-month × 12.
+// International charges route through PayPal via Razorpay's PayPal wallet.
+export const INR_PER_USD = 85;
+
+export const PLAN_PRICES_USD: Record<string, { monthly: number; yearly: number }> = {
+  starter: { monthly: 5900, yearly: 4900 * 12 },
+  growth:  { monthly: 11800, yearly: 9800 * 12 },
+  scale:   { monthly: 0, yearly: 0 },
+};
+
+export type SupportedCurrency = "INR" | "USD";
+
+export function getPlanAmount(
+  plan: string,
+  billing: "monthly" | "yearly" = "monthly",
+  currency: SupportedCurrency = "INR"
+): number | null {
+  const map = currency === "USD" ? PLAN_PRICES_USD : PLAN_PRICES_INR;
+  const p = map[plan];
+  if (!p) return null;
+  return billing === "yearly" ? p.yearly : p.monthly;
+}
+
+/** Backward-compatible INR-only helper. Prefer getPlanAmount() for new code. */
 export function getPlanAmountInPaise(
   plan: string,
   billing: "monthly" | "yearly" = "monthly"
 ): number | null {
-  const p = PLAN_PRICES_INR[plan];
-  if (!p) return null;
-  return billing === "yearly" ? p.yearly : p.monthly;
+  return getPlanAmount(plan, billing, "INR");
+}
+
+/* Add-on unit prices in the smallest unit of each currency. USD figures use
+ * INR_PER_USD = 85 so a ₹25/credit → $0.29 and larger add-ons round to the
+ * nearest whole dollar. Keeping them here (not sprinkled through routes)
+ * means the create-order + verify-payment paths stay in sync. */
+export const ADDON_UNIT_PRICES = {
+  INR: {
+    credits: 250,      // paise / credit  (₹2.50)
+    dialer: 629900,    // paise / seat    (₹6,299)
+    mailbox: 59900,    // paise / mailbox (₹599)
+    phone: 49900,      // paise / number  (₹499)
+  },
+  USD: {
+    credits: 3,        // cents / credit  ($0.03)
+    dialer: 7400,      // cents / seat    ($74)
+    mailbox: 700,      // cents / mailbox ($7)
+    phone: 600,        // cents / number  ($6)
+  },
+} as const;
+
+export function getAddonUnitPrice(
+  type: "credits" | "dialer" | "mailbox" | "phone",
+  currency: SupportedCurrency = "INR"
+): number {
+  return ADDON_UNIT_PRICES[currency][type];
 }
 
 export function verifyRazorpaySignature(

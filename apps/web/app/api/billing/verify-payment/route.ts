@@ -8,7 +8,9 @@ import { db } from "@/lib/db";
 import { users, subscriptions, payments } from "@/lib/db/schema";
 import {
   verifyRazorpaySignature,
-  getPlanAmountInPaise,
+  getPlanAmount,
+  getAddonUnitPrice,
+  type SupportedCurrency,
 } from "@/lib/payments/razorpay";
 
 type Plan = "starter" | "growth" | "scale";
@@ -23,6 +25,7 @@ interface VerifyPaymentBody {
   billing?: Billing;
   type?: PurchaseType;
   quantity?: number;
+  currency?: string;
 }
 
 export async function POST(req: Request) {
@@ -40,7 +43,13 @@ export async function POST(req: Request) {
     billing,
     type,
     quantity,
+    currency: rawCurrency,
   } = body;
+
+  const currency: SupportedCurrency =
+    (typeof rawCurrency === "string" ? rawCurrency.toUpperCase() : "INR") === "USD"
+      ? "USD"
+      : "INR";
 
   if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
     return NextResponse.json(
@@ -67,31 +76,31 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
 
-  // Compute amount server-side (paise), same rules as create-order
+  // Compute amount server-side (smallest unit of the passed currency),
+  // same rules as create-order — including the INR-only 18% GST uplift.
   let amount = 0;
   if (plan === "starter" || plan === "growth" || plan === "scale") {
-    amount = getPlanAmountInPaise(plan, billing === "yearly" ? "yearly" : "monthly") ?? 0;
-  } else if (type === "credits") {
+    amount = getPlanAmount(plan, billing === "yearly" ? "yearly" : "monthly", currency) ?? 0;
+  } else if (
+    type === "credits" ||
+    type === "dialer" ||
+    type === "mailbox" ||
+    type === "phone"
+  ) {
     const qty = Number(quantity) || 0;
-    amount = qty * 250;
-  } else if (type === "dialer") {
-    const qty = Number(quantity) || 0;
-    amount = qty * 629900;
-  } else if (type === "mailbox") {
-    const qty = Number(quantity) || 0;
-    amount = qty * 59900;
-  } else if (type === "phone") {
-    const qty = Number(quantity) || 0;
-    amount = qty * 49900;
+    amount = qty * getAddonUnitPrice(type, currency);
   }
+  if (currency === "INR") amount = Math.round(amount * 1.18);
 
-  // Record the payment
+  // Record the payment — currency reflects what the customer actually paid
+  // in, not a hardcoded default. Razorpay's PayPal wallet handles the
+  // international leg for USD orders.
   await db.insert(payments).values({
     userId: user.id,
     amount,
-    currency: "INR",
+    currency,
     status: "succeeded",
-    provider: "razorpay",
+    provider: currency === "USD" ? "razorpay_paypal" : "razorpay",
     providerPaymentId: razorpay_payment_id,
     providerOrderId: razorpay_order_id,
     description: `${plan ?? type} purchase`,

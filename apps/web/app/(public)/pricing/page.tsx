@@ -1,10 +1,18 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Check, X, Zap } from 'lucide-react'
 import { AryaAvatar } from "@/components/arya/AryaAvatar"
+import {
+  detectCurrencyFromBrowser,
+  readStoredCurrency,
+  writeStoredCurrency,
+  formatMoney,
+  inrToUsdDisplay,
+  type Currency,
+} from '@/lib/payments/currency'
 
 function formatINR(n: number) {
   return new Intl.NumberFormat('en-IN', {
@@ -12,6 +20,18 @@ function formatINR(n: number) {
     currency: 'INR',
     maximumFractionDigits: 0,
   }).format(n)
+}
+
+/**
+ * Convert an INR whole-rupee display price to the current-currency display.
+ * Server actually charges the values in `PLAN_PRICES_USD` — this helper is
+ * only for the pricing-card display and stays in lockstep with those via
+ * the fixed INR_PER_USD rate in `lib/payments/razorpay.ts`.
+ */
+function displayPrice(inrAmount: number, currency: Currency): string {
+  if (inrAmount === 0) return formatMoney(0, currency)
+  const value = currency === 'USD' ? inrToUsdDisplay(inrAmount) : inrAmount
+  return formatMoney(value, currency)
 }
 
 const PLANS = [
@@ -174,6 +194,24 @@ const stagger = {
 
 export default function PricingPage() {
   const [billing, setBilling] = useState<'monthly' | 'yearly'>('monthly')
+  // Start on INR (matches SSR) then hydrate from localStorage / browser
+  // locale in useEffect to avoid a hydration mismatch. First paint may
+  // briefly show INR for a non-Indian user; on next tick we snap to USD.
+  const [currency, setCurrencyState] = useState<Currency>('INR')
+
+  useEffect(() => {
+    const stored = readStoredCurrency()
+    if (stored) {
+      setCurrencyState(stored)
+      return
+    }
+    setCurrencyState(detectCurrencyFromBrowser())
+  }, [])
+
+  const setCurrency = (next: Currency) => {
+    setCurrencyState(next)
+    writeStoredCurrency(next)
+  }
 
   return (
     <div className="min-h-screen bg-[#FAFAFA]">
@@ -217,36 +255,73 @@ export default function PricingPage() {
           outreach, and follow-up — all on autopilot.
         </p>
 
-        {/* Billing toggle */}
-        <div className="flex items-center justify-center gap-2 mt-8">
-          <button
-            onClick={() => setBilling('monthly')}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-              billing === 'monthly' ? 'bg-gray-900 text-white' : 'text-gray-600 hover:bg-gray-100'
-            }`}
-          >
-            Monthly
-          </button>
-          <button
-            onClick={() => setBilling('yearly')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-              billing === 'yearly' ? 'bg-gray-900 text-white' : 'text-gray-600 hover:bg-gray-100'
-            }`}
-          >
-            Yearly
-            <AnimatePresence mode="wait">
-              <motion.span
-                key={billing}
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.8 }}
-                transition={{ duration: 0.2 }}
-                className="bg-emerald-100 text-emerald-700 text-xs px-2 py-0.5 rounded-full font-semibold"
-              >
-                Save 17%
-              </motion.span>
-            </AnimatePresence>
-          </button>
+        {/* Currency + billing toggles */}
+        <div className="flex flex-col items-center gap-3 mt-8">
+          {/* Currency segmented control */}
+          <div className="inline-flex items-center rounded-full border border-gray-200 bg-white p-1 shadow-sm relative">
+            <motion.div
+              layout
+              transition={{ type: 'spring', stiffness: 500, damping: 32 }}
+              className="absolute top-1 bottom-1 rounded-full bg-[#6C47FF]"
+              style={{
+                width: 'calc(50% - 4px)',
+                left: currency === 'INR' ? 4 : 'calc(50% + 0px)',
+              }}
+              aria-hidden
+            />
+            <button
+              onClick={() => setCurrency('INR')}
+              className={`relative z-10 flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                currency === 'INR' ? 'text-white' : 'text-gray-600 hover:text-gray-900'
+              }`}
+              aria-pressed={currency === 'INR'}
+            >
+              <span aria-hidden>🇮🇳</span>
+              ₹ INR
+            </button>
+            <button
+              onClick={() => setCurrency('USD')}
+              className={`relative z-10 flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                currency === 'USD' ? 'text-white' : 'text-gray-600 hover:text-gray-900'
+              }`}
+              aria-pressed={currency === 'USD'}
+            >
+              <span aria-hidden>🌍</span>
+              $ USD
+            </button>
+          </div>
+
+          {/* Billing cycle */}
+          <div className="flex items-center justify-center gap-2">
+            <button
+              onClick={() => setBilling('monthly')}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                billing === 'monthly' ? 'bg-gray-900 text-white' : 'text-gray-600 hover:bg-gray-100'
+              }`}
+            >
+              Monthly
+            </button>
+            <button
+              onClick={() => setBilling('yearly')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                billing === 'yearly' ? 'bg-gray-900 text-white' : 'text-gray-600 hover:bg-gray-100'
+              }`}
+            >
+              Yearly
+              <AnimatePresence mode="wait">
+                <motion.span
+                  key={billing}
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.8 }}
+                  transition={{ duration: 0.2 }}
+                  className="bg-emerald-100 text-emerald-700 text-xs px-2 py-0.5 rounded-full font-semibold"
+                >
+                  Save 17%
+                </motion.span>
+              </AnimatePresence>
+            </button>
+          </div>
         </div>
       </motion.section>
 
@@ -295,24 +370,32 @@ export default function PricingPage() {
                   <div>
                     <AnimatePresence mode="wait">
                       <motion.p
-                        key={billing + plan.id}
+                        key={billing + plan.id + currency}
                         initial={{ opacity: 0, y: -8 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: 8 }}
                         transition={{ duration: 0.2 }}
                         className="text-3xl font-bold text-gray-900"
                       >
-                        {formatINR(billing === 'monthly' ? plan.monthly : plan.yearly!)}
+                        {displayPrice(billing === 'monthly' ? plan.monthly : plan.yearly!, currency)}
                         <span className="text-base font-normal text-gray-400">/mo</span>
                       </motion.p>
                     </AnimatePresence>
+                    {/* Secondary "≈ other currency" reference so users can double-
+                        check the FX conversion at a glance. */}
+                    <p className="text-[11px] text-gray-400 mt-0.5">
+                      ≈ {displayPrice(
+                        billing === 'monthly' ? plan.monthly : plan.yearly!,
+                        currency === 'USD' ? 'INR' : 'USD',
+                      )}/month
+                    </p>
                     {billing === 'yearly' && (
                       <motion.p
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
-                        className="text-xs text-emerald-600 font-medium mt-0.5"
+                        className="text-xs text-emerald-600 font-medium mt-1"
                       >
-                        {formatINR(plan.monthly - plan.yearly!)} saved / month
+                        {displayPrice(plan.monthly - plan.yearly!, currency)} saved / month
                       </motion.p>
                     )}
                   </div>
@@ -480,7 +563,9 @@ export default function PricingPage() {
           className="mx-auto max-w-3xl px-6 text-center mb-8"
         >
           <h2 className="text-2xl font-bold text-gray-900">Why Arya?</h2>
-          <p className="text-gray-500 text-sm mt-2">A human SDR costs ₹80,000–₹1,20,000/month. Arya does the same job.</p>
+          <p className="text-gray-500 text-sm mt-2">
+            A human SDR costs {displayPrice(80000, currency)}–{displayPrice(120000, currency)}/month. Arya does the same job.
+          </p>
         </motion.div>
         <motion.div
           initial={{ opacity: 0, y: 24 }}
@@ -491,16 +576,23 @@ export default function PricingPage() {
         >
           <div className="flex-1 bg-white border-2 border-red-300 rounded-2xl p-6 text-center shadow-sm card-lift">
             <p className="text-xs text-red-400 font-semibold mb-2">Human SDR</p>
-            <p className="text-3xl font-bold text-red-500">₹80,000</p>
+            <p className="text-3xl font-bold text-red-500">{displayPrice(80000, currency)}</p>
             <p className="text-xs text-gray-400 mt-1">/month</p>
           </div>
           <div className="flex-1 bg-white border-2 border-[#6C47FF] rounded-2xl p-6 text-center shadow-sm card-lift">
             <p className="text-xs text-[#6C47FF] font-semibold mb-2">Arya</p>
-            <p className="text-3xl font-bold text-[#6C47FF]">₹4,999</p>
+            <p className="text-3xl font-bold text-[#6C47FF]">{displayPrice(4999, currency)}</p>
             <p className="text-xs text-gray-400 mt-1">/month</p>
-            <p className="text-xs text-emerald-600 font-bold mt-2">Save ₹75,000/mo</p>
+            <p className="text-xs text-emerald-600 font-bold mt-2">
+              Save {displayPrice(75000, currency)}/mo
+            </p>
           </div>
         </motion.div>
+
+        {/* Payment methods disclaimer */}
+        <p className="mx-auto max-w-3xl px-6 pt-8 text-center text-xs text-gray-400">
+          * International payments via PayPal. Indian payments via Razorpay (UPI / Cards / NetBanking / Wallets).
+        </p>
       </section>
 
       {/* FAQ */}

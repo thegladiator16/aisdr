@@ -16,7 +16,7 @@ interface RazorpayResponse {
 
 interface RazorpayDisplayBlock {
   name: string
-  instruments: Array<{ method: string }>
+  instruments: Array<{ method: string; wallets?: string[] }>
 }
 
 interface RazorpayOptions {
@@ -73,6 +73,13 @@ export interface OpenCheckoutOptions {
    * stays true.
    */
   preferredMethod?: PreferredPaymentMethod
+  /**
+   * International route: restrict Razorpay Checkout to the PayPal wallet
+   * only, hide every other method. Requires Razorpay's PayPal integration
+   * to be activated on the merchant account. Used for USD orders where
+   * we want to guarantee the customer pays via PayPal.
+   */
+  paypalOnly?: boolean
 }
 
 export interface CheckoutResult {
@@ -152,20 +159,50 @@ export function useRazorpay(): {
             netbanking: 'Net Banking',
             wallet: 'Pay by Wallet',
           }
-          const config = opts.preferredMethod
-            ? {
+          // Two configurations, in priority order:
+          //   1. paypalOnly=true (USD orders) — PayPal-only block with
+          //      show_default_blocks=false so every non-PayPal method is
+          //      hidden. This is the international route via Razorpay's
+          //      PayPal integration.
+          //   2. preferredMethod set — surface that method first but keep
+          //      the default blocks visible so users can switch inside
+          //      the Razorpay modal.
+          let config:
+            | {
                 display: {
-                  blocks: {
-                    preferred: {
-                      name: preferenceLabels[opts.preferredMethod],
-                      instruments: [{ method: opts.preferredMethod }],
-                    },
-                  },
-                  sequence: ['block.preferred'],
-                  preferences: { show_default_blocks: true },
-                },
+                  blocks: Record<string, RazorpayDisplayBlock>
+                  sequence: string[]
+                  preferences: { show_default_blocks: boolean }
+                }
               }
-            : undefined
+            | undefined
+          if (opts.paypalOnly) {
+            config = {
+              display: {
+                blocks: {
+                  paypal: {
+                    name: 'Pay with PayPal',
+                    instruments: [{ method: 'wallet', wallets: ['paypal'] }],
+                  },
+                },
+                sequence: ['block.paypal'],
+                preferences: { show_default_blocks: false },
+              },
+            }
+          } else if (opts.preferredMethod) {
+            config = {
+              display: {
+                blocks: {
+                  preferred: {
+                    name: preferenceLabels[opts.preferredMethod],
+                    instruments: [{ method: opts.preferredMethod }],
+                  },
+                },
+                sequence: ['block.preferred'],
+                preferences: { show_default_blocks: true },
+              },
+            }
+          }
 
           const rzp = new window.Razorpay({
             key: opts.keyId,

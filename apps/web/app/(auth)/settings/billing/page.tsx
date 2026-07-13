@@ -19,6 +19,13 @@ import { ChangePlanModal } from "@/components/billing/ChangePlanModal";
 import { CardBrandLogo, type CardBrand } from "@/components/brand/CardBrandLogo";
 import { useRazorpay } from "@/hooks/useRazorpay";
 import { useSubscription } from "@/lib/hooks/useSubscription";
+import {
+  detectCurrencyFromBrowser,
+  readStoredCurrency,
+  formatMoney as formatCurrencyMoney,
+  inrToUsdDisplay,
+  type Currency as PrefCurrency,
+} from "@/lib/payments/currency";
 
 type OtherCost = {
   label: string;
@@ -434,6 +441,15 @@ export default function BillingPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loadingTransactions, setLoadingTransactions] = useState(true);
 
+  // Currency preference — used for the dual-currency price display and the
+  // payment-method disclosure. Populated on mount from localStorage (set by
+  // /pricing or ChangePlanModal), with browser-locale fallback for direct
+  // arrivals to /settings/billing.
+  const [currencyPref, setCurrencyPref] = useState<PrefCurrency>("INR");
+  useEffect(() => {
+    setCurrencyPref(readStoredCurrency() ?? detectCurrencyFromBrowser());
+  }, []);
+
   useEffect(() => {
     if (user?.primaryEmailAddress?.emailAddress) {
       setBillingEmail(user.primaryEmailAddress.emailAddress);
@@ -667,9 +683,30 @@ export default function BillingPage() {
                 {subscription ? `${subscription.credits.toLocaleString("en-US")} / mo` : "-"}
               </td>
               <td className="py-3 text-sm text-gray-700">
-                {subscription
-                  ? `${formatINR((subscription.monthlyCostPaise ?? 0) / 100)} / mo`
-                  : "-"}
+                {subscription ? (
+                  (() => {
+                    const inrWhole = (subscription.monthlyCostPaise ?? 0) / 100;
+                    if (inrWhole === 0) return "Free";
+                    const primary =
+                      currencyPref === "USD"
+                        ? formatCurrencyMoney(inrToUsdDisplay(inrWhole), "USD")
+                        : formatINR(inrWhole);
+                    const secondary =
+                      currencyPref === "USD"
+                        ? formatINR(inrWhole)
+                        : formatCurrencyMoney(inrToUsdDisplay(inrWhole), "USD");
+                    return (
+                      <span className="inline-flex flex-col leading-tight">
+                        <span>{primary} / mo</span>
+                        <span className="text-[11px] text-gray-400">
+                          ≈ {secondary} / mo · {currencyPref === "USD" ? "PayPal (via Razorpay)" : "Razorpay"}
+                        </span>
+                      </span>
+                    );
+                  })()
+                ) : (
+                  "-"
+                )}
               </td>
             </tr>
           </tbody>
