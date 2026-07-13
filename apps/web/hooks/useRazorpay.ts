@@ -159,14 +159,22 @@ export function useRazorpay(): {
             netbanking: 'Net Banking',
             wallet: 'Pay by Wallet',
           }
-          // Two configurations, in priority order:
-          //   1. paypalOnly=true (USD orders) — PayPal-only block with
-          //      show_default_blocks=false so every non-PayPal method is
-          //      hidden. This is the international route via Razorpay's
-          //      PayPal integration.
-          //   2. preferredMethod set — surface that method first but keep
-          //      the default blocks visible so users can switch inside
-          //      the Razorpay modal.
+          // Config strategy for the two flows:
+          //   1. paypalOnly=true (USD orders) — DON'T pass any
+          //      config.display.blocks restriction. Razorpay's own
+          //      routing already filters to whichever methods the
+          //      merchant has enabled for the requested currency; on an
+          //      account where PayPal is the only international method
+          //      active, a USD order will show only PayPal naturally.
+          //      An earlier attempt to hard-restrict via
+          //      { method:'wallet', wallets:['paypal'] } +
+          //      show_default_blocks:false ended up filtering PayPal
+          //      itself out ("No appropriate payment method found"),
+          //      because Razorpay's internal categorization of the
+          //      PayPal integration doesn't match that instrument shape.
+          //   2. preferredMethod set (INR orders) — surface the chosen
+          //      method first but keep default blocks visible so users
+          //      can still switch inside the Razorpay modal.
           let config:
             | {
                 display: {
@@ -176,20 +184,7 @@ export function useRazorpay(): {
                 }
               }
             | undefined
-          if (opts.paypalOnly) {
-            config = {
-              display: {
-                blocks: {
-                  paypal: {
-                    name: 'Pay with PayPal',
-                    instruments: [{ method: 'wallet', wallets: ['paypal'] }],
-                  },
-                },
-                sequence: ['block.paypal'],
-                preferences: { show_default_blocks: false },
-              },
-            }
-          } else if (opts.preferredMethod) {
+          if (!opts.paypalOnly && opts.preferredMethod) {
             config = {
               display: {
                 blocks: {
