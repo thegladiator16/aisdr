@@ -19,6 +19,15 @@ interface RazorpayDisplayBlock {
   instruments: Array<{ method: string; wallets?: string[] }>
 }
 
+interface RazorpayMethodRestriction {
+  card?: 0 | 1 | boolean
+  netbanking?: 0 | 1 | boolean
+  upi?: 0 | 1 | boolean
+  wallet?: 0 | 1 | boolean
+  emi?: 0 | 1 | boolean
+  paylater?: 0 | 1 | boolean
+}
+
 interface RazorpayOptions {
   key: string
   amount: number
@@ -36,6 +45,7 @@ interface RazorpayOptions {
   modal?: {
     ondismiss?: () => void
   }
+  method?: RazorpayMethodRestriction
   config?: {
     display?: {
       blocks?: Record<string, RazorpayDisplayBlock>
@@ -159,22 +169,23 @@ export function useRazorpay(): {
             netbanking: 'Net Banking',
             wallet: 'Pay by Wallet',
           }
-          // Config strategy for the two flows:
-          //   1. paypalOnly=true (USD orders) — DON'T pass any
-          //      config.display.blocks restriction. Razorpay's own
-          //      routing already filters to whichever methods the
-          //      merchant has enabled for the requested currency; on an
-          //      account where PayPal is the only international method
-          //      active, a USD order will show only PayPal naturally.
-          //      An earlier attempt to hard-restrict via
-          //      { method:'wallet', wallets:['paypal'] } +
-          //      show_default_blocks:false ended up filtering PayPal
-          //      itself out ("No appropriate payment method found"),
-          //      because Razorpay's internal categorization of the
-          //      PayPal integration doesn't match that instrument shape.
+          // Method / config strategy:
+          //   1. paypalOnly=true (USD orders) — use the top-level `method`
+          //      field to disable every non-wallet payment type. Razorpay's
+          //      international payments accept both foreign cards AND PayPal
+          //      once the merchant has PayPal activated (they come bundled),
+          //      but the spec calls for PayPal-only. Since PayPal is the
+          //      only wallet enabled on the account for USD, restricting
+          //      to method.wallet=1 naturally leaves only PayPal visible.
+          //      Two earlier attempts failed: (a) no restriction showed
+          //      Cards + PayPal with Cards defaulted, (b) an aggressive
+          //      display.blocks filter matched nothing and produced "No
+          //      appropriate payment method found". The top-level `method`
+          //      field is the well-documented Razorpay contract for this.
           //   2. preferredMethod set (INR orders) — surface the chosen
-          //      method first but keep default blocks visible so users
-          //      can still switch inside the Razorpay modal.
+          //      method first via config.display.blocks but keep the
+          //      default blocks visible so users can still switch inside
+          //      the Razorpay modal.
           let config:
             | {
                 display: {
@@ -184,6 +195,17 @@ export function useRazorpay(): {
                 }
               }
             | undefined
+          const method: RazorpayMethodRestriction | undefined = opts.paypalOnly
+            ? {
+                card: 0,
+                netbanking: 0,
+                upi: 0,
+                wallet: 1,
+                emi: 0,
+                paylater: 0,
+              }
+            : undefined
+
           if (!opts.paypalOnly && opts.preferredMethod) {
             config = {
               display: {
@@ -208,6 +230,7 @@ export function useRazorpay(): {
             description: opts.description ?? 'Subscription',
             prefill: opts.prefill,
             theme: { color: opts.theme ?? '#6C47FF' },
+            ...(method ? { method } : {}),
             ...(config ? { config } : {}),
             handler: async (response: RazorpayResponse) => {
               try {
