@@ -6,6 +6,7 @@ import { useUser } from "@clerk/nextjs";
 import { X, Check, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { useRazorpay } from "@/hooks/useRazorpay";
+import { useSubscription } from "@/lib/hooks/useSubscription";
 import { PayPalCheckoutButton } from "@/components/billing/PayPalCheckoutButton";
 import {
   resolveCurrency,
@@ -95,6 +96,8 @@ export function ChangePlanModal({ onClose }: { onClose: () => void }) {
   const router = useRouter();
   const { user, isLoaded } = useUser();
   const { openCheckout } = useRazorpay();
+  const { data: subscription } = useSubscription();
+  const currentTier = subscription?.tier ?? null;
 
   const [billing, setBilling] = useState<"monthly" | "yearly">("monthly");
   const [currency, setCurrencyState] = useState<Currency>("INR");
@@ -289,21 +292,47 @@ export function ChangePlanModal({ onClose }: { onClose: () => void }) {
             )}
           </div>
 
-          {/* Plan cards */}
-          <div className="grid grid-cols-3 gap-4">
+          {/* Plan cards — items-stretch on the grid + flex flex-col h-full on
+              each card keeps them all the same height even when Enterprise's
+              feature list is shorter. mt-auto on the CTA block pins it to
+              the bottom of every card so the three CTAs align in a row. */}
+          <div className="grid grid-cols-3 gap-4 items-stretch">
             {PLANS.map((plan) => {
               const isLoading = loadingPlan === plan.key;
+              const priceLabel =
+                plan.monthly != null && plan.monthly > 0
+                  ? displayPrice(
+                      billing === "monthly" ? plan.monthly : plan.yearly!,
+                      currency
+                    )
+                  : null;
+              // "Current Plan" detection — matched only for real paid tiers;
+              // trial + free users still see the real upgrade buttons.
+              const isCurrentPlan =
+                currentTier === plan.key &&
+                (plan.key === "starter" ||
+                  plan.key === "growth" ||
+                  plan.key === "scale");
+              // Per-plan CTA color: Growth stays on the pink accent (matches
+              // its "recommended" pink ring); Starter uses the violet brand
+              // accent; Enterprise stays dark.
+              const ctaColorClass =
+                plan.key === "growth"
+                  ? "bg-pink-500 text-white hover:bg-pink-600 shadow-sm"
+                  : plan.key === "starter"
+                  ? "bg-[#6C47FF] text-white hover:bg-[#5A38E0] shadow-sm"
+                  : "bg-gray-900 text-white hover:bg-gray-800 shadow-sm";
               return (
                 <div
                   key={plan.key}
-                  className={`border rounded-xl p-5 relative ${
+                  className={`border rounded-xl p-5 relative flex flex-col h-full ${
                     plan.recommended
                       ? "border-pink-300 ring-1 ring-pink-200"
                       : "border-gray-200"
                   }`}
                 >
                   <span
-                    className={`inline-block text-white text-xs font-semibold px-2.5 py-1 rounded-full mb-3 ${plan.badge}`}
+                    className={`inline-block text-white text-xs font-semibold px-2.5 py-1 rounded-full mb-3 self-start ${plan.badge}`}
                   >
                     {plan.name}
                   </span>
@@ -324,65 +353,22 @@ export function ChangePlanModal({ onClose }: { onClose: () => void }) {
                       )}/mo
                     </p>
                   )}
-                  <p className="text-xs text-gray-500 mb-4">{plan.credits}</p>
-                  {/* Payment CTA branches by currency + plan:
-                        - "scale" (Enterprise) always shows Contact sales.
-                        - USD + starter/growth → PayPal Smart Buttons via
-                          @paypal/react-paypal-js (uses the direct PayPal
-                          JS SDK, does NOT open Razorpay Checkout).
-                        - INR → the existing Razorpay Upgrade button. */}
-                  {plan.key === "scale" ? (
-                    <button
-                      onClick={() => handleUpgrade(plan.key)}
-                      disabled={!!loadingPlan}
-                      className="w-full rounded-lg py-2 text-sm font-medium transition-colors flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed bg-gray-900 text-white hover:bg-gray-800"
-                    >
-                      Contact sales
-                    </button>
-                  ) : currency === "USD" ? (
-                    <PayPalCheckoutButton
-                      purchase={{
-                        plan: plan.key as "starter" | "growth",
-                        billing,
-                      }}
-                      labelForDescription={`${plan.name} plan`}
-                      onSuccess={() => {
-                        onClose();
-                        router.refresh();
-                      }}
-                      disabled={!isLoaded || !!loadingPlan}
-                    />
-                  ) : (
-                    <button
-                      onClick={() => handleUpgrade(plan.key)}
-                      disabled={!!loadingPlan || !isLoaded}
-                      className="w-full rounded-lg py-2 text-sm font-medium transition-colors flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed bg-[#6C47FF] text-white hover:bg-[#5A38E0]"
-                    >
-                      {isLoading ? (
-                        <>
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                          Processing…
-                        </>
-                      ) : (
-                        "Upgrade"
-                      )}
-                    </button>
-                  )}
-                  <p className="text-xs text-gray-500 mt-3 flex items-center gap-1">
+                  <p className="text-xs text-gray-500 mb-3">{plan.credits}</p>
+                  <p className="text-xs text-gray-500 mb-4 flex items-center gap-1">
                     <span className="text-gray-400">ℹ</span> {plan.replies}
                   </p>
-                  <hr className="my-4 border-gray-100" />
+                  <hr className="my-2 border-gray-100" />
                   <p className="text-xs font-medium text-gray-700 mb-2">{plan.includes}</p>
-                  <ul className="space-y-1.5">
+                  <ul className="space-y-1.5 mb-5">
                     {plan.features.map((f, i) => {
                       const text = typeof f === "string" ? f : f.text;
                       const soon = typeof f !== "string" && f.soon;
                       return (
-                        <li key={i} className="flex items-center gap-2 text-xs text-gray-600">
-                          <Check className="h-3.5 w-3.5 text-violet-500 shrink-0" />
-                          {text}
+                        <li key={i} className="flex items-start gap-2 text-xs text-gray-600">
+                          <Check className="h-3.5 w-3.5 text-violet-500 shrink-0 mt-0.5" />
+                          <span className="flex-1">{text}</span>
                           {soon && (
-                            <span className="bg-orange-100 text-orange-600 text-[10px] px-1.5 py-0.5 rounded">
+                            <span className="bg-orange-100 text-orange-600 text-[10px] px-1.5 py-0.5 rounded shrink-0">
                               Soon
                             </span>
                           )}
@@ -390,6 +376,62 @@ export function ChangePlanModal({ onClose }: { onClose: () => void }) {
                       );
                     })}
                   </ul>
+
+                  {/* CTA block — pushed to the bottom with mt-auto so it sits
+                      at the same y-position across all three cards. Branches:
+                        1. isCurrentPlan → disabled "Current Plan" chip.
+                        2. Enterprise → Contact sales (dark).
+                        3. USD + starter/growth → PayPal Smart Buttons via
+                           @paypal/react-paypal-js. NEVER opens Razorpay.
+                        4. INR + starter/growth → labeled button opens
+                           Razorpay Checkout via handleUpgrade. */}
+                  <div className="mt-auto">
+                    {isCurrentPlan ? (
+                      <button
+                        disabled
+                        className="w-full rounded-lg py-2.5 text-sm font-semibold flex items-center justify-center gap-2 bg-gray-100 text-gray-500 cursor-not-allowed"
+                      >
+                        <Check className="h-4 w-4" />
+                        Current Plan
+                      </button>
+                    ) : plan.key === "scale" ? (
+                      <button
+                        onClick={() => handleUpgrade(plan.key)}
+                        disabled={!!loadingPlan}
+                        className={`w-full rounded-lg py-2.5 text-sm font-semibold transition-all duration-150 flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed active:scale-[0.98] ${ctaColorClass}`}
+                      >
+                        Contact Sales
+                      </button>
+                    ) : currency === "USD" ? (
+                      <PayPalCheckoutButton
+                        purchase={{
+                          plan: plan.key as "starter" | "growth",
+                          billing,
+                        }}
+                        labelForDescription={`${plan.name} plan`}
+                        onSuccess={() => {
+                          onClose();
+                          router.refresh();
+                        }}
+                        disabled={!isLoaded || !!loadingPlan}
+                      />
+                    ) : (
+                      <button
+                        onClick={() => handleUpgrade(plan.key)}
+                        disabled={!!loadingPlan || !isLoaded}
+                        className={`w-full rounded-lg py-2.5 text-sm font-semibold transition-all duration-150 flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed active:scale-[0.98] ${ctaColorClass}`}
+                      >
+                        {isLoading ? (
+                          <>
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            Processing…
+                          </>
+                        ) : (
+                          <>Get {plan.name}{priceLabel ? ` — ${priceLabel}/mo` : ""}</>
+                        )}
+                      </button>
+                    )}
+                  </div>
                 </div>
               );
             })}
