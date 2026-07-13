@@ -39,9 +39,21 @@ export function PayPalCheckoutButton({
 
   if (!clientId) {
     return (
-      <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-        PayPal isn&rsquo;t configured on this deployment yet. Please contact
-        support to complete your subscription.
+      <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 space-y-1.5">
+        <p className="text-xs font-medium text-gray-700">
+          International checkout coming soon
+        </p>
+        <p className="text-[11px] text-gray-500 leading-relaxed">
+          Email{" "}
+          <a
+            href="mailto:sales@aryasdr.in?subject=International%20subscription"
+            className="text-[#6C47FF] hover:underline font-medium"
+          >
+            sales@aryasdr.in
+          </a>{" "}
+          and we&rsquo;ll activate your plan manually while we finish PayPal
+          setup.
+        </p>
       </div>
     );
   }

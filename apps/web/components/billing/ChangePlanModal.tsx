@@ -91,12 +91,6 @@ const PLANS = [
   },
 ];
 
-// True when the deployment has PayPal Developer credentials configured.
-// When false, USD checkout silently falls back to the Razorpay flow (which
-// already accepts PayPal via Razorpay's international payments integration)
-// so the user never sees an alarming "PayPal isn't configured" banner.
-const PAYPAL_DIRECT_ENABLED = !!process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID;
-
 export function ChangePlanModal({ onClose }: { onClose: () => void }) {
   const router = useRouter();
   const { user, isLoaded } = useUser();
@@ -345,7 +339,7 @@ export function ChangePlanModal({ onClose }: { onClose: () => void }) {
                     >
                       Contact sales
                     </button>
-                  ) : currency === "USD" && PAYPAL_DIRECT_ENABLED ? (
+                  ) : currency === "USD" ? (
                     <PayPalCheckoutButton
                       purchase={{
                         plan: plan.key as "starter" | "growth",
