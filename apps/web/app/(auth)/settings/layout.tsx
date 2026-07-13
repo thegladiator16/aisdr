@@ -31,7 +31,9 @@ export default function SettingsLayout({
 
   return (
     <div className="flex min-h-screen">
-      <aside className="w-64 border-r border-gray-200 bg-white p-4">
+      {/* Sticky sub-nav so it stays put while the main pane scrolls. Height
+          is calc(100vh - <top offset>) so it doesn't shrink below the fold. */}
+      <aside className="w-64 border-r border-gray-200 bg-white p-4 sticky top-0 self-start h-screen overflow-y-auto shrink-0">
         <h2 className="px-3 mb-4 text-lg font-semibold text-gray-900">
           Settings
         </h2>
@@ -55,7 +57,7 @@ export default function SettingsLayout({
           })}
         </nav>
       </aside>
-      <main className="flex-1 p-6 bg-gray-50">{children}</main>
+      <main className="flex-1 p-6 bg-gray-50 min-w-0">{children}</main>
     </div>
   );
 }

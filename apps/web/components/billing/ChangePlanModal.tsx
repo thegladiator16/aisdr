@@ -6,9 +6,9 @@ import { useUser } from "@clerk/nextjs";
 import { X, Check, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { useRazorpay } from "@/hooks/useRazorpay";
+import { PayPalCheckoutButton } from "@/components/billing/PayPalCheckoutButton";
 import {
   resolveCurrency,
-  isIndianByPhone,
   writeStoredCurrency,
   formatMoney,
   inrToUsdDisplay,
@@ -93,7 +93,7 @@ const PLANS = [
 
 export function ChangePlanModal({ onClose }: { onClose: () => void }) {
   const router = useRouter();
-  const { user } = useUser();
+  const { user, isLoaded } = useUser();
   const { openCheckout } = useRazorpay();
 
   const [billing, setBilling] = useState<"monthly" | "yearly">("monthly");
@@ -325,26 +325,49 @@ export function ChangePlanModal({ onClose }: { onClose: () => void }) {
                     </p>
                   )}
                   <p className="text-xs text-gray-500 mb-4">{plan.credits}</p>
-                  <button
-                    onClick={() => handleUpgrade(plan.key)}
-                    disabled={!!loadingPlan}
-                    className={`w-full rounded-lg py-2 text-sm font-medium transition-colors flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed ${
-                      plan.key === "scale"
-                        ? "bg-gray-900 text-white hover:bg-gray-800"
-                        : "bg-[#6C47FF] text-white hover:bg-[#5A38E0]"
-                    }`}
-                  >
-                    {isLoading ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Processingâ€¦
-                      </>
-                    ) : plan.key === "scale" ? (
-                      "Contact sales"
-                    ) : (
-                      "Upgrade"
-                    )}
-                  </button>
+                  {/* Payment CTA branches by currency + plan:
+                        - "scale" (Enterprise) always shows Contact sales.
+                        - USD + starter/growth → PayPal Smart Buttons via
+                          @paypal/react-paypal-js (uses the direct PayPal
+                          JS SDK, does NOT open Razorpay Checkout).
+                        - INR → the existing Razorpay Upgrade button. */}
+                  {plan.key === "scale" ? (
+                    <button
+                      onClick={() => handleUpgrade(plan.key)}
+                      disabled={!!loadingPlan}
+                      className="w-full rounded-lg py-2 text-sm font-medium transition-colors flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed bg-gray-900 text-white hover:bg-gray-800"
+                    >
+                      Contact sales
+                    </button>
+                  ) : currency === "USD" ? (
+                    <PayPalCheckoutButton
+                      purchase={{
+                        plan: plan.key as "starter" | "growth",
+                        billing,
+                      }}
+                      labelForDescription={`${plan.name} plan`}
+                      onSuccess={() => {
+                        onClose();
+                        router.refresh();
+                      }}
+                      disabled={!isLoaded || !!loadingPlan}
+                    />
+                  ) : (
+                    <button
+                      onClick={() => handleUpgrade(plan.key)}
+                      disabled={!!loadingPlan || !isLoaded}
+                      className="w-full rounded-lg py-2 text-sm font-medium transition-colors flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed bg-[#6C47FF] text-white hover:bg-[#5A38E0]"
+                    >
+                      {isLoading ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Processing…
+                        </>
+                      ) : (
+                        "Upgrade"
+                      )}
+                    </button>
+                  )}
                   <p className="text-xs text-gray-500 mt-3 flex items-center gap-1">
                     <span className="text-gray-400">â„¹</span> {plan.replies}
                   </p>

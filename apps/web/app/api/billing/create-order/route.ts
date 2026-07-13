@@ -1,7 +1,7 @@
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-import { auth } from "@clerk/nextjs/server";
+import { auth, clerkClient } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import {
   razorpay,
@@ -10,6 +10,7 @@ import {
   isRazorpayConfigured,
   type SupportedCurrency,
 } from "@/lib/payments/razorpay";
+import { isIndianByPhone } from "@/lib/payments/currency";
 
 export async function POST(req: Request) {
   const { userId } = auth();
@@ -49,12 +50,25 @@ export async function POST(req: Request) {
     currency?: string;
   } = body ?? {};
 
-  // Currency: INR is the default; USD is the international route (goes
-  // through PayPal via Razorpay's PayPal wallet integration).
-  const currency: SupportedCurrency =
+  // Currency: INR is the default; USD is the international route.
+  let currency: SupportedCurrency =
     (typeof rawCurrency === "string" ? rawCurrency.toUpperCase() : "INR") === "USD"
       ? "USD"
       : "INR";
+
+  // Definitive server-side +91 phone lock — client toggle can lie / be
+  // stale, so we always re-check Clerk here and force INR for Indian
+  // users regardless of what the request body said.
+  try {
+    const clerkUser = await clerkClient.users.getUser(userId);
+    const phones = clerkUser.phoneNumbers.map((p) => p.phoneNumber);
+    if (isIndianByPhone(phones) && currency === "USD") {
+      currency = "INR";
+    }
+  } catch {
+    // Clerk lookup hiccup — trust the request body's currency to avoid
+    // stranding paying customers. Same fail-open pattern as verify-payment.
+  }
 
   let amount = 0;
 
