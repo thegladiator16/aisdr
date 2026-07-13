@@ -7,6 +7,7 @@ import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import {
+  Bot,
   Sparkles,
   Send,
   BarChart2,
@@ -39,6 +40,7 @@ import { NotificationsBell } from "@/components/notifications/NotificationsBell"
 
 const MANAGE_ITEMS = [
   { href: "/dashboard/manage", label: "Manage Arya", icon: Sparkles },
+  { href: "/dashboard/agents", label: "Agents", icon: Bot },
   { href: "/campaigns", label: "Campaigns", icon: Send },
   { href: "/analytics", label: "Analytics", icon: BarChart2 },
   { href: "/dashboard/team", label: "Team", icon: Users2 },

@@ -13,6 +13,9 @@
   "dependencies": {
     "@clerk/nextjs": "^5.1.6",
     "@hookform/resolvers": "^3.6.0",
+    "@langchain/anthropic": "^1.5.1",
+    "@langchain/core": "^1.2.2",
+    "@langchain/langgraph": "^1.4.7",
     "@neondatabase/serverless": "^1.1.0",
     "@paypal/react-paypal-js": "^10.1.2",
     "@radix-ui/react-avatar": "^1.0.4",
