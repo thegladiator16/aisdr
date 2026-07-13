@@ -273,9 +273,7 @@ export function Sidebar({ onChatOpen }: SidebarProps) {
       )}>
         {!collapsed && (
           <div className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-full bg-[#6C47FF] flex items-center justify-center shrink-0">
-              <span className="text-white text-sm font-bold">A</span>
-            </div>
+            <AryaAvatar size="sm" />
             <span className="font-bold text-gray-900 text-sm">AryaSDR</span>
             <span className="text-[10px] font-semibold text-violet-600 bg-violet-50 px-1.5 py-0.5 rounded">
               BETA
@@ -326,9 +324,7 @@ export function Sidebar({ onChatOpen }: SidebarProps) {
             onClick={onChatOpen}
             className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
           >
-            <div className="h-5 w-5 rounded-full bg-[#6C47FF] flex items-center justify-center shrink-0">
-              <span className="text-white text-[8px] font-bold">A</span>
-            </div>
+            <AryaAvatar size="xs" className="shrink-0" />
             {!collapsed && <span>Chat with Arya</span>}
           </button>
         </SidebarTooltip>
