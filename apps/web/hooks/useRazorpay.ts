@@ -170,18 +170,25 @@ export function useRazorpay(): {
             wallet: 'Pay by Wallet',
           }
           // Method / config strategy:
-          //   1. paypalOnly=true (USD orders) — use the top-level `method`
-          //      field to disable every non-wallet payment type. Razorpay's
-          //      international payments accept both foreign cards AND PayPal
-          //      once the merchant has PayPal activated (they come bundled),
-          //      but the spec calls for PayPal-only. Since PayPal is the
-          //      only wallet enabled on the account for USD, restricting
-          //      to method.wallet=1 naturally leaves only PayPal visible.
-          //      Two earlier attempts failed: (a) no restriction showed
-          //      Cards + PayPal with Cards defaulted, (b) an aggressive
-          //      display.blocks filter matched nothing and produced "No
-          //      appropriate payment method found". The top-level `method`
-          //      field is the well-documented Razorpay contract for this.
+          //   1. paypalOnly=true (USD orders) — DO NOT apply any client-side
+          //      method restriction. On accounts that use Razorpay's
+          //      international payments product, "PayPal activated" comes
+          //      bundled with international-card acceptance; both surface
+          //      together in Checkout. Three prior attempts to force a
+          //      PayPal-only view all broke the modal:
+          //        a. config.display.blocks with { method:'wallet',
+          //           wallets:['paypal'] } + show_default_blocks:false →
+          //           "No appropriate payment method found" (instrument
+          //           shape didn't match how the account is registered).
+          //        b. method: { wallet: 1, others: 0 } → empty payment
+          //           list (PayPal isn't categorized as a wallet on this
+          //           account — it's bundled with `card` in Razorpay's
+          //           international payments integration).
+          //      Splitting Cards vs PayPal for international orders is a
+          //      merchant-account-side toggle on Razorpay, not a
+          //      Checkout-options one. Ship the working default (Cards +
+          //      PayPal both visible) and surface a UI hint upstream so
+          //      international users know to pick PayPal.
           //   2. preferredMethod set (INR orders) — surface the chosen
           //      method first via config.display.blocks but keep the
           //      default blocks visible so users can still switch inside
@@ -195,17 +202,6 @@ export function useRazorpay(): {
                 }
               }
             | undefined
-          const method: RazorpayMethodRestriction | undefined = opts.paypalOnly
-            ? {
-                card: 0,
-                netbanking: 0,
-                upi: 0,
-                wallet: 1,
-                emi: 0,
-                paylater: 0,
-              }
-            : undefined
-
           if (!opts.paypalOnly && opts.preferredMethod) {
             config = {
               display: {
@@ -230,7 +226,6 @@ export function useRazorpay(): {
             description: opts.description ?? 'Subscription',
             prefill: opts.prefill,
             theme: { color: opts.theme ?? '#6C47FF' },
-            ...(method ? { method } : {}),
             ...(config ? { config } : {}),
             handler: async (response: RazorpayResponse) => {
               try {

@@ -247,12 +247,14 @@ export function ChangePlanModal({ onClose }: { onClose: () => void }) {
               </button>
             </div>
 
-            {/* Payment method disclosure — makes the split flow explicit
-                so the user isn't surprised when Razorpay Checkout opens
-                straight into PayPal for USD. */}
+            {/* Payment method disclosure — makes the split flow explicit.
+                For USD we can't force PayPal-only in Razorpay Checkout
+                (their international payments bundle Cards + PayPal on the
+                merchant account), so we tell the user to pick PayPal at
+                the next screen. */}
             <p className="text-[11px] text-gray-400 text-center max-w-md">
               {currency === "USD"
-                ? "International payments are processed securely via PayPal."
+                ? "International payments are processed securely via PayPal. On the next screen, select PayPal from the payment options."
                 : "Indian payments via Razorpay — UPI / Cards / NetBanking."}
             </p>
           </div>
