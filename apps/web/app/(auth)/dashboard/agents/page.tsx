@@ -5,7 +5,6 @@ import { useSearchParams } from "next/navigation";
 import {
   Bot,
   ChevronRight,
-  CircleX,
   Loader2,
   Sparkles,
   AlertTriangle,
@@ -13,7 +12,16 @@ import {
   Building2,
   ChevronDown,
   Zap,
-  ArrowRight,
+  Clock,
+  Users,
+  Search,
+  BarChart3,
+  PenLine,
+  Send,
+  Check,
+  X,
+  Minus,
+  Info,
 } from "lucide-react";
 import { AutonomousRunLauncher } from "@/components/agents/AutonomousRunLauncher";
 
@@ -77,60 +85,65 @@ interface RunDetail {
 
 /* ---------- Agent pipeline config ---------- */
 
-const AGENT_PIPELINE = [
-  { key: "orchestrator", label: "Orchestrator", emoji: "🧠" },
-  { key: "prospecting",  label: "Prospecting",  emoji: "🔍" },
-  { key: "research",     label: "Research",     emoji: "📊" },
-  { key: "copywriter",   label: "Copywriter",   emoji: "✍️" },
-  { key: "sender",       label: "Sender",       emoji: "📤" },
-] as const;
+const AGENT_PIPELINE: {
+  key: string;
+  label: string;
+  icon: typeof Bot;
+}[] = [
+  { key: "orchestrator", label: "Orchestrator", icon: Bot },
+  { key: "prospecting",  label: "Prospecting",  icon: Search },
+  { key: "research",     label: "Research",      icon: BarChart3 },
+  { key: "copywriter",   label: "Copywriter",    icon: PenLine },
+  { key: "sender",       label: "Sender",        icon: Send },
+];
 
 /* ---------- Helpers ---------- */
 
 function durationStr(startedAt: string, completedAt: string | null): string {
-  if (!completedAt) return "In progress";
+  if (!completedAt) return "—";
   const ms = new Date(completedAt).getTime() - new Date(startedAt).getTime();
   if (ms < 0) return "—";
   if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
   return `${Math.floor(ms / 60000)}m ${Math.round((ms % 60000) / 1000)}s`;
 }
 
-function getTaskMetric(agentName: string, output: Record<string, unknown> | null): string {
-  if (!output) return "";
+function getTaskMetric(agentName: string, output: Record<string, unknown> | null): string | null {
+  if (!output) return null;
   switch (agentName) {
     case "orchestrator": {
       const plan = output.plan as string[] | undefined;
-      return plan?.length ? `${plan.length}-step plan` : "Planning complete";
+      return plan?.length ? `${plan.length} steps` : null;
     }
     case "prospecting": {
       const count = output.count as number | undefined;
       const source = output.source as string | undefined;
-      if (count == null) return "";
-      return `${count} lead${count !== 1 ? "s" : ""} ${source === "hunter" ? "· verified" : "· demo"}`;
+      if (count == null) return null;
+      return `${count} lead${count !== 1 ? "s" : ""}${source === "hunter" ? " (verified)" : ""}`;
     }
     case "research": {
       const count = output.count as number | undefined;
       const web = output.webGrounded as number | undefined;
-      if (count == null) return "";
-      return `${count} researched${web ? ` · ${web} web` : ""}`;
+      if (count == null) return null;
+      return `${count} enriched${web ? `, ${web} from web` : ""}`;
     }
     case "copywriter": {
       const count = output.count as number | undefined;
-      if (count == null) return "";
-      return `${count} email${count !== 1 ? "s" : ""} written`;
+      if (count == null) return null;
+      return `${count} email${count !== 1 ? "s" : ""} drafted`;
     }
     case "sender": {
       const delivered = output.delivered as number | undefined;
       const reason = output.skippedReason as string | undefined;
-      if (reason === "gmail_not_connected") return "Not sent";
-      if (delivered == null) return "";
-      return `${delivered} delivered`;
+      if (reason === "gmail_not_connected") return "Gmail not connected";
+      if (delivered == null) return null;
+      return `${delivered} sent`;
     }
-    default: return "";
+    default:
+      return null;
   }
 }
 
-type Warning = { type: "warning" | "tip"; message: string; link?: string };
+type Warning = { type: "warning" | "info"; message: string; action?: string; link?: string };
 
 function getWarnings(tasks: Task[]): Warning[] {
   const out: Warning[] = [];
@@ -138,20 +151,22 @@ function getWarnings(tasks: Task[]): Warning[] {
     if (t.agentName === "prospecting" && t.output?.source === "synthesized") {
       out.push({
         type: "warning",
-        message: "Hunter.io not connected — using synthesised demo leads (no real emails).",
+        message: "Hunter.io is not connected. Leads shown are synthesised for demonstration.",
+        action: "Connect Hunter.io",
         link: "/dashboard/settings",
       });
     }
     if (t.agentName === "research" && t.output?.serperConfigured === false) {
       out.push({
-        type: "tip",
-        message: "Add SERPER_API_KEY to unlock real web research and grounded personalisation.",
+        type: "info",
+        message: "Web research is disabled. Add SERPER_API_KEY to ground hooks in real company data.",
       });
     }
     if (t.agentName === "sender" && t.output?.skippedReason === "gmail_not_connected") {
       out.push({
         type: "warning",
-        message: "Gmail not connected — emails were scheduled but not delivered.",
+        message: "Gmail is not connected. Emails were scheduled but could not be delivered.",
+        action: "Connect Gmail",
         link: "/dashboard/settings/integrations",
       });
     }
@@ -161,165 +176,163 @@ function getWarnings(tasks: Task[]): Warning[] {
 
 /* ---------- Sub-components ---------- */
 
-function StatusBadge({ status, large = false }: { status: string; large?: boolean }) {
-  const cfg: Record<string, { ring: string; text: string; dot: string }> = {
-    completed: { ring: "ring-emerald-200 bg-emerald-50", text: "text-emerald-700", dot: "bg-emerald-500" },
-    running:   { ring: "ring-violet-200 bg-violet-50",   text: "text-violet-700",  dot: "bg-violet-500"  },
-    failed:    { ring: "ring-red-200 bg-red-50",         text: "text-red-700",     dot: "bg-red-500"     },
-    pending:   { ring: "ring-gray-200 bg-gray-50",       text: "text-gray-500",    dot: "bg-gray-400"    },
+function StatusDot({ status, size = 6 }: { status: string; size?: number }) {
+  const colors: Record<string, string> = {
+    completed: "bg-emerald-500",
+    running:   "bg-violet-500",
+    failed:    "bg-red-500",
+    pending:   "bg-gray-300",
   };
-  const c = cfg[status] ?? cfg.pending;
+  if (status === "running") {
+    return (
+      <span className="relative flex shrink-0" style={{ width: size, height: size }}>
+        <span
+          className="absolute inset-0 rounded-full bg-violet-500 animate-ping opacity-40"
+          style={{ width: size, height: size }}
+        />
+        <span
+          className="relative rounded-full bg-violet-500"
+          style={{ width: size, height: size }}
+        />
+      </span>
+    );
+  }
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-full ring-1 font-semibold capitalize shrink-0
-        ${c.ring} ${c.text} ${large ? "px-3 py-1.5 text-sm" : "px-2 py-0.5 text-xs"}`}
+      className={`rounded-full shrink-0 ${colors[status] ?? "bg-gray-300"}`}
+      style={{ width: size, height: size }}
+    />
+  );
+}
+
+function StatusTag({ status }: { status: string }) {
+  const map: Record<string, string> = {
+    completed: "bg-emerald-500/10 text-emerald-700 border-emerald-500/20",
+    running:   "bg-violet-500/10 text-violet-700 border-violet-500/20",
+    failed:    "bg-red-500/10 text-red-700 border-red-500/20",
+    pending:   "bg-gray-500/10 text-gray-500 border-gray-500/20",
+  };
+  return (
+    <span
+      className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-[11px] font-semibold capitalize ${
+        map[status] ?? map.pending
+      }`}
     >
-      {status === "running" ? (
-        <Loader2 className={large ? "h-3.5 w-3.5 animate-spin" : "h-3 w-3 animate-spin"} />
-      ) : (
-        <span className={`rounded-full inline-block ${c.dot} ${large ? "h-2 w-2" : "h-1.5 w-1.5"}`} />
-      )}
+      <StatusDot status={status} size={5} />
       {status}
     </span>
   );
 }
 
-function MetricCard({ label, value, sub }: { label: string; value: string; sub?: string }) {
-  return (
-    <div className="rounded-xl bg-gray-50 border border-gray-100 px-3 py-2.5 text-center">
-      <div className="text-[9px] text-gray-400 uppercase tracking-widest font-semibold">{label}</div>
-      <div className="text-sm font-bold text-gray-900 mt-0.5">{value}</div>
-      {sub && <div className="text-[10px] text-gray-400 mt-0.5">{sub}</div>}
-    </div>
-  );
-}
+/* ---------- Pipeline step ---------- */
 
-function AgentCard({
+function PipelineStep({
   config,
   task,
-  logs,
+  taskLogs,
+  isLast,
 }: {
-  config: { key: string; label: string; emoji: string };
+  config: (typeof AGENT_PIPELINE)[number];
   task: Task | undefined;
-  logs: LogRow[];
+  taskLogs: LogRow[];
+  isLast: boolean;
 }) {
-  const [expanded, setExpanded] = useState(false);
-  const metric = task ? getTaskMetric(config.key, task.output) : "";
+  const [logsOpen, setLogsOpen] = useState(false);
+  const metric = task ? getTaskMetric(config.key, task.output) : null;
   const dur = task ? durationStr(task.startedAt, task.completedAt) : null;
+  const Icon = config.icon;
 
-  const border: Record<string, string> = {
-    completed: "border-emerald-200 bg-emerald-50/40",
-    running:   "border-violet-300 bg-violet-50/40",
-    failed:    "border-red-200 bg-red-50/40",
+  const status = task?.status ?? "pending";
+
+  const iconBg: Record<string, string> = {
+    completed: "bg-emerald-500/10 text-emerald-600",
+    running:   "bg-violet-500/10 text-violet-600",
+    failed:    "bg-red-500/10 text-red-600",
+    pending:   "bg-gray-100 text-gray-400",
   };
-  const dot: Record<string, string> = {
-    completed: "bg-emerald-500",
-    running:   "bg-violet-500 animate-pulse",
-    failed:    "bg-red-500",
-  };
-  const borderCls = task ? (border[task.status] ?? "border-gray-200 bg-gray-50/30") : "border-gray-100 bg-gray-50/20";
-  const dotCls    = task ? (dot[task.status]    ?? "bg-gray-300")                   : "bg-gray-200";
 
   return (
-    <div className={`rounded-xl border ${borderCls} p-2.5 flex flex-col gap-1.5 h-full`}>
-      {/* Top row */}
-      <div className="flex items-start justify-between gap-1">
-        <div className="flex items-center gap-1.5 min-w-0">
-          <span className="text-base leading-none shrink-0">{config.emoji}</span>
-          <span className="text-[11px] font-semibold text-gray-800 truncate">{config.label}</span>
-        </div>
-        <span className={`h-2 w-2 rounded-full shrink-0 mt-0.5 ${dotCls}`} />
-      </div>
-
-      {/* Metric */}
-      {metric && (
-        <div className="text-[10px] text-gray-500 leading-tight">{metric}</div>
-      )}
-
-      {/* Duration */}
-      {dur && dur !== "In progress" && dur !== "—" && (
-        <div className="text-[9px] text-gray-400">{dur}</div>
-      )}
-
-      {/* Error */}
-      {task?.errorMessage && (
-        <p className="text-[9px] text-red-600 bg-red-50 rounded px-1.5 py-1 border border-red-100 leading-tight">
-          {task.errorMessage.slice(0, 80)}
-        </p>
-      )}
-
-      {/* Expand logs */}
-      {logs.length > 0 && (
-        <>
-          <button
-            onClick={() => setExpanded((v) => !v)}
-            className="flex items-center gap-1 text-[9px] text-gray-400 hover:text-gray-600 transition-colors self-start mt-auto"
-          >
-            <ChevronDown
-              className={`h-2.5 w-2.5 transition-transform ${expanded ? "rotate-180" : ""}`}
-            />
-            {logs.length} log{logs.length !== 1 ? "s" : ""}
-          </button>
-
-          {expanded && (
-            <div className="rounded-lg bg-gray-900 p-2 space-y-1 max-h-36 overflow-y-auto">
-              {logs.map((l) => (
-                <div key={l.id} className="flex gap-1 text-[9px] leading-relaxed">
-                  <span className="text-gray-600 shrink-0">›</span>
-                  <span className={l.level === "error" ? "text-red-400" : "text-gray-300"}>
-                    {l.message}
-                  </span>
-                </div>
-              ))}
-            </div>
+    <div className="flex gap-3">
+      {/* Timeline rail */}
+      <div className="flex flex-col items-center pt-0.5">
+        <div
+          className={`flex h-7 w-7 items-center justify-center rounded-lg shrink-0 ${
+            iconBg[status] ?? iconBg.pending
+          }`}
+        >
+          {status === "running" ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <Icon className="h-3.5 w-3.5" />
           )}
-        </>
-      )}
-    </div>
-  );
-}
-
-function LeadCard({ lead }: { lead: SampleLead }) {
-  const initials = lead.name
-    ? lead.name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()
-    : "?";
-  return (
-    <div className="rounded-xl border border-gray-200 bg-white p-3 space-y-2 hover:border-violet-200 hover:shadow-sm transition-all">
-      <div className="flex items-start gap-2.5">
-        <div className="h-9 w-9 rounded-full bg-gradient-to-br from-violet-400 to-violet-600 flex items-center justify-center text-white text-xs font-bold shrink-0 shadow-sm">
-          {initials}
         </div>
-        <div className="min-w-0">
-          <div className="text-sm font-semibold text-gray-900 truncate">{lead.name || "Unknown"}</div>
-          <div className="text-xs text-gray-500 truncate">{lead.title || "—"}</div>
-        </div>
+        {!isLast && (
+          <div
+            className={`w-px flex-1 mt-1.5 mb-0 ${
+              status === "completed"
+                ? "bg-emerald-200"
+                : status === "failed"
+                ? "bg-red-200"
+                : "bg-gray-200"
+            }`}
+          />
+        )}
       </div>
 
-      <div className="space-y-1.5">
-        <div className="flex items-center gap-1.5 text-xs text-gray-600">
-          <Building2 className="h-3 w-3 text-gray-400 shrink-0" />
-          <span className="truncate">{lead.company || "—"}</span>
+      {/* Content */}
+      <div className={`flex-1 min-w-0 ${isLast ? "pb-0" : "pb-4"}`}>
+        <div className="flex items-center gap-2 mb-0.5">
+          <span className="text-[13px] font-semibold text-gray-900">{config.label}</span>
+          {dur && dur !== "—" && (
+            <span className="text-[11px] text-gray-400 tabular-nums">{dur}</span>
+          )}
+          {status === "completed" && (
+            <Check className="h-3 w-3 text-emerald-500 ml-auto shrink-0" />
+          )}
+          {status === "failed" && (
+            <X className="h-3 w-3 text-red-500 ml-auto shrink-0" />
+          )}
+          {status === "running" && (
+            <span className="ml-auto text-[10px] text-violet-500 font-medium">Running</span>
+          )}
         </div>
-        {lead.email ? (
-          <div className="flex items-center gap-1.5 text-xs">
-            <Mail className="h-3 w-3 text-violet-400 shrink-0" />
-            <span className="truncate text-violet-700 font-medium">{lead.email}</span>
-          </div>
-        ) : (
-          <div className="flex items-center gap-1.5 text-xs text-gray-400">
-            <Mail className="h-3 w-3 shrink-0" />
-            <span>No email · demo mode</span>
-          </div>
+
+        {metric && (
+          <p className="text-[12px] text-gray-500 leading-snug">{metric}</p>
         )}
-        {lead.confidence != null && (
-          <div className="flex items-center gap-2">
-            <div className="flex-1 bg-gray-100 rounded-full h-1.5 overflow-hidden">
-              <div
-                className="bg-emerald-500 h-1.5 rounded-full transition-all"
-                style={{ width: `${Math.min(lead.confidence, 100)}%` }}
+
+        {task?.errorMessage && (
+          <p className="text-[11px] text-red-600 mt-1 leading-snug">{task.errorMessage}</p>
+        )}
+
+        {taskLogs.length > 0 && (
+          <div className="mt-1.5">
+            <button
+              onClick={() => setLogsOpen((v) => !v)}
+              className="flex items-center gap-1 text-[11px] text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <ChevronDown
+                className={`h-3 w-3 transition-transform duration-150 ${
+                  logsOpen ? "rotate-180" : ""
+                }`}
               />
-            </div>
-            <span className="text-[10px] text-gray-500 shrink-0 font-medium">{lead.confidence}%</span>
+              {taskLogs.length} log entries
+            </button>
+            {logsOpen && (
+              <div className="mt-1.5 rounded-md bg-gray-950 border border-gray-800 p-2.5 max-h-32 overflow-y-auto">
+                {taskLogs.map((l) => (
+                  <div
+                    key={l.id}
+                    className="text-[11px] font-mono leading-relaxed flex gap-2"
+                  >
+                    <span className="text-gray-600 select-none shrink-0">&gt;</span>
+                    <span className={l.level === "error" ? "text-red-400" : "text-gray-400"}>
+                      {l.message}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -337,92 +350,96 @@ function RunDetailPanel({ detail }: { detail: RunDetail }) {
   const warnings = getWarnings(tasks);
   const totalDur = durationStr(run.startedAt, run.completedAt);
 
-  // Sender stats
   const senderTask = tasks.find((t) => t.agentName === "sender");
   const sOut = senderTask?.output;
-  const delivered    = sOut?.delivered    as number | undefined;
-  const failedSend   = sOut?.failed       as number | undefined;
+  const delivered = sOut?.delivered as number | undefined;
+  const failedSend = sOut?.failed as number | undefined;
   const skippedEmail = sOut?.skippedNoEmail as number | undefined;
   const gmailAccount = sOut?.gmailAccount as string | undefined;
   const showDelivery = delivered != null;
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       {/* ── Header ── */}
-      <div className="space-y-3">
-        <div className="flex items-start gap-3">
-          <StatusBadge status={run.status} large />
-          <p className="text-base font-semibold text-gray-900 leading-snug pt-0.5">{run.goal}</p>
+      <div>
+        <div className="flex items-start justify-between gap-3 mb-4">
+          <div className="min-w-0">
+            <p className="text-[15px] font-semibold text-gray-900 leading-snug mb-2">
+              {run.goal}
+            </p>
+            <StatusTag status={run.status} />
+          </div>
         </div>
 
-        <div className="grid grid-cols-3 gap-2">
-          <MetricCard
-            label="Started"
-            value={new Date(run.startedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-            sub={new Date(run.startedAt).toLocaleDateString([], { month: "short", day: "numeric" })}
-          />
-          <MetricCard label="Duration" value={totalDur} />
-          {output?.creditsUsed != null ? (
-            <MetricCard label="Credits used" value={String(output.creditsUsed)} />
-          ) : (
-            <MetricCard label="Leads" value={String(output?.leadCount ?? "—")} />
-          )}
+        {/* Stats row */}
+        <div className="grid grid-cols-4 gap-3 mt-4">
+          <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5">
+            <div className="flex items-center gap-1.5 mb-1">
+              <Clock className="h-3 w-3 text-gray-400" />
+              <span className="text-[10px] font-medium text-gray-400 uppercase tracking-wide">Started</span>
+            </div>
+            <div className="text-[13px] font-semibold text-gray-900 tabular-nums">
+              {new Date(run.startedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+            </div>
+            <div className="text-[10px] text-gray-400 mt-0.5">
+              {new Date(run.startedAt).toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" })}
+            </div>
+          </div>
+          <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5">
+            <div className="flex items-center gap-1.5 mb-1">
+              <Clock className="h-3 w-3 text-gray-400" />
+              <span className="text-[10px] font-medium text-gray-400 uppercase tracking-wide">Duration</span>
+            </div>
+            <div className="text-[13px] font-semibold text-gray-900 tabular-nums">{totalDur}</div>
+          </div>
+          <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5">
+            <div className="flex items-center gap-1.5 mb-1">
+              <Users className="h-3 w-3 text-gray-400" />
+              <span className="text-[10px] font-medium text-gray-400 uppercase tracking-wide">Leads</span>
+            </div>
+            <div className="text-[13px] font-semibold text-gray-900 tabular-nums">{output?.leadCount ?? "—"}</div>
+          </div>
+          <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5">
+            <div className="flex items-center gap-1.5 mb-1">
+              <Zap className="h-3 w-3 text-gray-400" />
+              <span className="text-[10px] font-medium text-gray-400 uppercase tracking-wide">Credits</span>
+            </div>
+            <div className="text-[13px] font-semibold text-gray-900 tabular-nums">{output?.creditsUsed ?? "—"}</div>
+          </div>
         </div>
 
         {run.errorMessage && (
-          <div className="rounded-lg bg-red-50 border border-red-200 px-3 py-2.5 text-xs text-red-700 flex items-start gap-2">
-            <CircleX className="h-4 w-4 shrink-0 mt-0.5" />
+          <div className="mt-3 rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-[12px] text-red-700 flex items-start gap-2">
+            <X className="h-3.5 w-3.5 shrink-0 mt-0.5 text-red-500" />
             <span>{run.errorMessage}</span>
           </div>
         )}
       </div>
 
-      {/* ── Agent pipeline ── */}
-      <div>
-        <h3 className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-2.5">
-          Agent Pipeline
-        </h3>
-        <div className="flex gap-1 overflow-x-auto pb-1 -mx-1 px-1">
-          {AGENT_PIPELINE.map((cfg, i) => {
-            const task = tasks.find((t) => t.agentName === cfg.key);
-            const taskLogs = task ? logs.filter((l) => l.taskId === task.id) : [];
-            return (
-              <div key={cfg.key} className="flex items-start shrink-0">
-                <div className="w-[120px]">
-                  <AgentCard config={cfg} task={task} logs={taskLogs} />
-                </div>
-                {i < AGENT_PIPELINE.length - 1 && (
-                  <div className="flex items-center mt-4 px-0.5">
-                    <ArrowRight className="h-3 w-3 text-gray-300 shrink-0" />
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
       {/* ── Warnings ── */}
       {warnings.length > 0 && (
-        <div className="space-y-1.5">
+        <div className="space-y-2">
           {warnings.map((w, i) => (
             <div
               key={i}
-              className={`rounded-xl border px-3 py-2.5 flex items-start gap-2 text-xs ${
+              className={`rounded-lg border px-3 py-2 flex items-start gap-2 text-[12px] ${
                 w.type === "warning"
                   ? "bg-amber-50 border-amber-200 text-amber-800"
-                  : "bg-blue-50 border-blue-200 text-blue-800"
+                  : "bg-blue-50 border-blue-200 text-blue-700"
               }`}
             >
               {w.type === "warning" ? (
                 <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
               ) : (
-                <Zap className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                <Info className="h-3.5 w-3.5 shrink-0 mt-0.5" />
               )}
-              <span className="flex-1 leading-relaxed">{w.message}</span>
-              {w.link && (
-                <a href={w.link} className="underline font-semibold shrink-0 whitespace-nowrap">
-                  Fix →
+              <span className="flex-1">{w.message}</span>
+              {w.action && w.link && (
+                <a
+                  href={w.link}
+                  className="shrink-0 text-[11px] font-semibold hover:underline whitespace-nowrap"
+                >
+                  {w.action}
                 </a>
               )}
             </div>
@@ -430,44 +447,41 @@ function RunDetailPanel({ detail }: { detail: RunDetail }) {
         </div>
       )}
 
-      {/* ── Credits breakdown ── */}
-      {output?.creditBreakdown && Object.keys(output.creditBreakdown).length > 0 && (
-        <div className="rounded-xl bg-gradient-to-br from-violet-50 to-white border border-violet-100 p-4">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-[10px] font-semibold text-violet-600 uppercase tracking-widest flex items-center gap-1.5">
-              <Zap className="h-3 w-3" /> Credits used
-            </h3>
-            <span className="text-2xl font-extrabold text-violet-800 leading-none">
-              {output.creditsUsed ?? 0}
-            </span>
-          </div>
-          <div className="grid grid-cols-2 gap-1.5">
-            {Object.entries(output.creditBreakdown).map(([agent, credits]) => (
-              <div
-                key={agent}
-                className="flex items-center justify-between bg-white/80 rounded-lg px-2.5 py-2 border border-violet-100/60"
-              >
-                <span className="text-xs text-gray-600 capitalize">{agent}</span>
-                <span className="text-xs font-bold text-violet-700">{credits}</span>
-              </div>
-            ))}
-          </div>
+      {/* ── Agent pipeline (vertical timeline) ── */}
+      <div>
+        <h3 className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-3">
+          Execution trace
+        </h3>
+        <div className="rounded-lg border border-gray-200 bg-white p-4">
+          {AGENT_PIPELINE.map((cfg, i) => {
+            const task = tasks.find((t) => t.agentName === cfg.key);
+            const taskLogs = task ? logs.filter((l) => l.taskId === task.id) : [];
+            return (
+              <PipelineStep
+                key={cfg.key}
+                config={cfg}
+                task={task}
+                taskLogs={taskLogs}
+                isLast={i === AGENT_PIPELINE.length - 1}
+              />
+            );
+          })}
         </div>
-      )}
+      </div>
 
       {/* ── Action plan ── */}
       {plan && plan.length > 0 && (
         <div>
-          <h3 className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-2.5">
-            Action Plan
+          <h3 className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-3">
+            Plan
           </h3>
-          <div className="rounded-xl border border-gray-100 bg-gray-50/60 p-3 space-y-2.5">
+          <div className="rounded-lg border border-gray-200 bg-white divide-y divide-gray-100">
             {plan.map((step, i) => (
-              <div key={i} className="flex items-start gap-3">
-                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-violet-100 text-violet-700 text-[10px] font-bold shrink-0 mt-0.5">
+              <div key={i} className="flex items-start gap-3 px-4 py-2.5">
+                <span className="text-[11px] font-semibold text-gray-400 tabular-nums shrink-0 w-4 text-right mt-px">
                   {i + 1}
                 </span>
-                <span className="text-xs text-gray-700 leading-relaxed">{step}</span>
+                <span className="text-[12px] text-gray-700 leading-relaxed">{step}</span>
               </div>
             ))}
           </div>
@@ -477,49 +491,108 @@ function RunDetailPanel({ detail }: { detail: RunDetail }) {
       {/* ── Leads ── */}
       {sampleLeads && sampleLeads.length > 0 && (
         <div>
-          <h3 className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-2.5">
+          <h3 className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-3">
             Leads{output?.leadCount != null ? ` (${output.leadCount})` : ""}
           </h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {sampleLeads.map((lead, i) => (
-              <LeadCard key={i} lead={lead} />
-            ))}
+          <div className="rounded-lg border border-gray-200 bg-white divide-y divide-gray-100">
+            {sampleLeads.map((lead, i) => {
+              const initials = lead.name
+                ? lead.name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()
+                : "?";
+              return (
+                <div key={i} className="flex items-center gap-3 px-4 py-3">
+                  <div className="h-8 w-8 rounded-full bg-gray-100 flex items-center justify-center text-[11px] font-semibold text-gray-500 shrink-0">
+                    {initials}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[13px] font-semibold text-gray-900 truncate">{lead.name || "Unknown"}</div>
+                    <div className="text-[11px] text-gray-500 truncate">
+                      {lead.title || "—"}
+                      {lead.company && (
+                        <span className="text-gray-400"> at {lead.company}</span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    {lead.email ? (
+                      <div className="text-[11px] text-gray-700 font-medium truncate max-w-[180px]">{lead.email}</div>
+                    ) : (
+                      <div className="text-[11px] text-gray-400">No email</div>
+                    )}
+                    {lead.confidence != null && (
+                      <div className="flex items-center gap-1.5 justify-end mt-1">
+                        <div className="w-12 bg-gray-100 rounded-full h-1 overflow-hidden">
+                          <div
+                            className="bg-emerald-500 h-1 rounded-full"
+                            style={{ width: `${Math.min(lead.confidence, 100)}%` }}
+                          />
+                        </div>
+                        <span className="text-[10px] text-gray-400 tabular-nums">{lead.confidence}%</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
           </div>
           {output?.leadCount != null && sampleLeads.length < output.leadCount && (
-            <p className="text-[10px] text-gray-400 mt-2 text-center">
-              Showing {sampleLeads.length} of {output.leadCount} leads
+            <p className="text-[11px] text-gray-400 mt-2 text-center">
+              Showing {sampleLeads.length} of {output.leadCount}
             </p>
           )}
         </div>
       )}
 
-      {/* ── Delivery summary ── */}
+      {/* ── Delivery ── */}
       {showDelivery && (
         <div>
-          <h3 className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-2.5">
+          <h3 className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-3">
             Delivery
           </h3>
-          <div className="rounded-xl border border-gray-100 bg-gray-50/60 p-4">
-            <div className="grid grid-cols-3 gap-4 text-center">
-              <div>
-                <div className="text-2xl font-extrabold text-emerald-600">{delivered}</div>
-                <div className="text-[10px] text-gray-500 mt-1 font-medium">Sent</div>
+          <div className="rounded-lg border border-gray-200 bg-white">
+            <div className="grid grid-cols-3 divide-x divide-gray-100 px-4 py-4">
+              <div className="text-center">
+                <div className="text-xl font-bold text-emerald-600 tabular-nums">{delivered}</div>
+                <div className="text-[10px] text-gray-400 mt-0.5 uppercase tracking-wide font-medium">Sent</div>
               </div>
-              <div>
-                <div className="text-2xl font-extrabold text-red-400">{failedSend ?? 0}</div>
-                <div className="text-[10px] text-gray-500 mt-1 font-medium">Failed</div>
+              <div className="text-center">
+                <div className="text-xl font-bold text-red-500 tabular-nums">{failedSend ?? 0}</div>
+                <div className="text-[10px] text-gray-400 mt-0.5 uppercase tracking-wide font-medium">Failed</div>
               </div>
-              <div>
-                <div className="text-2xl font-extrabold text-gray-300">{skippedEmail ?? 0}</div>
-                <div className="text-[10px] text-gray-500 mt-1 font-medium">Skipped</div>
+              <div className="text-center">
+                <div className="text-xl font-bold text-gray-300 tabular-nums">{skippedEmail ?? 0}</div>
+                <div className="text-[10px] text-gray-400 mt-0.5 uppercase tracking-wide font-medium">Skipped</div>
               </div>
             </div>
             {gmailAccount && (
-              <div className="mt-3 flex items-center gap-1.5 text-[10px] text-gray-400 justify-center border-t border-gray-100 pt-3">
+              <div className="border-t border-gray-100 px-4 py-2 flex items-center gap-1.5 text-[11px] text-gray-400">
                 <Mail className="h-3 w-3" />
-                <span>via {gmailAccount}</span>
+                <span>Delivered via {gmailAccount}</span>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Credits ── */}
+      {output?.creditBreakdown && Object.keys(output.creditBreakdown).length > 0 && (
+        <div>
+          <h3 className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-3">
+            Credit consumption
+          </h3>
+          <div className="rounded-lg border border-gray-200 bg-white">
+            <div className="divide-y divide-gray-100">
+              {Object.entries(output.creditBreakdown).map(([agent, credits]) => (
+                <div key={agent} className="flex items-center justify-between px-4 py-2.5">
+                  <span className="text-[12px] text-gray-600 capitalize">{agent}</span>
+                  <span className="text-[12px] font-semibold text-gray-900 tabular-nums">{credits}</span>
+                </div>
+              ))}
+            </div>
+            <div className="border-t border-gray-200 flex items-center justify-between px-4 py-2.5 bg-gray-50 rounded-b-lg">
+              <span className="text-[12px] font-semibold text-gray-700">Total</span>
+              <span className="text-[13px] font-bold text-gray-900 tabular-nums">{output.creditsUsed ?? 0}</span>
+            </div>
           </div>
         </div>
       )}
@@ -592,96 +665,93 @@ export default function AgentsDashboard() {
 
   return (
     <div className="mx-auto max-w-7xl p-6 space-y-6">
-      {/* Page header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <Bot className="h-6 w-6 text-violet-600" />
+          <h1 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+            <Bot className="h-5 w-5 text-gray-700" />
             Agents
           </h1>
-          <p className="text-sm text-gray-500 mt-1">
-            Multi-agent autonomous mode — orchestrator, prospecting, research, copywriter, sender.
+          <p className="text-[13px] text-gray-500 mt-0.5">
+            Autonomous multi-agent pipeline
           </p>
         </div>
       </div>
 
       <AutonomousRunLauncher />
 
-      <div className="grid grid-cols-1 lg:grid-cols-[minmax(280px,1fr)_2fr] gap-4 items-start">
-        {/* ── Runs list ── */}
-        <div className="rounded-xl border border-gray-200 bg-white overflow-hidden">
-          <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-gray-900">Recent runs</h2>
-            <span className="text-xs text-gray-400">{runs.length}</span>
+      <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-4 items-start">
+        {/* Runs list */}
+        <div className="rounded-lg border border-gray-200 bg-white overflow-hidden">
+          <div className="px-4 py-2.5 border-b border-gray-100 flex items-center justify-between">
+            <h2 className="text-[12px] font-semibold text-gray-700">Runs</h2>
+            <span className="text-[11px] text-gray-400 tabular-nums">{runs.length}</span>
           </div>
-          <div className="max-h-[500px] overflow-y-auto divide-y divide-gray-50">
+          <div className="max-h-[540px] overflow-y-auto divide-y divide-gray-100">
             {loading ? (
-              <div className="p-8 text-center text-sm text-gray-400 flex items-center justify-center gap-2">
-                <Loader2 className="h-4 w-4 animate-spin" /> Loading…
+              <div className="p-10 text-center text-[12px] text-gray-400 flex items-center justify-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" /> Loading
               </div>
             ) : runs.length === 0 ? (
-              <div className="p-8 text-center text-sm text-gray-500">
-                <Sparkles className="h-8 w-8 text-violet-300 mx-auto mb-2" />
-                No runs yet — launch Arya above.
+              <div className="p-10 text-center text-[12px] text-gray-400">
+                <Sparkles className="h-6 w-6 text-gray-300 mx-auto mb-2" />
+                No runs yet
               </div>
             ) : (
               runs.map((r) => (
                 <button
                   key={r.id}
                   onClick={() => setSelectedRunId(r.id)}
-                  className={`w-full text-left px-4 py-3 hover:bg-violet-50/40 transition-colors flex items-start gap-3 ${
-                    selectedRunId === r.id ? "bg-violet-50/70 border-l-2 border-violet-400" : ""
+                  className={`w-full text-left px-4 py-3 hover:bg-gray-50 transition-colors flex items-start gap-3 ${
+                    selectedRunId === r.id ? "bg-gray-50 border-l-2 border-gray-900" : "border-l-2 border-transparent"
                   }`}
                 >
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <StatusBadge status={r.status} />
-                      <span className="text-[11px] text-gray-400 truncate">
-                        {new Date(r.startedAt).toLocaleString([], {
+                  <StatusDot status={r.status} size={7} />
+                  <div className="flex-1 min-w-0 mt-[-1px]">
+                    <p className="text-[12px] text-gray-900 truncate font-medium leading-snug">{r.goal}</p>
+                    <div className="flex items-center gap-1.5 mt-1 text-[10px] text-gray-400">
+                      <span className="tabular-nums">
+                        {new Date(r.startedAt).toLocaleDateString([], {
                           month: "short", day: "numeric",
-                          hour: "2-digit", minute: "2-digit",
                         })}
                       </span>
+                      {r.status === "completed" && r.output?.creditsUsed != null && (
+                        <>
+                          <span className="text-gray-300">·</span>
+                          <span className="tabular-nums">{r.output.creditsUsed} cr</span>
+                        </>
+                      )}
+                      {r.status === "completed" && r.output?.leadCount != null && (
+                        <>
+                          <span className="text-gray-300">·</span>
+                          <span>{r.output.leadCount} leads</span>
+                        </>
+                      )}
                     </div>
-                    <p className="text-sm text-gray-900 truncate font-medium">{r.goal}</p>
-                    {r.status === "completed" && r.output?.creditsUsed != null && (
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className="text-[10px] text-violet-600 font-semibold flex items-center gap-1">
-                          <Zap className="h-2.5 w-2.5" />
-                          {r.output.creditsUsed} credits
-                        </span>
-                        {r.output.leadCount != null && (
-                          <span className="text-[10px] text-gray-400">
-                            · {r.output.leadCount} leads
-                          </span>
-                        )}
-                      </div>
-                    )}
                   </div>
-                  <ChevronRight className="h-4 w-4 text-gray-300 shrink-0 mt-1" />
+                  <ChevronRight className="h-3.5 w-3.5 text-gray-300 shrink-0 mt-0.5" />
                 </button>
               ))
             )}
           </div>
         </div>
 
-        {/* ── Run detail ── */}
-        <div className="rounded-xl border border-gray-200 bg-white p-5">
+        {/* Detail */}
+        <div className="rounded-lg border border-gray-200 bg-white p-5 min-h-[400px]">
           {!selectedRunId ? (
-            <div className="text-center py-20 text-sm text-gray-400">
-              <Bot className="h-10 w-10 text-gray-200 mx-auto mb-3" />
-              Select a run to view its agent trace and results.
+            <div className="flex flex-col items-center justify-center py-20 text-gray-400 text-[12px]">
+              <Bot className="h-8 w-8 text-gray-200 mb-3" />
+              Select a run to view details
             </div>
           ) : detailLoading && !detail ? (
-            <div className="text-center py-20 text-sm text-gray-400 flex flex-col items-center gap-3">
-              <Loader2 className="h-8 w-8 text-violet-300 animate-spin" />
-              Loading agent trace…
+            <div className="flex flex-col items-center justify-center py-20 text-gray-400 text-[12px]">
+              <Loader2 className="h-5 w-5 animate-spin text-gray-300 mb-3" />
+              Loading
             </div>
           ) : detail ? (
             <RunDetailPanel detail={detail} />
           ) : (
-            <div className="text-center py-20 text-sm text-gray-400">
-              Run not found.
+            <div className="flex flex-col items-center justify-center py-20 text-gray-400 text-[12px]">
+              Run not found
             </div>
           )}
         </div>
