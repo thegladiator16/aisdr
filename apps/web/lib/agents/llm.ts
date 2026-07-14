@@ -5,7 +5,7 @@
  */
 import { ChatAnthropic } from "@langchain/anthropic";
 
-export const AGENT_MODEL = "claude-sonnet-4-6-20250514";
+export const AGENT_MODEL = "claude-sonnet-4-6";
 
 /**
  * Build a Claude Sonnet 4.6 client tuned for structured-output agent work.
