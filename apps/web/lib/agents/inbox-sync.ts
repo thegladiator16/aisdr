@@ -20,7 +20,7 @@
 import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { integrations, leads, replies, outreachMessages } from "@/lib/db/schema";
-import { GmailClient } from "@/lib/integrations/gmail";
+import { GmailClient, decryptPassword } from "@/lib/integrations/gmail";
 import { ensureRepliesColumns } from "@/lib/db/ensure-schema";
 
 interface GmailHeader {
@@ -89,16 +89,20 @@ export async function syncUserGmailInbox(userId: string): Promise<InboxSyncResul
       .where(and(eq(integrations.userId, userId), eq(integrations.type, "gmail")))
       .limit(1);
 
-    if (!gmailIntegration?.accessToken) {
+    if (!gmailIntegration?.accessToken || !gmailIntegration?.accountEmail) {
       result.errors.push("gmail_not_connected");
       return result;
     }
 
     const since =
       gmailIntegration.lastSyncAt ?? new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const cfg = (gmailIntegration.config ?? {}) as Record<string, unknown>;
     const gmail = new GmailClient(
-      gmailIntegration.accessToken,
-      gmailIntegration.refreshToken ?? ""
+      gmailIntegration.accountEmail,
+      decryptPassword(gmailIntegration.accessToken),
+      gmailIntegration.accountName ?? undefined,
+      (cfg.smtp_host as string) || undefined,
+      (cfg.smtp_port as number) || undefined,
     );
     const messages = (await gmail.getNewReplies(since)) as GmailMessage[];
     result.scanned = messages.length;

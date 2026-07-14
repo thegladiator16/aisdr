@@ -3,29 +3,7 @@ import { getUserIntegrations } from "@/lib/db/queries";
 import { CheckCircle2, AlertCircle, Clock, Phone, Search, KeyRound } from "lucide-react";
 import Link from "next/link";
 import { BrandLogo, type BrandLogoName } from "@/components/brand/BrandLogo";
-
-const REAL_INTEGRATIONS: {
-  type: string;
-  label: string;
-  description: string;
-  brand: BrandLogoName;
-  connectUrl: string;
-}[] = [
-  {
-    type: "gmail",
-    label: "Gmail",
-    description: "Send emails from your Gmail account. Replies sync automatically.",
-    brand: "gmail",
-    connectUrl: "/api/v1/integrations/gmail",
-  },
-  {
-    type: "google_calendar",
-    label: "Google Calendar",
-    description: "Auto-create calendar events when meetings are booked.",
-    brand: "google-calendar",
-    connectUrl: "/api/v1/integrations/gmail",
-  },
-];
+import GmailSmtpForm from "@/components/integrations/GmailSmtpForm";
 
 const CRM_INTEGRATIONS: {
   type: string;
@@ -114,8 +92,7 @@ export default async function SettingsIntegrationsPage({
     userIntegrations.filter((i) => i.accessToken).map((i) => i.type)
   );
   const gmailIntegration = userIntegrations.find((i) => i.type === "gmail");
-
-  const googleNotConfigured = searchParams.error === "google_not_configured";
+  const gmailConnected = !!(gmailIntegration?.accessToken && gmailIntegration?.accountEmail);
 
   return (
     <div className="max-w-3xl space-y-8">
@@ -133,22 +110,7 @@ export default async function SettingsIntegrationsPage({
         </div>
       )}
 
-      {googleNotConfigured && (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-4 space-y-2">
-          <div className="flex items-center gap-2 text-sm font-medium text-amber-700">
-            <AlertCircle className="h-4 w-4 shrink-0" />
-            Google OAuth not configured
-          </div>
-          <p className="text-xs text-amber-700/80 leading-relaxed">
-            To enable Gmail and Calendar, set{" "}
-            <code className="rounded bg-amber-100 px-1 py-0.5">GOOGLE_CLIENT_ID</code> and{" "}
-            <code className="rounded bg-amber-100 px-1 py-0.5">GOOGLE_CLIENT_SECRET</code> in your
-            environment variables.
-          </p>
-        </div>
-      )}
-
-      {searchParams.error && !googleNotConfigured && (
+      {searchParams.error && (
         <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           <AlertCircle className="h-4 w-4 shrink-0" />
           Connection failed. Please try again.
@@ -161,67 +123,42 @@ export default async function SettingsIntegrationsPage({
           Email &amp; Calendar
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {REAL_INTEGRATIONS.map(({ type, label, description, brand, connectUrl }) => {
-            const isConnected = connectedTypes.has("gmail"); // one OAuth grant covers both
-            return (
-              <div
-                key={type}
-                className="bg-white border border-gray-200 rounded-xl p-6 flex flex-col gap-4 h-full"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="rounded-lg bg-gray-50 p-2 flex items-center justify-center">
-                    <BrandLogo brand={brand} className="h-8 w-8" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="text-sm font-semibold text-gray-900">{label}</h3>
-                      {isConnected && (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-2 py-0.5 text-xs text-green-700">
-                          <CheckCircle2 className="h-3 w-3" />
-                          Connected
-                        </span>
-                      )}
-                    </div>
-                    {isConnected && gmailIntegration?.accountEmail && (
-                      <p className="text-xs text-gray-500 mt-0.5">
-                        {gmailIntegration.accountEmail}
-                      </p>
-                    )}
-                  </div>
-                </div>
-                <p className="text-xs text-gray-500">{description}</p>
-                {isConnected ? (
-                  <div className="grid grid-cols-3 gap-3 mt-auto">
-                    <div className="text-center">
-                      <p className="text-sm font-bold text-gray-900">
-                        {gmailIntegration?.emailsSentToday ?? 0}
-                      </p>
-                      <p className="text-xs text-gray-500">Today</p>
-                    </div>
-                    <div className="text-center border-x border-gray-100">
-                      <p className="text-sm font-bold text-gray-900">
-                        {gmailIntegration?.dailyEmailLimit ?? "—"}
-                      </p>
-                      <p className="text-xs text-gray-500">Limit</p>
-                    </div>
-                    <div className="text-center">
-                      <p className="text-sm font-bold text-gray-900">
-                        {gmailIntegration?.status === "active" ? "✓" : "!"}
-                      </p>
-                      <p className="text-xs text-gray-500">Status</p>
-                    </div>
-                  </div>
-                ) : (
-                  <Link
-                    href={connectUrl}
-                    className="mt-auto inline-flex items-center justify-center rounded-lg bg-[#6C47FF] px-4 py-2 text-sm font-medium text-white hover:bg-[#5a3ad4] active:scale-[0.98] transition-all duration-150"
-                  >
-                    Connect {label}
-                  </Link>
-                )}
+          <GmailSmtpForm
+            initialConnected={gmailConnected}
+            initialEmail={gmailIntegration?.accountEmail ?? undefined}
+            initialName={gmailIntegration?.accountName ?? undefined}
+            emailsSentToday={gmailIntegration?.emailsSentToday ?? 0}
+            dailyEmailLimit={gmailIntegration?.dailyEmailLimit ?? undefined}
+            status={gmailIntegration?.status ?? undefined}
+          />
+
+          {/* Google Calendar — unchanged, still OAuth */}
+          <div className="bg-white border border-gray-200 rounded-xl p-6 flex flex-col gap-4 h-full">
+            <div className="flex items-center gap-3">
+              <div className="rounded-lg bg-gray-50 p-2 flex items-center justify-center">
+                <BrandLogo brand="google-calendar" className="h-8 w-8" />
               </div>
-            );
-          })}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="text-sm font-semibold text-gray-900">Google Calendar</h3>
+                  {connectedTypes.has("google_calendar") ? (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-2 py-0.5 text-xs text-green-700">
+                      <CheckCircle2 className="h-3 w-3" />
+                      Connected
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-xs text-amber-700">
+                      <Clock className="h-3 w-3" />
+                      Coming soon
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+            <p className="text-xs text-gray-500">
+              Auto-create calendar events when meetings are booked.
+            </p>
+          </div>
         </div>
       </div>
 

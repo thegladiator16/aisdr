@@ -315,11 +315,14 @@ async function persistLeadsForRun(
   return out;
 }
 
-/** Look up the user's Gmail integration + minimal profile in one query. */
+/** Look up the user's Gmail SMTP integration + minimal profile. */
 async function getUserGmailContext(userId: string): Promise<{
   gmail: {
-    accessToken: string;
-    refreshToken: string;
+    email: string;
+    password: string;
+    name: string;
+    host: string;
+    port: number;
     accountEmail: string | null;
   } | null;
   calendarLink: string | null;
@@ -327,8 +330,9 @@ async function getUserGmailContext(userId: string): Promise<{
   const [gmailRow] = await db
     .select({
       accessToken: integrations.accessToken,
-      refreshToken: integrations.refreshToken,
       accountEmail: integrations.accountEmail,
+      accountName: integrations.accountName,
+      config: integrations.config,
     })
     .from(integrations)
     .where(and(eq(integrations.userId, userId), eq(integrations.type, "gmail")))
@@ -340,17 +344,33 @@ async function getUserGmailContext(userId: string): Promise<{
     .where(eq(users.id, userId))
     .limit(1);
 
-  return {
-    gmail:
-      gmailRow?.accessToken
-        ? {
-            accessToken: gmailRow.accessToken,
-            refreshToken: gmailRow.refreshToken ?? "",
-            accountEmail: gmailRow.accountEmail ?? null,
-          }
-        : null,
-    calendarLink: userRow?.calendarLink ?? null,
-  };
+  let gmail: {
+    email: string;
+    password: string;
+    name: string;
+    host: string;
+    port: number;
+    accountEmail: string | null;
+  } | null = null;
+
+  if (gmailRow?.accessToken && gmailRow?.accountEmail) {
+    try {
+      const { decryptPassword } = await import("@/lib/integrations/gmail");
+      const cfg = (gmailRow.config ?? {}) as Record<string, unknown>;
+      gmail = {
+        email: gmailRow.accountEmail,
+        password: decryptPassword(gmailRow.accessToken),
+        name: gmailRow.accountName ?? gmailRow.accountEmail.split("@")[0] ?? "AryaSDR",
+        host: (cfg.smtp_host as string) || "smtp.gmail.com",
+        port: (cfg.smtp_port as number) || 587,
+        accountEmail: gmailRow.accountEmail,
+      };
+    } catch {
+      gmail = null;
+    }
+  }
+
+  return { gmail, calendarLink: userRow?.calendarLink ?? null };
 }
 
 /** Try to parse JSON; apply progressive cleanups before giving up. */
@@ -887,7 +907,7 @@ async function senderNode(state: StateT): Promise<Partial<StateT>> {
       return { schedule, sequence: seq, creditsUsed: 0, creditBreakdown: { sender: 0 } };
     }
 
-    const gmailClient = new GmailClient(gmail.accessToken, gmail.refreshToken);
+    const gmailClient = new GmailClient(gmail.email, gmail.password, gmail.name, gmail.host, gmail.port);
     await logTask(
       state.runId,
       taskId,
@@ -1406,7 +1426,7 @@ export async function classifyAndDraftReply(params: {
         error: "gmail_not_connected",
       };
     }
-    const gmailClient = new GmailClient(gmail.accessToken, gmail.refreshToken);
+    const gmailClient = new GmailClient(gmail.email, gmail.password, gmail.name, gmail.host, gmail.port);
     const { messageId } = await gmailClient.sendEmail({
       to: params.replyFromEmail,
       subject: draftSubject ?? "Re:",

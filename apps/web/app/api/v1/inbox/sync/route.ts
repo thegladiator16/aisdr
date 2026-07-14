@@ -6,7 +6,7 @@ import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { integrations, leads, replies } from "@aisdr/db/schema";
 import { eq, and } from "drizzle-orm";
-import { GmailClient } from "@/lib/integrations/gmail";
+import { GmailClient, decryptPassword } from "@/lib/integrations/gmail";
 import { agentClient } from "@/lib/agents/client";
 import { ensureRepliesColumns } from "@/lib/db/ensure-schema";
 
@@ -76,15 +76,19 @@ export async function POST() {
       .where(and(eq(integrations.userId, user.id), eq(integrations.type, "gmail")))
       .limit(1);
 
-    if (!gmailIntegration?.accessToken) {
+    if (!gmailIntegration?.accessToken || !gmailIntegration?.accountEmail) {
       return NextResponse.json({ error: "Gmail not connected" }, { status: 400 });
     }
 
     const since =
       gmailIntegration.lastSyncAt ?? new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const cfg = (gmailIntegration.config ?? {}) as Record<string, unknown>;
     const gmail = new GmailClient(
-      gmailIntegration.accessToken,
-      gmailIntegration.refreshToken ?? ""
+      gmailIntegration.accountEmail,
+      decryptPassword(gmailIntegration.accessToken),
+      gmailIntegration.accountName ?? undefined,
+      (cfg.smtp_host as string) || undefined,
+      (cfg.smtp_port as number) || undefined,
     );
     const messages = (await gmail.getNewReplies(since)) as GmailMessage[];
 

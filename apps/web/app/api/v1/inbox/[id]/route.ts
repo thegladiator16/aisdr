@@ -3,7 +3,7 @@ import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { replies, integrations, leads, outreachMessages } from "@aisdr/db/schema";
 import { eq, and } from "drizzle-orm";
-import { GmailClient } from "@/lib/integrations/gmail";
+import { GmailClient, decryptPassword } from "@/lib/integrations/gmail";
 import { ensureRepliesColumns } from "@/lib/db/ensure-schema";
 
 export async function PUT(
@@ -58,16 +58,20 @@ export async function PUT(
         .where(and(eq(integrations.userId, user.id), eq(integrations.type, "gmail")))
         .limit(1);
 
-      if (!gmailIntegration[0]?.accessToken) {
+      if (!gmailIntegration[0]?.accessToken || !gmailIntegration[0]?.accountEmail) {
         return NextResponse.json(
           { error: "Gmail not connected" },
           { status: 400 }
         );
       }
 
+      const cfg = (gmailIntegration[0].config ?? {}) as Record<string, unknown>;
       const gmail = new GmailClient(
-        gmailIntegration[0].accessToken,
-        gmailIntegration[0].refreshToken ?? ""
+        gmailIntegration[0].accountEmail,
+        decryptPassword(gmailIntegration[0].accessToken),
+        gmailIntegration[0].accountName ?? undefined,
+        (cfg.smtp_host as string) || undefined,
+        (cfg.smtp_port as number) || undefined,
       );
 
       await gmail.sendEmail({

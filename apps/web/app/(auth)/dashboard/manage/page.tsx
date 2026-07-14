@@ -759,11 +759,11 @@ export default function ManageAryaPage() {
           "Connect your primary mailbox",
           <div className="space-y-4">
             <p className="text-sm text-gray-600">
-              Connect Gmail so Arya can send from your inbox and forward replies back to you. You&apos;ll be redirected to Google to authorize access.
+              Connect Gmail so Arya can send from your inbox and forward replies back to you. You&apos;ll need a Gmail App Password.
             </p>
             <button
               onClick={() => {
-                window.location.href = "/api/v1/integrations/gmail";
+                window.location.href = "/settings/integrations";
               }}
               className="w-full rounded-lg border border-gray-200 bg-white px-4 py-3 text-left hover:border-[#6C47FF] hover:bg-violet-50/40 transition-colors flex items-center gap-3"
             >
@@ -772,7 +772,7 @@ export default function ManageAryaPage() {
               </span>
               <span className="flex-1 min-w-0">
                 <span className="block text-sm font-semibold text-gray-900">Gmail</span>
-                <span className="block text-xs text-gray-500">Connect with Google</span>
+                <span className="block text-xs text-gray-500">Connect with App Password</span>
               </span>
             </button>
           </div>,
