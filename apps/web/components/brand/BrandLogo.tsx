@@ -7,7 +7,9 @@ export type BrandLogoName =
   | "salesforce"
   | "slack"
   | "linkedin"
-  | "whatsapp";
+  | "whatsapp"
+  | "apollo"
+  | "twilio";
 
 type BrandLogoProps = {
   brand: BrandLogoName;
@@ -152,6 +154,32 @@ export function BrandLogo({ brand, className, title }: BrandLogoProps) {
         </svg>
       );
 
+    case "apollo":
+      // Apollo.io — dark navy rounded square with geometric "A" rocket mark
+      return (
+        <svg {...common}>
+          <title>{title ?? "Apollo.io"}</title>
+          <rect x="0.5" y="0.5" width="23" height="23" rx="5" fill="#18216D" />
+          <path
+            d="M12 4.5 6.5 19h2.8l1-2.8h3.4l1 2.8h2.8L12 4.5Zm-1 9.2L12 9.2l1 4.5h-2Z"
+            fill="#FFFFFF"
+          />
+        </svg>
+      );
+
+    case "twilio":
+      // Twilio — red circle with four-dot grid mark
+      return (
+        <svg {...common}>
+          <title>{title ?? "Twilio"}</title>
+          <circle cx="12" cy="12" r="12" fill="#F22F46" />
+          <circle cx="9.2" cy="9.2" r="1.8" fill="#FFFFFF" />
+          <circle cx="14.8" cy="9.2" r="1.8" fill="#FFFFFF" />
+          <circle cx="9.2" cy="14.8" r="1.8" fill="#FFFFFF" />
+          <circle cx="14.8" cy="14.8" r="1.8" fill="#FFFFFF" />
+        </svg>
+      );
+
     default:
       return null;
   }
@@ -165,6 +193,8 @@ const BRAND_LABEL: Record<BrandLogoName, string> = {
   slack: "Slack",
   linkedin: "LinkedIn",
   whatsapp: "WhatsApp",
+  apollo: "Apollo.io",
+  twilio: "Twilio",
 };
 
 export default BrandLogo;

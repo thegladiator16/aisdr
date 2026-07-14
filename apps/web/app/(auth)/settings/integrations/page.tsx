@@ -1,6 +1,6 @@
 import { getCurrentUser } from "@/lib/auth";
 import { getUserIntegrations } from "@/lib/db/queries";
-import { CheckCircle2, AlertCircle, Clock, Phone, Search, KeyRound } from "lucide-react";
+import { CheckCircle2, AlertCircle, Clock, KeyRound } from "lucide-react";
 import Link from "next/link";
 import { BrandLogo, type BrandLogoName } from "@/components/brand/BrandLogo";
 import GmailSmtpForm from "@/components/integrations/GmailSmtpForm";
@@ -41,6 +41,7 @@ const CRM_INTEGRATIONS: {
     label: "Apollo.io",
     description:
       "Enrich leads and find verified contact information with Apollo.",
+    brand: "apollo",
     envKey: "APOLLO_API_KEY",
   },
 ];
@@ -57,6 +58,7 @@ const COMMS_INTEGRATIONS: {
     label: "Twilio",
     description:
       "Send WhatsApp messages, SMS, and make voice calls via Twilio APIs.",
+    brand: "twilio",
     envKey: "TWILIO_ACCOUNT_SID",
   },
 ];
@@ -155,11 +157,7 @@ export default async function SettingsIntegrationsPage({
               >
                 <div className="flex items-center gap-3">
                   <div className="rounded-lg bg-gray-50 p-2 flex items-center justify-center">
-                    {brand ? (
-                      <BrandLogo brand={brand} className="h-8 w-8" />
-                    ) : (
-                      <Phone className="h-6 w-6 text-[#6C47FF]" />
-                    )}
+                    <BrandLogo brand={brand!} className="h-8 w-8" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
@@ -232,11 +230,7 @@ export default async function SettingsIntegrationsPage({
               >
                 <div className="flex items-center gap-3">
                   <div className="rounded-lg bg-gray-50 p-2 flex items-center justify-center">
-                    {brand ? (
-                      <BrandLogo brand={brand} className="h-8 w-8" />
-                    ) : (
-                      <Search className="h-6 w-6 text-[#6C47FF]" />
-                    )}
+                    <BrandLogo brand={brand!} className="h-8 w-8" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
