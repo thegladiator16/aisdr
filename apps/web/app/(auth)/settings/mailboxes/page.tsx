@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import {
   Mail,
   Play,
@@ -15,6 +16,7 @@ import {
   Flame,
   RefreshCw,
   Info,
+  Plug,
 } from "lucide-react";
 
 interface WarmupSession {
@@ -68,6 +70,7 @@ function getStatusBadge(status: string) {
 
 export default function MailboxesPage() {
   const [sessions, setSessions] = useState<WarmupSession[]>([]);
+  const [connectedEmails, setConnectedEmails] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -85,6 +88,7 @@ export default function MailboxesPage() {
       if (!res.ok) throw new Error("Failed to fetch warmup status");
       const data = await res.json();
       setSessions(data.sessions ?? []);
+      setConnectedEmails(data.connectedEmails ?? []);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load warmup data");
       setSessions([]);
@@ -111,6 +115,11 @@ export default function MailboxesPage() {
       setActionLoading(null);
     }
   }
+
+  const warmupEmails = new Set(sessions.map((s) => s.email));
+  const emailsWithoutWarmup = connectedEmails.filter(
+    (e) => !warmupEmails.has(e)
+  );
 
   return (
     <div className="max-w-3xl space-y-6">
@@ -142,66 +151,6 @@ export default function MailboxesPage() {
         </div>
       )}
 
-      {/* Warmup explanation card */}
-      {!loading && sessions.length === 0 && (
-        <div className="bg-white border border-gray-200 rounded-xl p-6 space-y-4">
-          <div className="flex items-start gap-4">
-            <div className="rounded-lg bg-violet-50 p-3">
-              <Flame className="h-6 w-6 text-[#6C47FF]" />
-            </div>
-            <div className="flex-1 space-y-2">
-              <h2 className="text-base font-semibold text-gray-900">
-                What is email warmup?
-              </h2>
-              <p className="text-sm text-gray-600 leading-relaxed">
-                Email warmup gradually increases your sending volume over
-                several weeks. Automated conversations between your account
-                and a pool of real mailboxes build sender reputation, keeping
-                your outreach out of the spam folder.
-              </p>
-              <div className="bg-gray-50 rounded-lg p-4 space-y-2 mt-3">
-                <h3 className="text-sm font-medium text-gray-900 flex items-center gap-2">
-                  <Info className="h-4 w-4 text-gray-400" />
-                  How it works
-                </h3>
-                <ul className="text-sm text-gray-600 space-y-1.5 ml-6">
-                  <li className="flex items-start gap-2">
-                    <span className="text-gray-400 mt-0.5">1.</span>
-                    <span>
-                      Connect your Gmail account via the Integrations page.
-                    </span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-gray-400 mt-0.5">2.</span>
-                    <span>
-                      Start warmup to begin automated sending between pool
-                      accounts.
-                    </span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-gray-400 mt-0.5">3.</span>
-                    <span>
-                      Daily volume ramps up gradually over 2-4 weeks until
-                      your account reaches full capacity.
-                    </span>
-                  </li>
-                </ul>
-              </div>
-              <div className="flex items-center gap-2 mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
-                <AlertCircle className="h-4 w-4 text-amber-600 shrink-0" />
-                <p className="text-xs text-amber-700">
-                  Requires the{" "}
-                  <code className="rounded bg-amber-100 px-1 py-0.5 text-xs font-mono">
-                    WARMUP_POOL_EMAILS
-                  </code>{" "}
-                  environment variable to be configured.
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Loading skeleton */}
       {loading && (
         <div className="space-y-4">
@@ -222,7 +171,7 @@ export default function MailboxesPage() {
         </div>
       )}
 
-      {/* Mailbox cards */}
+      {/* Active warmup sessions */}
       {!loading && sessions.length > 0 && (
         <div className="space-y-4">
           {sessions.map((session) => {
@@ -236,7 +185,6 @@ export default function MailboxesPage() {
                 className="bg-white border border-gray-200 rounded-xl overflow-hidden"
               >
                 <div className="p-6 space-y-4">
-                  {/* Header */}
                   <div className="flex items-center gap-4">
                     <div className="rounded-lg bg-gray-50 p-2.5 flex items-center justify-center">
                       <Mail className="h-5 w-5 text-gray-600" />
@@ -268,7 +216,6 @@ export default function MailboxesPage() {
                     </div>
                   </div>
 
-                  {/* Health score bar */}
                   <div className="space-y-1.5">
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-medium text-gray-600">
@@ -298,7 +245,6 @@ export default function MailboxesPage() {
                     </div>
                   </div>
 
-                  {/* Stats grid */}
                   <div className="grid grid-cols-3 gap-4">
                     <div className="text-center rounded-lg bg-gray-50 px-3 py-2.5">
                       <p className="text-sm font-bold text-gray-900">
@@ -328,7 +274,6 @@ export default function MailboxesPage() {
                     </div>
                   </div>
 
-                  {/* Actions */}
                   <div className="flex items-center gap-3 pt-1">
                     {session.status === "active" ? (
                       <button
@@ -370,7 +315,6 @@ export default function MailboxesPage() {
                   </div>
                 </div>
 
-                {/* Expanded details */}
                 {isExpanded && (
                   <div className="border-t border-gray-200 bg-gray-50 px-6 py-4 space-y-3">
                     <h4 className="text-sm font-medium text-gray-900">
@@ -424,6 +368,98 @@ export default function MailboxesPage() {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Connected mailboxes without warmup */}
+      {!loading && emailsWithoutWarmup.length > 0 && (
+        <div className="space-y-3">
+          <h2 className="text-sm font-semibold text-gray-900">
+            Connected mailboxes
+          </h2>
+          {emailsWithoutWarmup.map((email) => (
+            <div
+              key={email}
+              className="bg-white border border-gray-200 rounded-xl p-5 flex items-center gap-4"
+            >
+              <div className="rounded-lg bg-gray-50 p-2.5 flex items-center justify-center">
+                <Mail className="h-5 w-5 text-gray-600" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="text-sm font-semibold text-gray-900 truncate">
+                  {email}
+                </h3>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Connected via SMTP &middot; Warmup not started
+                </p>
+              </div>
+              <button
+                onClick={() => toggleWarmup(email, "start")}
+                disabled={actionLoading === email}
+                className="shrink-0 inline-flex items-center gap-2 rounded-lg bg-[#6C47FF] px-4 py-2 text-sm font-medium text-white hover:bg-[#5a3ad4] active:scale-[0.98] transition-all duration-150 disabled:opacity-50"
+              >
+                <Flame className="h-4 w-4" />
+                {actionLoading === email ? "Starting..." : "Start Warmup"}
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Empty state — no Gmail connected */}
+      {!loading && sessions.length === 0 && connectedEmails.length === 0 && (
+        <div className="bg-white border border-gray-200 rounded-xl p-6 space-y-4">
+          <div className="flex items-start gap-4">
+            <div className="rounded-lg bg-violet-50 p-3">
+              <Flame className="h-6 w-6 text-[#6C47FF]" />
+            </div>
+            <div className="flex-1 space-y-2">
+              <h2 className="text-base font-semibold text-gray-900">
+                What is email warmup?
+              </h2>
+              <p className="text-sm text-gray-600 leading-relaxed">
+                Email warmup gradually increases your sending volume over
+                several weeks. Automated conversations between your account
+                and a pool of real mailboxes build sender reputation, keeping
+                your outreach out of the spam folder.
+              </p>
+              <div className="bg-gray-50 rounded-lg p-4 space-y-2 mt-3">
+                <h3 className="text-sm font-medium text-gray-900 flex items-center gap-2">
+                  <Info className="h-4 w-4 text-gray-400" />
+                  How it works
+                </h3>
+                <ul className="text-sm text-gray-600 space-y-1.5 ml-6">
+                  <li className="flex items-start gap-2">
+                    <span className="text-gray-400 mt-0.5">1.</span>
+                    <span>
+                      Connect your Gmail account via the Integrations page.
+                    </span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-gray-400 mt-0.5">2.</span>
+                    <span>
+                      Start warmup to begin automated sending between pool
+                      accounts.
+                    </span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-gray-400 mt-0.5">3.</span>
+                    <span>
+                      Daily volume ramps up gradually over 2-4 weeks until
+                      your account reaches full capacity.
+                    </span>
+                  </li>
+                </ul>
+              </div>
+              <Link
+                href="/settings/integrations"
+                className="mt-3 inline-flex items-center gap-2 rounded-lg bg-[#6C47FF] px-4 py-2 text-sm font-medium text-white hover:bg-[#5a3ad4] active:scale-[0.98] transition-all"
+              >
+                <Plug className="h-4 w-4" />
+                Connect Gmail
+              </Link>
+            </div>
+          </div>
         </div>
       )}
     </div>

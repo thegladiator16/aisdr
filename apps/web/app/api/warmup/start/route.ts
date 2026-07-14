@@ -6,6 +6,35 @@ import { sql } from "drizzle-orm";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+async function ensureTables() {
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS warmup_sessions (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      user_id UUID NOT NULL,
+      gmail_account VARCHAR(255) NOT NULL,
+      status VARCHAR(32) NOT NULL DEFAULT 'active',
+      day_number INTEGER DEFAULT 0,
+      emails_sent_today INTEGER DEFAULT 0,
+      health_score INTEGER DEFAULT 0,
+      started_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    )
+  `);
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS warmup_emails (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      session_id UUID NOT NULL REFERENCES warmup_sessions(id) ON DELETE CASCADE,
+      from_email VARCHAR(255) NOT NULL,
+      to_email VARCHAR(255) NOT NULL,
+      subject VARCHAR(500),
+      body TEXT,
+      sent_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      replied_at TIMESTAMPTZ,
+      status VARCHAR(32) DEFAULT 'sent'
+    )
+  `);
+}
+
 export async function POST(req: Request) {
   let user;
   try {
@@ -30,7 +59,8 @@ export async function POST(req: Request) {
   }
 
   try {
-    // Check if a warmup session already exists for this account
+    await ensureTables();
+
     const existing = await db.execute(sql`
       SELECT id, status FROM warmup_sessions
       WHERE user_id = ${user.id}::uuid AND gmail_account = ${gmailAccount}
@@ -47,7 +77,6 @@ export async function POST(req: Request) {
         );
       }
 
-      // Resume a paused session
       await db.execute(sql`
         UPDATE warmup_sessions
         SET status = 'active', updated_at = now()
@@ -57,7 +86,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ sessionId: session.id, status: "resumed" });
     }
 
-    // Create a new warmup session
     const result = await db.execute(sql`
       INSERT INTO warmup_sessions (user_id, gmail_account, status, day_number, emails_sent_today, health_score)
       VALUES (${user.id}::uuid, ${gmailAccount}, 'active', 0, 0, 0)

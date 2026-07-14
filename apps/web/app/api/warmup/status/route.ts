@@ -1,10 +1,41 @@
 import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { integrations } from "@aisdr/db/schema";
+import { eq, and } from "drizzle-orm";
 import { sql } from "drizzle-orm";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+async function ensureTables() {
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS warmup_sessions (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      user_id UUID NOT NULL,
+      gmail_account VARCHAR(255) NOT NULL,
+      status VARCHAR(32) NOT NULL DEFAULT 'active',
+      day_number INTEGER DEFAULT 0,
+      emails_sent_today INTEGER DEFAULT 0,
+      health_score INTEGER DEFAULT 0,
+      started_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    )
+  `);
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS warmup_emails (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      session_id UUID NOT NULL REFERENCES warmup_sessions(id) ON DELETE CASCADE,
+      from_email VARCHAR(255) NOT NULL,
+      to_email VARCHAR(255) NOT NULL,
+      subject VARCHAR(500),
+      body TEXT,
+      sent_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      replied_at TIMESTAMPTZ,
+      status VARCHAR(32) DEFAULT 'sent'
+    )
+  `);
+}
 
 export async function GET() {
   let user;
@@ -15,6 +46,8 @@ export async function GET() {
   }
 
   try {
+    await ensureTables();
+
     const result = await db.execute(sql`
       SELECT
         ws.id,
@@ -23,10 +56,7 @@ export async function GET() {
         ws.day_number,
         ws.emails_sent_today,
         ws.health_score,
-        ws.started_at,
-        (SELECT COUNT(*) FROM warmup_emails we WHERE we.session_id = ws.id) AS total_emails,
-        (SELECT COUNT(*) FROM warmup_emails we WHERE we.session_id = ws.id AND we.replied_at IS NOT NULL) AS total_replies,
-        (SELECT COUNT(*) FROM warmup_emails we WHERE we.session_id = ws.id AND we.status = 'bounced') AS total_bounces
+        ws.started_at
       FROM warmup_sessions ws
       WHERE ws.user_id = ${user.id}::uuid
       ORDER BY ws.started_at DESC
@@ -52,7 +82,20 @@ export async function GET() {
       };
     });
 
-    return NextResponse.json({ sessions });
+    // Also fetch connected Gmail accounts so the UI can show "Start Warmup" for accounts without sessions
+    const gmailRows = await db
+      .select({
+        email: integrations.accountEmail,
+        status: integrations.status,
+      })
+      .from(integrations)
+      .where(and(eq(integrations.userId, user.id), eq(integrations.type, "gmail")));
+
+    const connectedEmails = gmailRows
+      .filter((r) => r.email && r.status === "active")
+      .map((r) => r.email as string);
+
+    return NextResponse.json({ sessions, connectedEmails });
   } catch (error) {
     console.error("[warmup/status] error:", error);
     return NextResponse.json(
