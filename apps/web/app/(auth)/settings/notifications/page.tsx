@@ -30,7 +30,6 @@ interface NotificationRow {
   defaultAudience: Audience;
   hasFrequency?: boolean;
   defaultFrequency?: Frequency;
-  comingSoon?: boolean;
 }
 
 const ROWS: NotificationRow[] = [
@@ -102,6 +101,8 @@ const ROWS: NotificationRow[] = [
   },
 ];
 
+const DB_BACKED_TYPES = new Set(["urgent", "billing", "replies", "escalated"]);
+
 function Dropdown({
   value,
   options,
@@ -170,22 +171,73 @@ export default function NotificationsPage() {
     return initial;
   });
 
+  const [saving, setSaving] = useState<string | null>(null);
+
   useEffect(() => {
-    const saved = localStorage.getItem("aryasdr-notification-prefs");
-    if (saved) {
+    async function loadPrefs() {
       try {
-        const parsed = JSON.parse(saved);
-        setPrefs((prev) => ({ ...prev, ...parsed }));
+        const res = await fetch("/api/user/notifications");
+        if (res.ok) {
+          const json = await res.json();
+          const dbData = json.data as Record<string, { emailEnabled: boolean }> | undefined;
+          if (dbData) {
+            setPrefs((prev) => {
+              const updated = { ...prev };
+              for (const [type, config] of Object.entries(dbData)) {
+                if (updated[type]) {
+                  updated[type] = {
+                    ...updated[type],
+                    audience: config.emailEnabled ? (updated[type].audience === "dont_notify" ? "all_members" : updated[type].audience) : "dont_notify",
+                  };
+                }
+              }
+              return updated;
+            });
+          }
+        }
       } catch {}
+
+      const saved = localStorage.getItem("aryasdr-notification-prefs");
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          setPrefs((prev) => {
+            const updated = { ...prev };
+            for (const [id, config] of Object.entries(parsed)) {
+              if (updated[id] && !DB_BACKED_TYPES.has(id)) {
+                updated[id] = config as { audience: Audience; frequency?: Frequency };
+              }
+            }
+            return updated;
+          });
+        } catch {}
+      }
     }
+    loadPrefs();
   }, []);
 
-  const updatePref = useCallback((id: string, key: "audience" | "frequency", value: string) => {
+  const updatePref = useCallback(async (id: string, key: "audience" | "frequency", value: string) => {
     setPrefs((prev) => {
       const updated = { ...prev, [id]: { ...prev[id], [key]: value } };
       localStorage.setItem("aryasdr-notification-prefs", JSON.stringify(updated));
       return updated;
     });
+
+    if (DB_BACKED_TYPES.has(id) && key === "audience") {
+      setSaving(id);
+      try {
+        await fetch("/api/user/notifications", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            notificationType: id,
+            emailEnabled: value !== "dont_notify",
+          }),
+        });
+      } catch {} finally {
+        setSaving(null);
+      }
+    }
   }, []);
 
   return (
@@ -244,6 +296,9 @@ export default function NotificationsPage() {
                 >
                   {row.timing}
                 </span>
+                {saving === row.id && (
+                  <span className="text-xs text-gray-400">Saving…</span>
+                )}
               </div>
               <p className="text-xs text-gray-500 mt-0.5">{row.description}</p>
             </div>

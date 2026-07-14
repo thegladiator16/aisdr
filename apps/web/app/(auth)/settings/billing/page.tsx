@@ -473,10 +473,40 @@ export default function BillingPage() {
 
   // Edit billing details
   const [editingDetails, setEditingDetails] = useState(false);
-  const [billingName, setBillingName] = useState("AryaSDR's organization");
-  const [billingEmail, setBillingEmail] = useState("ironman150899@gmail.com");
-  const [nameDraft, setNameDraft] = useState(billingName);
-  const [emailDraft, setEmailDraft] = useState(billingEmail);
+  const [billingName, setBillingName] = useState("");
+  const [billingEmail, setBillingEmail] = useState("");
+  const [nameDraft, setNameDraft] = useState("");
+  const [emailDraft, setEmailDraft] = useState("");
+  const [savingDetails, setSavingDetails] = useState(false);
+
+  useEffect(() => {
+    async function loadBillingInfo() {
+      try {
+        const res = await fetch("/api/user/profile");
+        if (res.ok) {
+          const data = await res.json();
+          const name = data.companyName || "My organization";
+          setBillingName(name);
+          setNameDraft(name);
+        }
+      } catch {}
+      try {
+        const res = await fetch("/api/user/billing-details");
+        if (res.ok) {
+          const data = await res.json();
+          if (data.billingEmail) {
+            setBillingEmail(data.billingEmail);
+            setEmailDraft(data.billingEmail);
+          }
+          if (data.billingName) {
+            setBillingName(data.billingName);
+            setNameDraft(data.billingName);
+          }
+        }
+      } catch {}
+    }
+    loadBillingInfo();
+  }, []);
 
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loadingTransactions, setLoadingTransactions] = useState(true);
@@ -901,15 +931,31 @@ export default function BillingPage() {
             </div>
             <div className="flex items-center gap-2">
               <button
-                onClick={() => {
-                  setBillingName(nameDraft.trim() || billingName);
-                  setBillingEmail(emailDraft.trim() || billingEmail);
-                  setEditingDetails(false);
-                  toast.success("Billing details updated");
+                disabled={savingDetails}
+                onClick={async () => {
+                  const newName = nameDraft.trim() || billingName;
+                  const newEmail = emailDraft.trim() || billingEmail;
+                  setSavingDetails(true);
+                  try {
+                    const res = await fetch("/api/user/billing-details", {
+                      method: "PUT",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ billingName: newName, billingEmail: newEmail }),
+                    });
+                    if (!res.ok) throw new Error();
+                    setBillingName(newName);
+                    setBillingEmail(newEmail);
+                    setEditingDetails(false);
+                    toast.success("Billing details updated");
+                  } catch {
+                    toast.error("Failed to save billing details");
+                  } finally {
+                    setSavingDetails(false);
+                  }
                 }}
-                className="px-4 py-2 text-sm font-medium text-white bg-[#6C47FF] rounded-lg hover:bg-[#5a3ad4] transition-colors"
+                className="px-4 py-2 text-sm font-medium text-white bg-[#6C47FF] rounded-lg hover:bg-[#5a3ad4] transition-colors disabled:opacity-50"
               >
-                Save
+                {savingDetails ? "Saving…" : "Save"}
               </button>
               <button
                 onClick={() => setEditingDetails(false)}

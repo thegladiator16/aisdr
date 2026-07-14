@@ -4,6 +4,8 @@ import { CheckCircle2, AlertCircle, Clock, Phone, Search, KeyRound } from "lucid
 import Link from "next/link";
 import { BrandLogo, type BrandLogoName } from "@/components/brand/BrandLogo";
 import GmailSmtpForm from "@/components/integrations/GmailSmtpForm";
+import GoogleCalendarForm from "@/components/integrations/GoogleCalendarForm";
+import SlackWebhookForm from "@/components/integrations/SlackWebhookForm";
 
 const CRM_INTEGRATIONS: {
   type: string;
@@ -59,19 +61,6 @@ const COMMS_INTEGRATIONS: {
   },
 ];
 
-const COMING_SOON: {
-  label: string;
-  description: string;
-  brand: BrandLogoName;
-}[] = [
-  {
-    label: "Slack",
-    description:
-      "Get real-time notifications and updates in your Slack workspace",
-    brand: "slack",
-  },
-];
-
 export default async function SettingsIntegrationsPage({
   searchParams,
 }: {
@@ -98,6 +87,12 @@ export default async function SettingsIntegrationsPage({
     gmailIntegration?.accountEmail &&
     gmailCfg.connection_type === "smtp"
   );
+
+  const calendarIntegration = userIntegrations.find((i) => i.type === "google_calendar");
+  const calendarConnected = !!(calendarIntegration?.accessToken);
+
+  const slackIntegration = userIntegrations.find((i) => i.type === "slack");
+  const slackConnected = !!(slackIntegration?.webhookUrl);
 
   return (
     <div className="max-w-3xl space-y-8">
@@ -137,94 +132,10 @@ export default async function SettingsIntegrationsPage({
             status={gmailIntegration?.status ?? undefined}
           />
 
-          {/* Google Calendar — unchanged, still OAuth */}
-          <div className="bg-white border border-gray-200 rounded-xl p-6 flex flex-col gap-4 h-full">
-            <div className="flex items-center gap-3">
-              <div className="rounded-lg bg-gray-50 p-2 flex items-center justify-center">
-                <BrandLogo brand="google-calendar" className="h-8 w-8" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h3 className="text-sm font-semibold text-gray-900">Google Calendar</h3>
-                  {connectedTypes.has("google_calendar") ? (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-2 py-0.5 text-xs text-green-700">
-                      <CheckCircle2 className="h-3 w-3" />
-                      Connected
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-xs text-amber-700">
-                      <Clock className="h-3 w-3" />
-                      Coming soon
-                    </span>
-                  )}
-                </div>
-              </div>
-            </div>
-            <p className="text-xs text-gray-500">
-              Auto-create calendar events when meetings are booked.
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* CRM & Sales Intelligence */}
-      <div className="space-y-4">
-        <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">
-          CRM &amp; Sales Intelligence
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {CRM_INTEGRATIONS.map(({ type, label, description, brand, envKey }) => {
-            const isConnected = connectedTypes.has(type);
-            const envConfigured = process.env[envKey];
-            return (
-              <div
-                key={type}
-                className="bg-white border border-gray-200 rounded-xl p-6 flex flex-col gap-4 h-full"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="rounded-lg bg-gray-50 p-2 flex items-center justify-center">
-                    {brand ? (
-                      <BrandLogo brand={brand} className="h-8 w-8" />
-                    ) : (
-                      <Search className="h-6 w-6 text-[#6C47FF]" />
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="text-sm font-semibold text-gray-900">
-                        {label}
-                      </h3>
-                      {isConnected ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-2 py-0.5 text-xs text-green-700">
-                          <CheckCircle2 className="h-3 w-3" />
-                          Connected
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-500">
-                          Not connected
-                        </span>
-                      )}
-                    </div>
-                    {!envConfigured && !isConnected && (
-                      <p className="text-xs text-gray-400 mt-0.5 flex items-center gap-1">
-                        <KeyRound className="h-3 w-3" />
-                        Requires {envKey}
-                      </p>
-                    )}
-                  </div>
-                </div>
-                <p className="text-xs text-gray-500">{description}</p>
-                {!isConnected && (
-                  <Link
-                    href={`/settings/api-keys?setup=${type}`}
-                    className="mt-auto inline-flex items-center justify-center rounded-lg bg-[#6C47FF] px-4 py-2 text-sm font-medium text-white hover:bg-[#5a3ad4] active:scale-[0.98] transition-all duration-150"
-                  >
-                    Connect {label.split(" (")[0]}
-                  </Link>
-                )}
-              </div>
-            );
-          })}
+          <GoogleCalendarForm
+            initialConnected={calendarConnected}
+            initialCalendarUrl={calendarIntegration?.accessToken ?? undefined}
+          />
         </div>
       </div>
 
@@ -297,35 +208,72 @@ export default async function SettingsIntegrationsPage({
               </div>
             );
           })}
+
+          <SlackWebhookForm
+            initialConnected={slackConnected}
+            initialChannel={(slackIntegration?.config as Record<string, unknown>)?.channel_name as string | undefined}
+          />
         </div>
       </div>
 
-      {/* Coming soon */}
+      {/* CRM & Sales Intelligence */}
       <div className="space-y-4">
         <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">
-          More integrations
+          CRM &amp; Sales Intelligence
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {COMING_SOON.map(({ label, description, brand }) => (
-            <div
-              key={label}
-              className="bg-white border border-gray-200 rounded-xl p-6 flex items-start gap-4"
-            >
-              <div className="shrink-0 h-10 w-10 rounded-lg bg-gray-50 flex items-center justify-center">
-                <BrandLogo brand={brand} className="h-7 w-7" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h3 className="text-sm font-semibold text-gray-900">{label}</h3>
-                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-xs text-amber-700">
-                    <Clock className="h-3 w-3" />
-                    Coming soon
-                  </span>
+          {CRM_INTEGRATIONS.map(({ type, label, description, brand, envKey }) => {
+            const isConnected = connectedTypes.has(type);
+            const envConfigured = process.env[envKey];
+            return (
+              <div
+                key={type}
+                className="bg-white border border-gray-200 rounded-xl p-6 flex flex-col gap-4 h-full"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="rounded-lg bg-gray-50 p-2 flex items-center justify-center">
+                    {brand ? (
+                      <BrandLogo brand={brand} className="h-8 w-8" />
+                    ) : (
+                      <Search className="h-6 w-6 text-[#6C47FF]" />
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="text-sm font-semibold text-gray-900">
+                        {label}
+                      </h3>
+                      {isConnected ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-2 py-0.5 text-xs text-green-700">
+                          <CheckCircle2 className="h-3 w-3" />
+                          Connected
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-500">
+                          Not connected
+                        </span>
+                      )}
+                    </div>
+                    {!envConfigured && !isConnected && (
+                      <p className="text-xs text-gray-400 mt-0.5 flex items-center gap-1">
+                        <KeyRound className="h-3 w-3" />
+                        Requires {envKey}
+                      </p>
+                    )}
+                  </div>
                 </div>
-                <p className="text-xs text-gray-500 mt-1">{description}</p>
+                <p className="text-xs text-gray-500">{description}</p>
+                {!isConnected && (
+                  <Link
+                    href={`/settings/api-keys?setup=${type}`}
+                    className="mt-auto inline-flex items-center justify-center rounded-lg bg-[#6C47FF] px-4 py-2 text-sm font-medium text-white hover:bg-[#5a3ad4] active:scale-[0.98] transition-all duration-150"
+                  >
+                    Connect {label.split(" (")[0]}
+                  </Link>
+                )}
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </div>
