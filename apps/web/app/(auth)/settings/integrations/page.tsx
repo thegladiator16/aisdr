@@ -92,7 +92,12 @@ export default async function SettingsIntegrationsPage({
     userIntegrations.filter((i) => i.accessToken).map((i) => i.type)
   );
   const gmailIntegration = userIntegrations.find((i) => i.type === "gmail");
-  const gmailConnected = !!(gmailIntegration?.accessToken && gmailIntegration?.accountEmail);
+  const gmailCfg = (gmailIntegration?.config ?? {}) as Record<string, unknown>;
+  const gmailConnected = !!(
+    gmailIntegration?.accessToken &&
+    gmailIntegration?.accountEmail &&
+    gmailCfg.connection_type === "smtp"
+  );
 
   return (
     <div className="max-w-3xl space-y-8">

@@ -9,11 +9,15 @@ export async function GET() {
   try {
     const user = await requireUser();
     const integrations = await getUserIntegrations(user.id);
-    const connected = new Set(
-      integrations.filter((i) => i.accessToken).map((i) => i.type)
+    const gmailRow = integrations.find((i) => i.type === "gmail");
+    const cfg = (gmailRow?.config ?? {}) as Record<string, unknown>;
+    const gmailConnected = !!(
+      gmailRow?.accessToken &&
+      gmailRow?.accountEmail &&
+      cfg.connection_type === "smtp"
     );
     return NextResponse.json({
-      gmail: connected.has("gmail"),
+      gmail: gmailConnected,
     });
   } catch {
     return NextResponse.json({ gmail: false }, { status: 200 });
