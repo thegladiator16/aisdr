@@ -324,21 +324,33 @@ async function getUserGmailContext(userId: string): Promise<{
   };
 }
 
-/** Try to parse JSON; on failure attempt to salvage a partial array. */
+/** Try to parse JSON; apply progressive cleanups before giving up. */
 function safeParseJSON(text: string): unknown {
-  try {
-    return JSON.parse(text);
-  } catch {
-    const match = text.match(/\[[\s\S]*\]/);
-    if (match) {
-      try {
-        return JSON.parse(match[0]);
-      } catch {
-        return [];
-      }
-    }
-    return [];
+  // Strip all markdown code fences (not just leading/trailing).
+  let t = text.replace(/```(?:json)?/gi, "").trim();
+
+  // Fast path — clean response.
+  try { return JSON.parse(t); } catch { /* fall through */ }
+
+  // Extract the outermost object or array and try a sequence of repairs.
+  const objectMatch = t.match(/\{[\s\S]*\}/);
+  const arrayMatch  = t.match(/\[[\s\S]*/);          // allow truncated arrays
+  const candidates  = [objectMatch?.[0], arrayMatch?.[0]].filter(Boolean) as string[];
+
+  for (const raw of candidates) {
+    // Try as-is.
+    try { return JSON.parse(raw); } catch { /* next */ }
+
+    // Remove trailing commas before } or ].
+    const noTrailing = raw.replace(/,\s*([\}\]])/g, "$1");
+    try { return JSON.parse(noTrailing); } catch { /* next */ }
+
+    // Replace single-quoted delimiters with double quotes (common model slip).
+    const doubleQuoted = noTrailing.replace(/'/g, '"');
+    try { return JSON.parse(doubleQuoted); } catch { /* next */ }
   }
+
+  return [];
 }
 
 /** Round-trip Claude with a system prompt + user context, parse the JSON
@@ -571,38 +583,47 @@ async function fallbackProspecting(
   taskId: string,
   seq: number
 ): Promise<Partial<StateT>> {
-  // Cap at 5 leads per LLM call to avoid response truncation (unterminated
-  // JSON). The caller can loop if more are needed; 5 fits comfortably within
-  // 4000 tokens.
-  const batchSize = 5;
-  const out = await callAgent<{ leads: Partial<Lead>[] }>(
-    PROSPECTING_PROMPT,
-    `ICP: ${JSON.stringify(state.icp)}\nDesired count: ${batchSize}`,
-    { maxTokens: 4000 }
-  );
-  // Normalise — Claude occasionally drops a field when the prompt
-  // drifts. The rest of the graph assumes strings, not undefined, so
-  // we backfill empty strings here to keep downstream nodes safe.
-  const rawLeads: Lead[] = (out.leads ?? []).slice(0, 50).map((l) => ({
-    firstName: l.firstName ?? "",
-    lastName: l.lastName ?? "",
-    jobTitle: l.jobTitle ?? "",
-    companyName: l.companyName ?? "",
-    industry: l.industry ?? state.icp.industry?.[0] ?? "",
-    location: l.location ?? state.icp.location?.[0] ?? "",
-    source: "synthesized",
-  }));
-  const leads = await persistLeadsForRun(state.userId, state.campaignId, rawLeads);
-  await logTask(
-    state.runId,
-    taskId,
-    `Returned ${leads.length} synthesised prospects (${leads.filter((l) => l.dbId).length} persisted to DB; no real emails yet — connect Hunter.io to unlock delivery).`
-  );
-  await completeTask(state.runId, taskId, "prospecting", {
-    count: leads.length,
-    source: "synthesized",
-  });
-  return { leads, sequence: seq };
+  // Cap at 3 leads per call — smallest batch that demonstrates the flow
+  // while staying well inside the 4000-token budget. Avoids truncation.
+  const batchSize = 3;
+  try {
+    const out = await callAgent<{ leads: Partial<Lead>[] }>(
+      PROSPECTING_PROMPT,
+      `ICP: ${JSON.stringify(state.icp)}`,
+      { maxTokens: 4000 }
+    );
+    // Normalise — Claude occasionally drops a field when the prompt
+    // drifts. The rest of the graph assumes strings, not undefined, so
+    // we backfill empty strings here to keep downstream nodes safe.
+    const rawLeads: Lead[] = (out.leads ?? []).slice(0, batchSize).map((l) => ({
+      firstName: l.firstName ?? "",
+      lastName: l.lastName ?? "",
+      jobTitle: l.jobTitle ?? "",
+      companyName: l.companyName ?? "",
+      industry: l.industry ?? state.icp.industry?.[0] ?? "",
+      location: l.location ?? state.icp.location?.[0] ?? "",
+      source: "synthesized",
+    }));
+    const leads = await persistLeadsForRun(state.userId, state.campaignId, rawLeads);
+    await logTask(
+      state.runId,
+      taskId,
+      `Returned ${leads.length} synthesised prospects (${leads.filter((l) => l.dbId).length} persisted to DB; no real emails yet — connect Hunter.io to unlock delivery).`
+    );
+    await completeTask(state.runId, taskId, "prospecting", {
+      count: leads.length,
+      source: "synthesized",
+    });
+    return { leads, sequence: seq };
+  } catch (parseErr) {
+    // JSON parsing failed even after all cleanups — log and continue with
+    // zero leads so the rest of the graph (research, copywriter, sender)
+    // can still run and complete rather than crashing the whole run.
+    const msg = parseErr instanceof Error ? parseErr.message : String(parseErr);
+    await logTask(state.runId, taskId, `Prospecting parse error (${msg}) — continuing with 0 leads.`);
+    await completeTask(state.runId, taskId, "prospecting", { count: 0, source: "error" });
+    return { leads: [], sequence: seq };
+  }
 }
 
 async function researchNode(state: StateT): Promise<Partial<StateT>> {

@@ -30,22 +30,20 @@ says "India". Output ONLY:
 }
 No prose. No explanations.`;
 
-export const PROSPECTING_PROMPT = `You are the Prospecting Agent (FALLBACK
-mode — used when the Hunter.io enrichment API is not configured). Given an
-ICP (industry, company size, titles, geography), infer 10-20 realistic-
-sounding lead prospects that fit that ICP. Synthesise plausible companies +
-roles for the copywriter to work with. Output ONLY:
-{
-  "leads": Array<{
-    "firstName": string,
-    "lastName": string,
-    "jobTitle": string,
-    "companyName": string,
-    "industry": string,
-    "location": string
-  }>
-}
-Do NOT hallucinate real emails or phone numbers — omit them entirely.`;
+export const PROSPECTING_PROMPT = `Return ONLY a valid JSON object. No markdown, no backticks, no explanation, no prose.
+
+Given the ICP below, produce exactly 3 realistic lead prospects.
+
+Required format — copy this structure exactly:
+{"leads":[{"firstName":"Priya","lastName":"Sharma","jobTitle":"VP Sales","companyName":"Zoho","industry":"SaaS","location":"Chennai"},{"firstName":"Rahul","lastName":"Mehta","jobTitle":"Head of Growth","companyName":"Freshworks","industry":"SaaS","location":"Mumbai"},{"firstName":"Ananya","lastName":"Singh","jobTitle":"Director Partnerships","companyName":"Razorpay","industry":"FinTech","location":"Bangalore"}]}
+
+Rules:
+- Output ONLY the JSON object above — nothing before, nothing after
+- Use double quotes for all keys and string values
+- Maximum 3 leads
+- No emails, no phone numbers
+- No trailing commas`;
+
 
 export const RESEARCH_PROMPT = `You are the Research Agent. You will be
 given a batch of leads. Each lead may include an optional \`webContext\`
