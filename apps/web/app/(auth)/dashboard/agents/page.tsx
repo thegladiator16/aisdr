@@ -150,24 +150,20 @@ function getWarnings(tasks: Task[]): Warning[] {
   for (const t of tasks) {
     if (t.agentName === "prospecting" && t.output?.source === "synthesized") {
       out.push({
-        type: "warning",
-        message: "Hunter.io is not connected. Leads shown are synthesised for demonstration.",
-        action: "Connect Hunter.io",
-        link: "/dashboard/settings",
+        type: "info",
+        message: "This run used synthesised demo leads — Hunter.io was not configured at the time.",
       });
     }
     if (t.agentName === "research" && t.output?.serperConfigured === false) {
       out.push({
         type: "info",
-        message: "Web research is disabled. Add SERPER_API_KEY to ground hooks in real company data.",
+        message: "This run did not use web research — Serper was not configured at the time.",
       });
     }
     if (t.agentName === "sender" && t.output?.skippedReason === "gmail_not_connected") {
       out.push({
-        type: "warning",
-        message: "Gmail is not connected. Emails were scheduled but could not be delivered.",
-        action: "Connect Gmail",
-        link: "/dashboard/settings/integrations",
+        type: "info",
+        message: "Emails were scheduled but not delivered — Gmail was not connected at the time.",
       });
     }
   }
