@@ -3,10 +3,10 @@
   "configurations": [
     {
       "name": "aisdr-web",
-      "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["--filter", "web", "dev"],
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["next", "dev"],
       "port": 3000,
-      "cwd": "C:\\Users\\ironm\\OneDrive\\Desktop\\submission\\aisdr"
+      "cwd": "C:\\Users\\ironm\\OneDrive\\Desktop\\submission\\aisdr\\apps\\web"
     }
   ]
 }

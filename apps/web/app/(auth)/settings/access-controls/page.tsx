@@ -805,14 +805,19 @@ export default function AccessControlsPage() {
                   </th>
                 );
               })}
-              <th className="text-center px-6 py-3">
-                <button
-                  onClick={() => setShowNewRoleModal(true)}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-violet-300 bg-violet-50/50 px-3 py-1.5 text-xs font-medium text-violet-600 hover:bg-violet-100 hover:border-violet-400 transition-all"
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                  New role
-                </button>
+              <th className="text-center px-4 py-3">
+                <div className="relative group">
+                  <button
+                    onClick={() => setShowNewRoleModal(true)}
+                    className="mx-auto flex h-7 w-7 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-400 hover:border-violet-400 hover:bg-violet-50 hover:text-violet-600 active:scale-95 transition-all shadow-sm"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                  </button>
+                  <span className="pointer-events-none absolute left-1/2 -translate-x-1/2 top-full mt-1.5 hidden group-hover:block whitespace-nowrap rounded-md bg-gray-900 px-2.5 py-1 text-xs text-white shadow-lg z-30">
+                    Add role
+                    <span className="absolute left-1/2 -translate-x-1/2 bottom-full border-4 border-transparent border-b-gray-900" />
+                  </span>
+                </div>
               </th>
             </tr>
           </thead>

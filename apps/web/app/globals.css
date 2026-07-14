@@ -28,6 +28,28 @@
 }
 
 @layer base {
+  .dark {
+    --background: 224 10% 10%;
+    --foreground: 210 20% 93%;
+    --card: 224 10% 13%;
+    --card-foreground: 210 20% 93%;
+    --popover: 224 10% 13%;
+    --popover-foreground: 210 20% 93%;
+    --primary: 252 82% 64%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 252 30% 18%;
+    --secondary-foreground: 252 60% 80%;
+    --muted: 224 10% 18%;
+    --muted-foreground: 220 9% 60%;
+    --accent: 252 30% 18%;
+    --accent-foreground: 252 60% 80%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 224 10% 20%;
+    --input: 224 10% 20%;
+    --ring: 252 82% 64%;
+  }
+
   * {
     @apply border-border;
   }
@@ -35,6 +57,25 @@
     @apply bg-background text-foreground;
     font-feature-settings: "rlig" 1, "calt" 1;
   }
+
+  .dark body,
+  .dark .bg-white { background-color: hsl(224 10% 13%) !important; }
+  .dark .bg-gray-50 { background-color: hsl(224 10% 11%) !important; }
+  .dark .bg-gray-100 { background-color: hsl(224 10% 16%) !important; }
+  .dark .text-gray-900 { color: hsl(210 20% 93%) !important; }
+  .dark .text-gray-800 { color: hsl(210 15% 85%) !important; }
+  .dark .text-gray-700 { color: hsl(210 12% 75%) !important; }
+  .dark .text-gray-600 { color: hsl(210 10% 65%) !important; }
+  .dark .text-gray-500 { color: hsl(210 8% 55%) !important; }
+  .dark .text-gray-400 { color: hsl(210 6% 45%) !important; }
+  .dark .border-gray-200 { border-color: hsl(224 10% 20%) !important; }
+  .dark .border-gray-100 { border-color: hsl(224 10% 17%) !important; }
+  .dark .border-gray-300 { border-color: hsl(224 10% 24%) !important; }
+  .dark input,
+  .dark textarea,
+  .dark select { background-color: hsl(224 10% 15%) !important; color: hsl(210 20% 90%) !important; border-color: hsl(224 10% 22%) !important; }
+  .dark .shadow-sm { box-shadow: 0 1px 2px rgba(0,0,0,0.3) !important; }
+  .dark .shadow-lg { box-shadow: 0 10px 25px rgba(0,0,0,0.4) !important; }
 }
 
 @keyframes float {

@@ -87,7 +87,7 @@ export default function GmailSmtpForm({
 
   if (connected && !showForm) {
     return (
-      <div className="bg-white border border-gray-200 rounded-xl p-6 flex flex-col gap-4">
+      <div className="bg-white border border-gray-200 rounded-xl p-6 flex flex-col gap-4 h-full">
         <div className="flex items-center gap-3">
           <div className="rounded-lg bg-gray-50 p-2 flex items-center justify-center">
             <BrandLogo brand="gmail" className="h-8 w-8" />
@@ -141,7 +141,7 @@ export default function GmailSmtpForm({
   }
 
   return (
-    <div className="bg-white border border-gray-200 rounded-xl p-6 flex flex-col gap-4">
+    <div className="bg-white border border-gray-200 rounded-xl p-6 flex flex-col gap-4 h-full">
       <div className="flex items-center gap-3">
         <div className="rounded-lg bg-gray-50 p-2 flex items-center justify-center">
           <BrandLogo brand="gmail" className="h-8 w-8" />
