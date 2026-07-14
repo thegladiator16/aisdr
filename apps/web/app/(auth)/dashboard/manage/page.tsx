@@ -27,6 +27,20 @@ import {
   Loader2,
   Info,
   UserCheck,
+  Mail,
+  PenTool,
+  Radio,
+  Inbox,
+  Zap,
+  Reply,
+  ShieldBan,
+  Database,
+  Flame,
+  Users,
+  Globe,
+  Hash,
+  CreditCard,
+  type LucideIcon,
 } from "lucide-react";
 
 type MainTab = "overview" | "outbound" | "replies" | "guardrails";
@@ -201,6 +215,13 @@ export default function ManageAryaPage() {
   const [signatureConfigured, setSignatureConfigured] = useState(false);
   const [savedSignature, setSavedSignature] = useState("");
   const [hasSignalSubscription, setHasSignalSubscription] = useState(false);
+  const [crmConnected, setCrmConnected] = useState(false);
+  const [hasDnc, setHasDnc] = useState(false);
+  const [hasCampaign, setHasCampaign] = useState(false);
+  const [teamCount, setTeamCount] = useState(0);
+  const [hasVisitorTracking, setHasVisitorTracking] = useState(false);
+  const [hasSlack, setHasSlack] = useState(false);
+  const [showAllQuests, setShowAllQuests] = useState(false);
 
   // Overview data
   const [analyticsLoading, setAnalyticsLoading] = useState(true);
@@ -261,6 +282,12 @@ export default function ManageAryaPage() {
           .catch(() => ({ subscriptions: [] })),
       ]);
       setGmailConnected(Boolean(integ.gmail));
+      setCrmConnected(Boolean(integ.crm));
+      setHasDnc(Boolean(integ.dnc));
+      setHasCampaign(Boolean(integ.campaign));
+      setTeamCount(Number(integ.teamCount ?? 0));
+      setHasVisitorTracking(Boolean(integ.visitorTracking));
+      setHasSlack(Boolean(integ.slack));
       const sigStr: string = typeof sig.signature === "string" ? sig.signature : "";
       setSavedSignature(sigStr);
       setSignatureConfigured(sigStr.trim().length > 0);
@@ -411,6 +438,8 @@ export default function ManageAryaPage() {
     disabled?: boolean;
     disabledReason?: string;
     next?: boolean;
+    icon: LucideIcon;
+    credits: number;
   }
 
   const questList: Quest[] = (() => {
@@ -421,6 +450,8 @@ export default function ManageAryaPage() {
         description: "Enable email sending, reply forwarding, and meeting tracking",
         action: "Connect mailbox",
         completed: gmailConnected,
+        icon: Mail,
+        credits: 200,
       },
       {
         key: "signature",
@@ -428,6 +459,8 @@ export default function ManageAryaPage() {
         description: "Add the signature Arya should use when sending from your mailbox",
         action: "Set up signature",
         completed: signatureConfigured,
+        icon: PenTool,
+        credits: 200,
       },
       {
         key: "signals",
@@ -435,29 +468,108 @@ export default function ManageAryaPage() {
         description: "Reach prospects the moment they hit a buying-intent trigger",
         action: "Set up signals",
         completed: hasSignalSubscription,
+        icon: Radio,
+        credits: 200,
       },
       {
         key: "secondary_mailboxes",
         title: "Add secondary mailboxes",
-        description:
-          "Scale daily send volume across multiple inboxes without hurting deliverability",
-        action: "Coming soon",
+        description: "Scale daily send volume across multiple inboxes without hurting deliverability",
+        action: "Buy mailboxes",
         completed: false,
         disabled: true,
-        disabledReason: "Not available yet — get in touch to enable multi-mailbox sending",
+        disabledReason: "Not available yet — multi-mailbox sending coming soon",
+        icon: Inbox,
+        credits: 1000,
       },
       {
         key: "autopilot",
         title: "Turn on autopilot",
-        description:
-          "Hand Arya the wheel to run outbound end-to-end without your approval",
-        action: "Coming soon",
+        description: "Hand Arya the wheel to run outbound end-to-end without your approval",
+        action: "Enable autopilot",
         completed: false,
         disabled: true,
         disabledReason: "Autopilot is currently in closed beta",
+        icon: Zap,
+        credits: 400,
+      },
+      {
+        key: "autonomous_replies",
+        title: "Configure autonomous replies",
+        description: "Let Arya handle objections, answer questions, and book meetings on her own",
+        action: "Enable replies",
+        completed: false,
+        disabled: true,
+        disabledReason: "Autonomous replies coming soon — currently drafts are created for your approval",
+        icon: Reply,
+        credits: 600,
+      },
+      {
+        key: "dnc",
+        title: "Set up your do-not-contact list",
+        description: "Block specific contacts or companies from engagement by Arya",
+        action: "Set up do-not-contact list",
+        completed: hasDnc,
+        icon: ShieldBan,
+        credits: 300,
+      },
+      {
+        key: "crm",
+        title: "Connect your CRM",
+        description: "Two-way sync of contacts, leads, and deals",
+        action: "Connect CRM",
+        completed: crmConnected,
+        icon: Database,
+        credits: 500,
+      },
+      {
+        key: "warm_outbound",
+        title: "Launch a warm outbound campaign",
+        description: "Re-engage closed-lost deals and stale pipeline from your CRM",
+        action: "New campaign",
+        completed: hasCampaign,
+        icon: Flame,
+        credits: 1000,
+      },
+      {
+        key: "invite_team",
+        title: "Invite your teammates",
+        description: `Earn rewards for each teammate who joins (${teamCount}/10)`,
+        action: "Invite team",
+        completed: teamCount >= 1,
+        icon: Users,
+        credits: 300,
+      },
+      {
+        key: "visitor_tracking",
+        title: "Track website visitors",
+        description: "Identify anonymous visitors on your site and surface them as outbound targets",
+        action: "Set up tracking",
+        completed: hasVisitorTracking,
+        icon: Globe,
+        credits: 750,
+      },
+      {
+        key: "slack",
+        title: "Invite Arya to Slack",
+        description: "Get reply alerts and approve drafts inside your workspace",
+        action: "Connect Slack",
+        completed: hasSlack,
+        disabled: true,
+        disabledReason: "Slack integration coming soon",
+        icon: Hash,
+        credits: 200,
+      },
+      {
+        key: "choose_plan",
+        title: "Choose your plan",
+        description: "Pick the plan that fits your outreach goals",
+        action: "Choose plan",
+        completed: false,
+        icon: CreditCard,
+        credits: 1000,
       },
     ];
-    // Mark the first uncompleted, non-disabled quest as "Next"
     const nextIdx = list.findIndex((q) => !q.completed && !q.disabled);
     if (nextIdx >= 0) list[nextIdx].next = true;
     return list;
@@ -483,6 +595,25 @@ export default function ManageAryaPage() {
           break;
         case "Set up signals":
           router.push("/signals");
+          break;
+        case "Set up do-not-contact list":
+          router.push("/dashboard/manage?tab=guardrails");
+          setActiveTab("guardrails");
+          break;
+        case "Connect CRM":
+          router.push("/settings/integrations");
+          break;
+        case "New campaign":
+          router.push("/campaigns");
+          break;
+        case "Invite team":
+          router.push("/settings/team");
+          break;
+        case "Set up tracking":
+          router.push("/settings/integrations");
+          break;
+        case "Choose plan":
+          router.push("/pricing");
           break;
       }
     },
@@ -1387,53 +1518,78 @@ export default function ManageAryaPage() {
               </button>
 
               {showRemaining && (
-                <div className="space-y-4">
-                  {questList.map((quest) => (
-                    <div key={quest.key} className="flex items-center gap-4 py-2">
-                      {/* Real completion indicator (not clickable) */}
-                      <div
-                        className={`h-5 w-5 rounded-full border-2 shrink-0 flex items-center justify-center ${
-                          quest.completed
-                            ? "border-violet-600 bg-violet-600"
-                            : "border-gray-300"
-                        }`}
-                        title={quest.completed ? "Completed" : "Not yet complete"}
-                      >
-                        {quest.completed && <Check className="h-3 w-3 text-white" />}
-                      </div>
-
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span
-                            className={`font-medium text-sm ${
-                              quest.completed ? "text-gray-400 line-through" : "text-gray-900"
-                            }`}
-                          >
-                            {quest.title}
-                          </span>
-                          {quest.next && (
-                            <span className="bg-violet-100 text-violet-700 text-xs px-2 py-0.5 rounded-full font-medium">
-                              Next
-                            </span>
-                          )}
-                          {quest.disabled && (
-                            <span className="bg-gray-100 text-gray-600 text-xs px-2 py-0.5 rounded-full font-medium">
-                              Coming soon
-                            </span>
-                          )}
+                <div className="space-y-1">
+                  {(showAllQuests ? questList : questList.slice(0, 7)).map((quest) => {
+                    const Icon = quest.icon;
+                    return (
+                      <div key={quest.key} className="flex items-center gap-3 py-2.5">
+                        <div
+                          className={`h-5 w-5 rounded-full border-2 shrink-0 flex items-center justify-center ${
+                            quest.completed
+                              ? "border-violet-600 bg-violet-600"
+                              : "border-gray-300"
+                          }`}
+                          title={quest.completed ? "Completed" : "Not yet complete"}
+                        >
+                          {quest.completed && <Check className="h-3 w-3 text-white" />}
                         </div>
-                        <p className="text-xs text-gray-500 mt-0.5">{quest.description}</p>
-                      </div>
 
-                      <button
-                        onClick={() => handleQuestAction(quest)}
-                        disabled={quest.disabled || quest.completed}
-                        className="shrink-0 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        {quest.completed ? "Done" : quest.action}
-                      </button>
-                    </div>
-                  ))}
+                        <div className="shrink-0 h-8 w-8 rounded-lg bg-gray-50 flex items-center justify-center">
+                          <Icon className="h-4 w-4 text-gray-500" />
+                        </div>
+
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span
+                              className={`font-medium text-sm ${
+                                quest.completed ? "text-gray-400 line-through" : "text-gray-900"
+                              }`}
+                            >
+                              {quest.title}
+                            </span>
+                            {quest.next && (
+                              <span className="bg-violet-100 text-violet-700 text-xs px-2 py-0.5 rounded-full font-medium">
+                                Next
+                              </span>
+                            )}
+                            {quest.key === "invite_team" && teamCount > 0 && (
+                              <span className="bg-blue-50 text-blue-600 text-xs px-2 py-0.5 rounded-full font-medium">
+                                {teamCount}/10
+                              </span>
+                            )}
+                            {quest.disabled && !quest.completed && (
+                              <span className="bg-gray-100 text-gray-500 text-xs px-2 py-0.5 rounded-full font-medium">
+                                Coming soon
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-gray-500 mt-0.5">{quest.description}</p>
+                        </div>
+
+                        <span className="shrink-0 inline-flex items-center gap-1 text-xs text-green-600 font-medium whitespace-nowrap">
+                          <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
+                          Earn {quest.credits.toLocaleString()} credits
+                        </span>
+
+                        <button
+                          onClick={() => handleQuestAction(quest)}
+                          disabled={quest.disabled || quest.completed}
+                          className="shrink-0 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                        >
+                          {quest.completed ? "Done" : quest.action}
+                        </button>
+                      </div>
+                    );
+                  })}
+
+                  {questList.length > 7 && (
+                    <button
+                      onClick={() => setShowAllQuests(!showAllQuests)}
+                      className="w-full text-center text-sm text-gray-500 hover:text-gray-700 py-2 transition-colors"
+                    >
+                      {showAllQuests ? "Show less" : `Show all ${questList.length} quests`}
+                    </button>
+                  )}
                 </div>
               )}
             </div>
