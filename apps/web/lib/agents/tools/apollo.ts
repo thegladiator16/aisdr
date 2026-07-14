@@ -162,6 +162,45 @@ export async function enrichPerson(params: {
 }
 
 /**
+ * Enrich a company by domain — returns org-level data (name, industry,
+ * employee count, description) or null when Apollo has no data. Used by
+ * the visitor tracker to identify anonymous website visitors by IP→domain.
+ */
+export async function enrichCompany(domain: string): Promise<{
+  name: string | null;
+  industry: string | null;
+  employeeCount: number | null;
+  domain: string;
+  description: string | null;
+  linkedinUrl: string | null;
+} | null> {
+  const json = (await apolloPost("/organizations/enrich", {
+    domain: domain.trim(),
+  })) as {
+    organization?: {
+      name?: string | null;
+      industry?: string | null;
+      estimated_num_employees?: number | null;
+      primary_domain?: string | null;
+      short_description?: string | null;
+      linkedin_url?: string | null;
+    } | null;
+  };
+
+  const org = json.organization;
+  if (!org) return null;
+
+  return {
+    name: org.name ?? null,
+    industry: org.industry ?? null,
+    employeeCount: org.estimated_num_employees ?? null,
+    domain: org.primary_domain ?? domain,
+    description: org.short_description ?? null,
+    linkedinUrl: org.linkedin_url ?? null,
+  };
+}
+
+/**
  * Fan-out helper — given a batch of company names, searches Apollo for
  * leads at each company in parallel with Promise.allSettled. Individual
  * failures don't sink the batch: they're returned in errors[] so the

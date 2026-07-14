@@ -1,7 +1,7 @@
 /**
  * Pluggable enrichment provider abstraction.
  *
- * Artisan/Clearbit/Apollo/ZoomInfo-style lead enrichment requires an external
+ * Apollo/ZoomInfo-style lead enrichment requires an external
  * vendor account with an API key, and none of those are connected on this
  * deployment. Rather than half-hardcoding a mock, we ship the abstraction now
  * so:
@@ -100,11 +100,6 @@ abstract class VendorStub implements EnrichmentProvider {
 class ApolloProvider extends VendorStub {
   readonly name = "apollo";
   protected readonly errorCode = "APOLLO_NOT_IMPLEMENTED";
-}
-
-class ClearbitProvider extends VendorStub {
-  readonly name = "clearbit";
-  protected readonly errorCode = "CLEARBIT_NOT_IMPLEMENTED";
 }
 
 class ZoomInfoProvider extends VendorStub {
@@ -311,8 +306,6 @@ export function getEnrichmentProvider(): EnrichmentProvider {
   switch (which) {
     case "apollo":
       return new ApolloProvider();
-    case "clearbit":
-      return new ClearbitProvider();
     case "zoominfo":
       return new ZoomInfoProvider();
     case "anthropic":

@@ -29,8 +29,8 @@ export const websiteVisitors = pgTable("website_visitors", {
 // chosen in the "Add domain" wizard. Actual visitor *identification* (real
 // pageview beacons + reverse-IP-to-person/company resolution) needs a
 // tracking script deployed to the customer's site and a third-party data
-// provider (e.g. Clearbit Reveal / Koala) — neither is wired up here, so
-// `website_visitors` rows stay empty until that pipeline exists. What IS
+// provider (Apollo.io /organizations/enrich) — the tracking script and
+// Apollo enrichment are now wired up via /api/track. What IS also
 // real: registering a domain, and verifying the tracking snippet is
 // genuinely present on the domain's live homepage.
 export const trackedDomains = pgTable("tracked_domains", {
