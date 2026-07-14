@@ -17,9 +17,14 @@ export async function GET(
   } catch {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  const detail = await getRunDetail(user.id, params.id);
-  if (!detail) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  try {
+    const detail = await getRunDetail(user.id, params.id);
+    if (!detail) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+    return NextResponse.json({ data: detail });
+  } catch (err) {
+    console.error("[agents/runs/[id]] getRunDetail error:", err);
+    return NextResponse.json({ error: "Failed to load run detail" }, { status: 500 });
   }
-  return NextResponse.json({ data: detail });
 }

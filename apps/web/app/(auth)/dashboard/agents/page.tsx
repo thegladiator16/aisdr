@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Bot, ChevronRight, CircleCheck, CircleX, Loader2, Sparkles } from "lucide-react";
@@ -94,6 +94,13 @@ export default function AgentsDashboard() {
     }
   }, []);
 
+  // Refs so the polling interval always reads the latest values without
+  // being recreated on every render (avoids stale-closure bugs).
+  const selectedRunIdRef = useRef(selectedRunId);
+  const runsRef = useRef(runs);
+  useEffect(() => { selectedRunIdRef.current = selectedRunId; }, [selectedRunId]);
+  useEffect(() => { runsRef.current = runs; }, [runs]);
+
   const loadDetail = useCallback(async (id: string) => {
     setDetailLoading(true);
     try {
@@ -104,26 +111,36 @@ export default function AgentsDashboard() {
       }
       const json = await res.json();
       setDetail(json.data as RunDetail);
+    } catch {
+      setDetail(null);
     } finally {
       setDetailLoading(false);
     }
   }, []);
 
+  // Initial load + polling. Uses refs so the interval never has a stale
+  // closure on `runs` or `selectedRunId`.
   useEffect(() => {
     loadRuns();
-    // Poll for updates while any run is still running.
     const iv = setInterval(() => {
-      if (runs.some((r) => r.status === "running" || r.status === "pending")) {
+      const hasLive = runsRef.current.some(
+        (r) => r.status === "running" || r.status === "pending"
+      );
+      if (hasLive) {
         loadRuns();
-        if (selectedRunId) loadDetail(selectedRunId);
+        const rid = selectedRunIdRef.current;
+        if (rid) loadDetail(rid);
       }
     }, 4000);
     return () => clearInterval(iv);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loadRuns, runs.length]);
+  }, [loadRuns, loadDetail]);
 
+  // Fetch detail whenever the selected run changes; clear stale panel first.
   useEffect(() => {
-    if (selectedRunId) loadDetail(selectedRunId);
+    if (selectedRunId) {
+      setDetail(null);
+      loadDetail(selectedRunId);
+    }
   }, [selectedRunId, loadDetail]);
 
   return (

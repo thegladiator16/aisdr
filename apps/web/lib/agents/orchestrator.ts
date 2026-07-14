@@ -24,7 +24,7 @@
 
 import { StateGraph, Annotation, START, END } from "@langchain/langgraph";
 import { HumanMessage, SystemMessage } from "@langchain/core/messages";
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
   agentRuns,
@@ -1264,7 +1264,7 @@ export async function getRunDetail(userId: string, runId: string) {
       : await db
           .select()
           .from(agentLogs)
-          .where(sql`${agentLogs.taskId} = ANY(${taskIds})`)
+          .where(inArray(agentLogs.taskId, taskIds))
           .orderBy(agentLogs.createdAt);
   return { run, tasks, logs };
 }
