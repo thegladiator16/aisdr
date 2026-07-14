@@ -113,7 +113,7 @@ export async function POST(req: Request) {
       billing === "yearly" ? 365 * 24 * 60 * 60 * 1000 : 30 * 24 * 60 * 60 * 1000;
     const periodEnd = new Date(now.getTime() + cycleMs);
     const leadsLimit =
-      plan === "starter" ? 5000 : plan === "growth" ? 15000 : 999999;
+      plan === "starter" ? 3000 : plan === "growth" ? 8000 : 20000;
 
     const updated = await db
       .update(subscriptions)

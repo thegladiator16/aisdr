@@ -36,18 +36,18 @@ const PLANS = [
     name: "Starter",
     badge: "bg-violet-600",
     desc: "For B2B founders running outbound",
-    monthly: 4999,
-    yearly: 4166,
-    credits: "5,000 credits/mo",
-    replies: "500 leads in database",
+    monthly: 6999,
+    yearly: 5833,
+    credits: "3,000 credits/mo",
+    replies: "100 leads in database",
     includes: "Everything in Free, plus:",
     features: [
-      "5 active campaigns",
+      "3 active campaigns",
+      "5 multi-agent runs/mo",
       "Gmail integration",
       "Basic sequences",
       "Intent signals",
       "Autonomous reply drafting",
-      "Deliverability monitoring",
       "Email support",
     ],
   },
@@ -55,25 +55,44 @@ const PLANS = [
     key: "growth",
     name: "Growth",
     badge: "bg-pink-500",
+    badgeLabel: "Most Popular",
     desc: "For teams scaling with full AI automation",
-    monthly: 9999,
-    yearly: 8333,
-    credits: "15,000 credits/mo",
-    replies: "5,000 leads in database",
+    monthly: 12999,
+    yearly: 10833,
+    credits: "8,000 credits/mo",
+    replies: "500 leads in database",
     includes: "Everything in Starter, plus:",
     features: [
       "Unlimited campaigns",
-      "All features unlocked",
+      "25 multi-agent runs/mo",
       "A/Z testing",
+      "Apollo.io integration",
       "Advanced analytics",
       "CRM integrations (HubSpot)",
-      { text: "Full self-driving Arya", soon: true },
       "Priority support",
     ],
     recommended: true,
   },
   {
     key: "scale",
+    name: "Scale",
+    badge: "bg-emerald-600",
+    badgeLabel: "Best Value vs Artisan",
+    desc: "Full power at a fraction of Artisan's $600+/mo",
+    monthly: 24999,
+    yearly: 20833,
+    credits: "20,000 credits/mo",
+    replies: "2,000 leads in database",
+    includes: "Everything in Growth, plus:",
+    features: [
+      "Unlimited multi-agent runs",
+      "Dedicated CSM",
+      "Slack support channel",
+      { text: "Full self-driving Arya", soon: true },
+    ],
+  },
+  {
+    key: "enterprise",
     name: "Enterprise",
     badge: "bg-gray-900",
     desc: "For large organizations",
@@ -81,11 +100,10 @@ const PLANS = [
     yearly: null as number | null,
     credits: "Custom volume",
     replies: "Unlimited everything",
-    includes: "Everything in Growth, plus:",
+    includes: "Everything in Scale, plus:",
     features: [
       "Forward deployed implementation",
       "Campaign strategy session",
-      "Dedicated CSM + Slack channel",
       "SSO/SAML",
       "Audit logs",
     ],
@@ -148,7 +166,7 @@ export function ChangePlanModal({ onClose }: { onClose: () => void }) {
   }, []);
 
   async function handleUpgrade(planKey: string) {
-    if (planKey === "scale") {
+    if (planKey === "enterprise") {
       window.location.href = "mailto:sales@aryasdr.in?subject=Enterprise%20plan%20inquiry";
       return;
     }
@@ -296,7 +314,7 @@ export function ChangePlanModal({ onClose }: { onClose: () => void }) {
               each card keeps them all the same height even when Enterprise's
               feature list is shorter. mt-auto on the CTA block pins it to
               the bottom of every card so the three CTAs align in a row. */}
-          <div className="grid grid-cols-3 gap-4 items-stretch">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 items-stretch">
             {PLANS.map((plan) => {
               const isLoading = loadingPlan === plan.key;
               const priceLabel =
@@ -312,13 +330,16 @@ export function ChangePlanModal({ onClose }: { onClose: () => void }) {
                 currentTier === plan.key &&
                 (plan.key === "starter" ||
                   plan.key === "growth" ||
-                  plan.key === "scale");
+                  plan.key === "scale" ||
+                  plan.key === "enterprise");
               // Per-plan CTA color: Growth stays on the pink accent (matches
               // its "recommended" pink ring); Starter uses the violet brand
               // accent; Enterprise stays dark.
               const ctaColorClass =
                 plan.key === "growth"
                   ? "bg-pink-500 text-white hover:bg-pink-600 shadow-sm"
+                  : plan.key === "scale"
+                  ? "bg-emerald-600 text-white hover:bg-emerald-700 shadow-sm"
                   : plan.key === "starter"
                   ? "bg-[#6C47FF] text-white hover:bg-[#5A38E0] shadow-sm"
                   : "bg-gray-900 text-white hover:bg-gray-800 shadow-sm";
@@ -394,7 +415,7 @@ export function ChangePlanModal({ onClose }: { onClose: () => void }) {
                         <Check className="h-4 w-4" />
                         Current Plan
                       </button>
-                    ) : plan.key === "scale" ? (
+                    ) : plan.key === "enterprise" ? (
                       <button
                         onClick={() => handleUpgrade(plan.key)}
                         disabled={!!loadingPlan}
@@ -405,7 +426,7 @@ export function ChangePlanModal({ onClose }: { onClose: () => void }) {
                     ) : currency === "USD" ? (
                       <PayPalCheckoutButton
                         purchase={{
-                          plan: plan.key as "starter" | "growth",
+                          plan: plan.key as "starter" | "growth" | "scale",
                           billing,
                         }}
                         buttonLabel={`Get ${plan.name}${priceLabel ? ` — ${priceLabel}/mo` : ""}`}

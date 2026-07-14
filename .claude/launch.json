@@ -3,8 +3,8 @@
   "configurations": [
     {
       "name": "aisdr-web",
-      "runtimeExecutable": "node",
-      "runtimeArgs": ["C:/Users/ironm/AppData/Roaming/npm/node_modules/pnpm/bin/pnpm.cjs", "--filter", "web", "dev"],
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "web", "dev"],
       "port": 3000,
       "cwd": "C:\\Users\\ironm\\OneDrive\\Desktop\\submission\\aisdr"
     }

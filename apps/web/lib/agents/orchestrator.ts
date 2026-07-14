@@ -63,12 +63,13 @@ import { GmailClient } from "@/lib/integrations/gmail";
 
 export const AGENT_CREDIT_COSTS = {
   orchestrator: 10,      // flat per run
-  perLead: 5,            // prospecting
-  perResearched: 8,      // research (Serper)
-  perEmail: 10,          // copywriter
-  perSent: 22,           // sender (matches campaign send cost)
-  replyClassification: 5,
-  meetingBooking: 15,
+  perLead: 15,           // prospecting (Hunter)
+  perLeadApollo: 20,    // prospecting (Apollo)
+  perResearched: 10,     // research (Serper)
+  perEmail: 12,          // copywriter
+  perSent: 25,           // sender
+  replyClassification: 8,
+  meetingBooking: 20,
 } as const;
 
 export const MIN_CREDITS_TO_RUN = 50;

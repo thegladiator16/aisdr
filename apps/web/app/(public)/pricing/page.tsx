@@ -38,46 +38,50 @@ function displayPrice(inrAmount: number, currency: Currency): string {
 const PLANS = [
   {
     id: 'free',
-    name: 'Free',
+    name: 'Free Trial',
     monthly: 0,
     yearly: 0,
-    creditLabel: '300 credits/month',
-    leadsLabel: 'Search leads only',
-    description: 'Explore the platform, search leads, run enrichments.',
+    creditLabel: '10,000 credits',
+    leadsLabel: '14 days, all features',
+    description: 'Explore the full platform free for 14 days.',
     cta: 'Start free →',
     ctaHref: '/sign-up',
     highlight: false,
+    badge: null as string | null,
     features: {
-      campaigns: false,
-      emails: false,
-      sequences: false,
-      credits: '300 / month',
-      leads: 'Search only',
-      activeCampaigns: '—',
+      campaigns: true,
+      emails: true,
+      sequences: true,
+      credits: '10,000 (14 days)',
+      leads: 'All features',
+      activeCampaigns: 'Unlimited',
+      multiAgentRuns: 'Unlimited',
       support: 'Community',
-      azTesting: false,
+      azTesting: true,
       analytics: 'Basic',
-      integrations: '—',
+      integrations: 'Gmail',
     },
   },
   {
     id: 'starter',
     name: 'Starter',
-    monthly: 4999,
-    yearly: 4166,
-    creditLabel: '5,000 credits/month',
-    leadsLabel: '500 leads in database',
+    monthly: 6999,
+    yearly: 5833,
+    creditLabel: '3,000 credits/month',
+    leadsLabel: '100 leads in database',
     description: 'Run outbound campaigns with full email automation.',
     cta: 'Start free trial →',
     ctaHref: '/sign-up?plan=starter',
     highlight: false,
+    badge: null as string | null,
     features: {
       campaigns: true,
       emails: true,
       sequences: true,
-      credits: '5,000 / month',
-      leads: '500',
-      activeCampaigns: '5',
+      credits: '3,000 / month',
+      leads: '100',
+      activeCampaigns: '3',
+      multiAgentRuns: '5 / month',
       support: 'Email',
       azTesting: false,
       analytics: 'Basic',
@@ -87,25 +91,53 @@ const PLANS = [
   {
     id: 'growth',
     name: 'Growth',
-    monthly: 9999,
-    yearly: 8333,
-    creditLabel: '15,000 credits/month',
-    leadsLabel: '5,000 leads in database',
+    monthly: 12999,
+    yearly: 10833,
+    creditLabel: '8,000 credits/month',
+    leadsLabel: '500 leads in database',
     description: 'Automate your entire outbound motion at scale.',
     cta: 'Start free trial →',
     ctaHref: '/sign-up?plan=growth',
     highlight: true,
+    badge: 'Most Popular',
     features: {
       campaigns: true,
       emails: true,
       sequences: true,
-      credits: '15,000 / month',
-      leads: '5,000',
+      credits: '8,000 / month',
+      leads: '500',
       activeCampaigns: 'Unlimited',
+      multiAgentRuns: '25 / month',
       support: 'Priority',
       azTesting: true,
       analytics: 'Advanced',
-      integrations: 'Gmail + HubSpot',
+      integrations: 'Gmail + Apollo.io',
+    },
+  },
+  {
+    id: 'scale',
+    name: 'Scale',
+    monthly: 24999,
+    yearly: 20833,
+    creditLabel: '20,000 credits/month',
+    leadsLabel: '2,000 leads in database',
+    description: 'Full power at a fraction of Artisan\'s $600+/mo.',
+    cta: 'Start free trial →',
+    ctaHref: '/sign-up?plan=scale',
+    highlight: false,
+    badge: 'Best Value vs Artisan',
+    features: {
+      campaigns: true,
+      emails: true,
+      sequences: true,
+      credits: '20,000 / month',
+      leads: '2,000',
+      activeCampaigns: 'Unlimited',
+      multiAgentRuns: 'Unlimited',
+      support: 'Dedicated CSM + Slack',
+      azTesting: true,
+      analytics: 'Advanced',
+      integrations: 'All integrations',
     },
   },
   {
@@ -119,6 +151,7 @@ const PLANS = [
     cta: 'Contact sales →',
     ctaHref: 'mailto:sales@aryasdr.in?subject=Enterprise%20plan%20inquiry',
     highlight: false,
+    badge: null as string | null,
     features: {
       campaigns: true,
       emails: true,
@@ -126,6 +159,7 @@ const PLANS = [
       credits: 'Custom',
       leads: 'Unlimited',
       activeCampaigns: 'Unlimited',
+      multiAgentRuns: 'Unlimited',
       support: 'Dedicated CSM',
       azTesting: true,
       analytics: 'Advanced + custom',
@@ -142,6 +176,7 @@ const COMPARISON_ROWS: {
   { label: 'Credits / month', key: 'credits' },
   { label: 'Leads in database', key: 'leads' },
   { label: 'Active campaigns', key: 'activeCampaigns' },
+  { label: 'Multi-agent runs', key: 'multiAgentRuns' },
   { label: 'Run campaigns & send emails', key: 'campaigns', isBool: true },
   { label: 'Email sequences', key: 'sequences', isBool: true },
   { label: 'A/Z testing', key: 'azTesting', isBool: true },
@@ -151,27 +186,35 @@ const COMPARISON_ROWS: {
 ]
 
 const CREDIT_COSTS = [
-  { action: 'Email enrichment', credits: 2, icon: '✉️' },
-  { action: 'Phone enrichment', credits: 10, icon: '📞' },
-  { action: 'Campaign enrollment per lead', credits: 22, icon: '🚀' },
+  { action: 'Lead prospected (Hunter)', credits: 15, icon: '🔍' },
+  { action: 'Lead prospected (Apollo)', credits: 20, icon: '🚀' },
+  { action: 'Lead researched (Serper)', credits: 10, icon: '🔬' },
+  { action: 'Email written', credits: 12, icon: '✍️' },
+  { action: 'Email sent', credits: 25, icon: '✉️' },
+  { action: 'Reply classification', credits: 8, icon: '📩' },
+  { action: 'Meeting booking', credits: 20, icon: '📅' },
 ]
 
 const FAQ = [
   {
     q: 'What happens when my free trial ends?',
-    a: 'Your account automatically moves to the Free plan (300 credits/month). All active campaigns are paused. You keep your data and can upgrade any time.',
+    a: 'Your active campaigns are paused. You keep all your data and can upgrade to any paid plan at any time to resume.',
   },
   {
     q: 'What are credits?',
-    a: 'Credits are the currency Arya uses for actions. Email enrichment costs 2 credits, phone enrichment costs 10 credits, and enrolling a lead into a campaign costs 22 credits. Unused credits carry over to the next month on monthly plans.',
+    a: 'Credits are consumed per agent action: prospecting a lead costs 15 credits, researching costs 10, writing an email costs 12, sending costs 25, reply classification costs 8, and booking a meeting costs 20. Unused credits carry over month-to-month.',
   },
   {
-    q: 'Can I run campaigns on the Free plan?',
-    a: "No. The Free plan lets you search for leads and run enrichments so you can explore the platform. To send emails and run campaigns you'll need Starter or above.",
+    q: 'What are multi-agent runs?',
+    a: 'A multi-agent run is when Arya\'s AI agents work end-to-end autonomously — prospecting, researching, writing, and sending. Starter gets 5/month, Growth gets 25/month, and Scale gets unlimited.',
+  },
+  {
+    q: 'How is AryaSDR different from Artisan?',
+    a: 'AryaSDR offers the same AI SDR capabilities — autonomous prospecting, research, email writing, and sending — at a fraction of Artisan\'s $600+/month price. Our Scale plan at $294/mo gives you 20,000 credits and unlimited multi-agent runs.',
   },
   {
     q: 'How does billing work?',
-    a: 'Monthly billing in INR via Razorpay. Yearly billing gives ~17% off. Cancel anytime — no lock-in, no contracts.',
+    a: 'Monthly billing in INR via Razorpay or USD via PayPal. Yearly billing gives ~17% off. Cancel anytime — no lock-in, no contracts.',
   },
   {
     q: 'Do unused credits roll over?',
@@ -179,7 +222,7 @@ const FAQ = [
   },
   {
     q: 'What payment methods do you accept?',
-    a: 'UPI, credit/debit cards, net banking, and all major Indian payment methods via Razorpay.',
+    a: 'Indian users: UPI, credit/debit cards, net banking via Razorpay. International users: PayPal.',
   },
 ]
 
@@ -358,24 +401,28 @@ export default function PricingPage() {
           variants={stagger}
           initial="hidden"
           animate="visible"
-          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5"
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4"
         >
           {PLANS.map((plan) => (
             <motion.div
               key={plan.id}
               variants={fadeUp}
               whileHover={{ scale: 1.015, y: -6, transition: { duration: 0.2 } }}
-              className={`relative bg-white rounded-2xl p-6 flex flex-col border-2 cursor-pointer ${
+              className={`relative bg-white rounded-2xl p-5 flex flex-col border-2 cursor-pointer ${
                 plan.highlight
                   ? 'border-[#6C47FF] shadow-lg shadow-violet-100'
+                  : plan.id === 'scale'
+                  ? 'border-emerald-300 shadow-md shadow-emerald-50'
                   : 'border-gray-200 shadow-sm hover:shadow-md'
               }`}
               style={{ willChange: 'transform' }}
             >
-              {plan.highlight && (
+              {(plan.highlight || plan.badge) && (
                 <div className="absolute -top-3.5 left-1/2 -translate-x-1/2">
-                  <span className="bg-[#6C47FF] text-white text-xs font-bold px-4 py-1.5 rounded-full whitespace-nowrap">
-                    Most popular
+                  <span className={`text-white text-xs font-bold px-4 py-1.5 rounded-full whitespace-nowrap ${
+                    plan.id === 'scale' ? 'bg-emerald-600' : 'bg-[#6C47FF]'
+                  }`}>
+                    {plan.badge ?? 'Most popular'}
                   </span>
                 </div>
               )}
@@ -391,7 +438,7 @@ export default function PricingPage() {
                 ) : plan.monthly === 0 ? (
                   <div>
                     <p className="text-3xl font-bold text-gray-900">Free</p>
-                    <p className="text-xs text-gray-400 mt-0.5">forever</p>
+                    <p className="text-xs text-gray-400 mt-0.5">14 days</p>
                   </div>
                 ) : (
                   <div>
@@ -436,6 +483,8 @@ export default function PricingPage() {
                 className={`block w-full text-center py-2.5 rounded-xl text-sm font-semibold transition-colors mb-5 ${
                   plan.highlight
                     ? 'bg-[#6C47FF] text-white hover:bg-[#5538DD]'
+                    : plan.id === 'scale'
+                    ? 'bg-emerald-600 text-white hover:bg-emerald-700'
                     : plan.id === 'enterprise'
                     ? 'bg-gray-900 text-white hover:bg-gray-800'
                     : 'border-2 border-gray-200 text-gray-700 hover:border-[#6C47FF] hover:text-[#6C47FF]'
@@ -492,14 +541,14 @@ export default function PricingPage() {
             initial="hidden"
             whileInView="visible"
             viewport={{ once: true }}
-            className="grid grid-cols-1 sm:grid-cols-3 gap-4"
+            className="grid grid-cols-2 sm:grid-cols-4 gap-3"
           >
             {CREDIT_COSTS.map((c) => (
               <motion.div
                 key={c.action}
                 variants={fadeUp}
                 whileHover={{ scale: 1.03, y: -3, transition: { duration: 0.2 } }}
-                className="rounded-xl border border-gray-200 bg-[#FAFAFA] p-5 text-center cursor-default"
+                className="rounded-xl border border-gray-200 bg-[#FAFAFA] p-4 text-center cursor-default"
                 style={{ willChange: 'transform' }}
               >
                 <div className="text-3xl mb-3">{c.icon}</div>
@@ -510,13 +559,13 @@ export default function PricingPage() {
             ))}
           </motion.div>
           <p className="text-center text-xs text-gray-400 mt-6">
-            A Starter plan (5,000 credits) can enrich ~2,500 emails or enroll ~227 leads into campaigns per month.
+            A Starter plan (3,000 credits) can prospect ~200 leads and send ~120 personalised emails per month.
           </p>
         </div>
       </section>
 
       {/* Feature comparison table */}
-      <section className="mx-auto max-w-5xl px-6 py-16">
+      <section className="mx-auto max-w-6xl px-6 py-16">
         <motion.h2
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -580,7 +629,7 @@ export default function PricingPage() {
         </motion.div>
       </section>
 
-      {/* Cost comparison */}
+      {/* Cost comparison — Why AryaSDR over Artisan? */}
       <section className="bg-gradient-to-br from-violet-50 to-pink-50 border-y border-gray-100 py-14">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -589,9 +638,9 @@ export default function PricingPage() {
           transition={{ duration: 0.5 }}
           className="mx-auto max-w-3xl px-6 text-center mb-8"
         >
-          <h2 className="text-2xl font-bold text-gray-900">Why Arya?</h2>
+          <h2 className="text-2xl font-bold text-gray-900">Why AryaSDR over Artisan?</h2>
           <p className="text-gray-500 text-sm mt-2">
-            A human SDR costs {displayPrice(80000, currency)}–{displayPrice(120000, currency)}/month. Arya does the same job.
+            Same AI SDR capabilities. A fraction of the cost.
           </p>
         </motion.div>
         <motion.div
@@ -599,24 +648,28 @@ export default function PricingPage() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.6 }}
-          className="mx-auto max-w-sm flex gap-5 px-6"
+          className="mx-auto max-w-2xl grid grid-cols-3 gap-4 px-6"
         >
-          <div className="flex-1 bg-white border-2 border-red-300 rounded-2xl p-6 text-center shadow-sm card-lift">
+          <div className="bg-white border-2 border-red-300 rounded-2xl p-5 text-center shadow-sm">
             <p className="text-xs text-red-400 font-semibold mb-2">Human SDR</p>
-            <p className="text-3xl font-bold text-red-500">{displayPrice(80000, currency)}</p>
+            <p className="text-2xl font-bold text-red-500">{displayPrice(80000, currency)}</p>
             <p className="text-xs text-gray-400 mt-1">/month</p>
           </div>
-          <div className="flex-1 bg-white border-2 border-[#6C47FF] rounded-2xl p-6 text-center shadow-sm card-lift">
-            <p className="text-xs text-[#6C47FF] font-semibold mb-2">Arya</p>
-            <p className="text-3xl font-bold text-[#6C47FF]">{displayPrice(4999, currency)}</p>
+          <div className="bg-white border-2 border-orange-300 rounded-2xl p-5 text-center shadow-sm">
+            <p className="text-xs text-orange-500 font-semibold mb-2">Artisan</p>
+            <p className="text-2xl font-bold text-orange-500">{displayPrice(51000, currency)}</p>
+            <p className="text-xs text-gray-400 mt-1">/month (starts at)</p>
+          </div>
+          <div className="bg-white border-2 border-[#6C47FF] rounded-2xl p-5 text-center shadow-sm">
+            <p className="text-xs text-[#6C47FF] font-semibold mb-2">AryaSDR Scale</p>
+            <p className="text-2xl font-bold text-[#6C47FF]">{displayPrice(24999, currency)}</p>
             <p className="text-xs text-gray-400 mt-1">/month</p>
             <p className="text-xs text-emerald-600 font-bold mt-2">
-              Save {displayPrice(75000, currency)}/mo
+              Save {displayPrice(26000, currency)}/mo vs Artisan
             </p>
           </div>
         </motion.div>
 
-        {/* Payment methods disclaimer */}
         <p className="mx-auto max-w-3xl px-6 pt-8 text-center text-xs text-gray-400">
           * International payments via PayPal. Indian payments via Razorpay (UPI / Cards / NetBanking / Wallets).
         </p>

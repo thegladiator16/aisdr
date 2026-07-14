@@ -29,7 +29,7 @@ import { toast } from "sonner";
  */
 interface PayPalCheckoutButtonProps {
   purchase:
-    | { plan: "starter" | "growth"; billing: "monthly" | "yearly" }
+    | { plan: "starter" | "growth" | "scale"; billing: "monthly" | "yearly" }
     | { type: "credits" | "dialer" | "mailbox" | "phone"; quantity: number };
   /** Label used in the button copy (e.g., "Get Starter — $59/mo"). */
   buttonLabel: string;

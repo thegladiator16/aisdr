@@ -60,41 +60,52 @@ const TESTIMONIALS = [
 
 const PLANS = [
   {
-    name: "Free",
+    name: "Free Trial",
     price: "₹0",
-    period: "/month",
+    period: "/14 days",
     desc: "No credit card needed",
-    features: ["300 credits/month", "Lead search & enrichment", "Gmail integration", "Basic analytics"],
+    features: ["10,000 credits", "All features for 14 days", "Lead search & enrichment", "Gmail integration"],
     cta: "Start free",
     href: "/sign-up",
     highlighted: false,
   },
   {
     name: "Starter",
-    price: "₹4,999",
+    price: "₹6,999",
     period: "/month",
     desc: "Run outbound campaigns",
-    features: ["5,000 credits/month", "5 active campaigns", "500 leads in database", "WhatsApp integration", "Intent signals"],
+    features: ["3,000 credits/month", "100 leads", "3 campaigns", "5 multi-agent runs/mo"],
     cta: "Start 14-day trial",
     href: "/sign-up?plan=starter",
     highlighted: false,
   },
   {
     name: "Growth",
-    price: "₹9,999",
+    price: "₹12,999",
     period: "/month",
     desc: "Full outbound automation",
-    features: ["15,000 credits/month", "Unlimited campaigns", "5,000 leads in database", "Everything in Starter", "A/Z testing", "Priority support"],
+    badge: "Most Popular",
+    features: ["8,000 credits/month", "500 leads", "Unlimited campaigns", "25 multi-agent runs/mo", "A/Z testing", "Apollo.io integration"],
     cta: "Start 14-day trial",
     href: "/sign-up?plan=growth",
     highlighted: true,
+  },
+  {
+    name: "Scale",
+    price: "₹24,999",
+    period: "/month",
+    desc: "Best Value vs Artisan",
+    features: ["20,000 credits/month", "2,000 leads", "Unlimited campaigns", "Unlimited multi-agent runs", "Dedicated CSM", "Slack support"],
+    cta: "Start 14-day trial",
+    href: "/sign-up?plan=scale",
+    highlighted: false,
   },
   {
     name: "Enterprise",
     price: "Custom",
     period: "",
     desc: "Unlimited scale",
-    features: ["Unlimited credits", "Dedicated CSM", "SSO/SAML", "Audit logs", "Slack channel"],
+    features: ["Custom credits", "SSO/SAML", "Audit logs", "Dedicated implementation"],
     cta: "Book a demo",
     href: "/contact",
     highlighted: false,
@@ -110,7 +121,7 @@ const FEATURE_CHIPS = [
 const PRESS = ["YourStory", "Inc42", "Economic Times", "Entrackr", "StartupStories"]
 
 const FAQ = [
-  { q: "How does the free plan work?", a: "Sign up and get 300 credits per month, forever. No credit card needed. Use credits to search, enrich leads, and explore the platform. Upgrade when you're ready to run campaigns." },
+  { q: "How does the free trial work?", a: "Sign up and get 10,000 credits for 14 days with all features unlocked. No credit card needed. Explore the full platform — prospecting, email, multi-agent runs — and upgrade when you're ready." },
   { q: "Can Arya send WhatsApp messages?", a: "Yes! Arya supports WhatsApp Business API, a channel where Indian prospects actually respond. This is unavailable in most global tools." },
   { q: "Is this compliant with GDPR and India DPDPA?", a: "Absolutely. All data handling is GDPR and India DPDPA compliant. We provide opt-out links and honor unsubscribe requests automatically." },
   { q: "How is this different from Apollo or Instantly?", a: "Arya is built for India-first B2B. WhatsApp outreach, Hindi/Hinglish support, pricing 5x cheaper than US tools, Indian company database, and flexible payment options." },
@@ -169,7 +180,7 @@ export default function LandingPage() {
       <div className="min-h-screen bg-[#FAFAFA] text-[#0A0A0A]">
         {/* Announcement Bar */}
         <div className="bg-[#6C47FF] text-white text-sm py-2.5 text-center">
-          Start free, 300 credits included. No credit card required.
+          Start free, 10,000 credits included. No credit card required.
           <Link href="/sign-up" className="underline ml-2 font-medium">
             Get started <ArrowRight className="inline h-3 w-3" />
           </Link>
@@ -221,7 +232,7 @@ export default function LandingPage() {
                     href="/sign-up"
                     className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#6C47FF] px-6 py-3.5 text-base font-semibold text-white hover:bg-[#5A38E0] transition-colors animate-cta-glow"
                   >
-                    Start free. 300 credits included <ArrowRight className="h-4 w-4" />
+                    Start free. 10,000 credits included <ArrowRight className="h-4 w-4" />
                   </Link>
                   <Link
                     href="/contact"
@@ -595,9 +606,9 @@ export default function LandingPage() {
               </div>
               <div className="rounded-2xl bg-white border-2 border-[#6C47FF] p-8 flex-1 max-w-xs shadow-lg card-lift">
                 <p className="text-sm text-[#6C47FF] mb-2 font-medium">Arya</p>
-                <p className="text-4xl font-bold text-[#6C47FF]">₹4,999</p>
+                <p className="text-4xl font-bold text-[#6C47FF]">₹6,999</p>
                 <p className="text-sm text-gray-400 mt-1">/month</p>
-                <p className="text-sm text-emerald-600 font-semibold mt-3">Save ₹45,000/month</p>
+                <p className="text-sm text-emerald-600 font-semibold mt-3">Save ₹43,000/month</p>
               </div>
             </m.div>
           </div>
@@ -614,7 +625,7 @@ export default function LandingPage() {
           >
             <h2 className="text-4xl font-bold">Put your outbound on autopilot</h2>
             <p className="text-violet-200 mt-4 text-lg">
-              Start free. 300 credits included. No credit card needed.
+              Start free. 10,000 credits included. No credit card needed.
             </p>
             <Link
               href="/sign-up"

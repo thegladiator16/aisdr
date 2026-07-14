@@ -10,12 +10,12 @@ export function CreditEstimator() {
   const credits = leads * steps;
 
   const plan =
-    credits <= 500
-      ? { name: "Free", href: "/sign-up" }
-      : credits <= 5000
+    credits <= 3000
       ? { name: "Starter", href: "/sign-up?plan=starter" }
-      : credits <= 20000
+      : credits <= 8000
       ? { name: "Growth", href: "/sign-up?plan=growth" }
+      : credits <= 20000
+      ? { name: "Scale", href: "/sign-up?plan=scale" }
       : { name: "Enterprise", href: "/contact" };
 
   return (

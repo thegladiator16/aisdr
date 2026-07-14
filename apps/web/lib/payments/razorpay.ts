@@ -38,25 +38,25 @@ export const razorpay = new Proxy({} as Razorpay, {
 
 // Amounts in paise (smallest INR unit — 1 INR = 100 paise).
 // Monthly prices in INR:
-//   Starter: ₹4,999   Growth: ₹9,999
+//   Starter: ₹6,999   Growth: ₹12,999   Scale: ₹24,999
 // Yearly-billed (per-month equivalent, ~17% off):
-//   Starter yearly per mo: ₹4,166   Growth yearly per mo: ₹8,333
+//   Starter: ₹5,833   Growth: ₹10,833   Scale: ₹20,833
 export const PLAN_PRICES_INR: Record<string, { monthly: number; yearly: number }> = {
-  starter: { monthly: 499900, yearly: 416600 * 12 },
-  growth:  { monthly: 999900, yearly: 833300 * 12 },
-  scale:   { monthly: 0, yearly: 0 }, // custom — contact sales
+  starter: { monthly: 699900, yearly: 583300 * 12 },
+  growth:  { monthly: 1299900, yearly: 1083300 * 12 },
+  scale:   { monthly: 2499900, yearly: 2083300 * 12 },
 };
 
 // Amounts in cents (smallest USD unit). Fixed FX at INR_PER_USD = 85 so USD
-// prices ladder with INR: Starter ₹4,999 → $59, Growth ₹9,999 → $118,
-// yearly-per-month $49 / $98. Total yearly = per-month × 12.
+// prices ladder with INR: Starter ₹6,999 → $82, Growth ₹12,999 → $153,
+// Scale ₹24,999 → $294. Yearly-per-month ~17% off.
 // International charges route through PayPal via Razorpay's PayPal wallet.
 export const INR_PER_USD = 85;
 
 export const PLAN_PRICES_USD: Record<string, { monthly: number; yearly: number }> = {
-  starter: { monthly: 5900, yearly: 4900 * 12 },
-  growth:  { monthly: 11800, yearly: 9800 * 12 },
-  scale:   { monthly: 0, yearly: 0 },
+  starter: { monthly: 8200, yearly: 6800 * 12 },
+  growth:  { monthly: 15300, yearly: 12700 * 12 },
+  scale:   { monthly: 29400, yearly: 24400 * 12 },
 };
 
 export type SupportedCurrency = "INR" | "USD";
