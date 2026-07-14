@@ -137,8 +137,8 @@ export default function SlackWebhookForm({ initialConnected, initialChannel }: P
           {error && <p className="text-xs text-red-600">{error}</p>}
         </div>
       ) : (
-        <div className="space-y-3 mt-auto">
-          <div className="space-y-2">
+        <>
+          <div className="space-y-3">
             <input
               type="url"
               value={webhookUrl}
@@ -154,32 +154,32 @@ export default function SlackWebhookForm({ initialConnected, initialChannel }: P
               className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
             />
             {error && <p className="text-xs text-red-600">{error}</p>}
+
+            <details className="text-xs text-gray-500">
+              <summary className="cursor-pointer hover:text-gray-700 flex items-center gap-1">
+                <ExternalLink className="h-3 w-3" />
+                How to get your webhook URL
+              </summary>
+              <ol className="mt-2 space-y-1.5 pl-4 list-decimal text-gray-500">
+                <li>Go to <a href="https://api.slack.com/apps" target="_blank" rel="noopener noreferrer" className="text-violet-600 hover:underline">api.slack.com/apps</a></li>
+                <li>Click &ldquo;Create New App&rdquo; &rarr; &ldquo;From scratch&rdquo;</li>
+                <li>Name it &ldquo;AryaSDR&rdquo; and select your workspace</li>
+                <li>Go to &ldquo;Incoming Webhooks&rdquo; &rarr; enable it</li>
+                <li>Click &ldquo;Add New Webhook to Workspace&rdquo;</li>
+                <li>Choose a channel and copy the webhook URL</li>
+              </ol>
+            </details>
           </div>
 
           <button
             onClick={handleConnect}
             disabled={loading}
-            className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-[#6C47FF] px-4 py-2 text-sm font-medium text-white hover:bg-[#5a3ad4] active:scale-[0.98] transition-all disabled:opacity-50"
+            className="mt-auto w-full inline-flex items-center justify-center gap-2 rounded-lg bg-[#6C47FF] px-4 py-2 text-sm font-medium text-white hover:bg-[#5a3ad4] active:scale-[0.98] transition-all disabled:opacity-50"
           >
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <BrandLogo brand="slack" className="h-4 w-4" />}
             Connect Slack
           </button>
-
-          <details className="text-xs text-gray-500">
-            <summary className="cursor-pointer hover:text-gray-700 flex items-center gap-1">
-              <ExternalLink className="h-3 w-3" />
-              How to get your webhook URL
-            </summary>
-            <ol className="mt-2 space-y-1.5 pl-4 list-decimal text-gray-500">
-              <li>Go to <a href="https://api.slack.com/apps" target="_blank" rel="noopener noreferrer" className="text-violet-600 hover:underline">api.slack.com/apps</a></li>
-              <li>Click &ldquo;Create New App&rdquo; &rarr; &ldquo;From scratch&rdquo;</li>
-              <li>Name it &ldquo;AryaSDR&rdquo; and select your workspace</li>
-              <li>Go to &ldquo;Incoming Webhooks&rdquo; &rarr; enable it</li>
-              <li>Click &ldquo;Add New Webhook to Workspace&rdquo;</li>
-              <li>Choose a channel and copy the webhook URL</li>
-            </ol>
-          </details>
-        </div>
+        </>
       )}
     </div>
   );
