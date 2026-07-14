@@ -477,8 +477,6 @@ export default function ManageAryaPage() {
         description: "Scale daily send volume across multiple inboxes without hurting deliverability",
         action: "Buy mailboxes",
         completed: false,
-        disabled: true,
-        disabledReason: "Not available yet — multi-mailbox sending coming soon",
         icon: Inbox,
         credits: 1000,
       },
@@ -488,8 +486,6 @@ export default function ManageAryaPage() {
         description: "Hand Arya the wheel to run outbound end-to-end without your approval",
         action: "Enable autopilot",
         completed: false,
-        disabled: true,
-        disabledReason: "Autopilot is currently in closed beta",
         icon: Zap,
         credits: 400,
       },
@@ -499,8 +495,6 @@ export default function ManageAryaPage() {
         description: "Let Arya handle objections, answer questions, and book meetings on her own",
         action: "Enable replies",
         completed: false,
-        disabled: true,
-        disabledReason: "Autonomous replies coming soon — currently drafts are created for your approval",
         icon: Reply,
         credits: 600,
       },
@@ -555,8 +549,6 @@ export default function ManageAryaPage() {
         description: "Get reply alerts and approve drafts inside your workspace",
         action: "Connect Slack",
         completed: hasSlack,
-        disabled: true,
-        disabledReason: "Slack integration coming soon",
         icon: Hash,
         credits: 200,
       },
@@ -611,6 +603,19 @@ export default function ManageAryaPage() {
           break;
         case "Set up tracking":
           router.push("/settings/integrations");
+          break;
+        case "Connect Slack":
+          router.push("/settings/integrations");
+          break;
+        case "Buy mailboxes":
+          router.push("/settings/mailboxes");
+          break;
+        case "Enable autopilot":
+          router.push("/dashboard/agents");
+          break;
+        case "Enable replies":
+          router.push("/dashboard/manage?tab=replies");
+          setActiveTab("replies");
           break;
         case "Choose plan":
           router.push("/pricing");
