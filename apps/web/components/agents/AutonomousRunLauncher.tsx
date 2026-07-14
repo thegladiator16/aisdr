@@ -84,6 +84,7 @@ export function AutonomousRunLauncher({ campaignId }: { campaignId?: string }) {
             if (e.runId && e.runId !== "unknown") lastRunId = e.runId;
             if (e.kind === "run_completed") {
               toast.success("Autonomous run complete");
+              window.dispatchEvent(new Event("aryasdr:credits-updated"));
             } else if (e.kind === "run_failed") {
               toast.error(e.message || "Autonomous run failed");
             }

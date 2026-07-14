@@ -14,7 +14,13 @@ interface Run {
   errorMessage: string | null;
   startedAt: string;
   completedAt: string | null;
-  output: Record<string, unknown> | null;
+  output: {
+    creditsUsed?: number;
+    creditBreakdown?: Record<string, number>;
+    leadCount?: number;
+    emailCount?: number;
+    [key: string]: unknown;
+  } | null;
 }
 
 interface Task {
@@ -193,6 +199,11 @@ export default function AgentsDashboard() {
                       </span>
                     </div>
                     <p className="text-sm text-gray-900 truncate">{r.goal}</p>
+                    {r.status === "completed" && r.output?.creditsUsed != null && (
+                      <p className="text-[10px] text-violet-600 font-medium mt-0.5">
+                        Credits used: {r.output.creditsUsed}
+                      </p>
+                    )}
                   </div>
                   <ChevronRight className="h-4 w-4 text-gray-300 shrink-0 mt-1" />
                 </button>
@@ -277,6 +288,32 @@ export default function AgentsDashboard() {
                   );
                 })}
               </div>
+
+              {detail.run.output?.creditsUsed != null && (
+                <div className="rounded-lg border border-violet-100 bg-violet-50/60 px-4 py-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-xs font-semibold text-violet-700 uppercase tracking-wider">
+                      Credits used
+                    </h3>
+                    <span className="text-sm font-bold text-violet-800">
+                      {detail.run.output.creditsUsed}
+                    </span>
+                  </div>
+                  {detail.run.output.creditBreakdown &&
+                    Object.keys(detail.run.output.creditBreakdown).length > 0 && (
+                      <div className="space-y-1">
+                        {Object.entries(detail.run.output.creditBreakdown).map(
+                          ([agent, credits]) => (
+                            <div key={agent} className="flex justify-between text-xs text-violet-700">
+                              <span className="capitalize">{agent}</span>
+                              <span className="font-medium">{credits}</span>
+                            </div>
+                          )
+                        )}
+                      </div>
+                    )}
+                </div>
+              )}
 
               {detail.run.output && (
                 <div>

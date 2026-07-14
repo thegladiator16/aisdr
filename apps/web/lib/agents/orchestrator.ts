@@ -35,8 +35,10 @@ import {
   outreachMessages,
   replyDrafts,
   users,
+  subscriptions,
 } from "@/lib/db/schema";
 import { ensureAgentTables } from "./schema";
+import { consumeCredits } from "@/lib/credits";
 import { agentLLM, isAgentsConfigured } from "./llm";
 import {
   ORCHESTRATOR_PROMPT,
@@ -56,6 +58,20 @@ import {
 } from "./tools/serper";
 import { getBookingLinkForUser, isCalcomConfigured } from "./tools/calcom";
 import { GmailClient } from "@/lib/integrations/gmail";
+
+/* ---------- Credit costs ---------- */
+
+export const AGENT_CREDIT_COSTS = {
+  orchestrator: 10,      // flat per run
+  perLead: 5,            // prospecting
+  perResearched: 8,      // research (Serper)
+  perEmail: 10,          // copywriter
+  perSent: 22,           // sender (matches campaign send cost)
+  replyClassification: 5,
+  meetingBooking: 15,
+} as const;
+
+export const MIN_CREDITS_TO_RUN = 50;
 
 /* ---------- Types ---------- */
 
@@ -149,6 +165,16 @@ const AgentState = Annotation.Root({
   researched: Annotation<Researched[]>({ reducer: (_a, b) => b, default: () => [] }),
   emails: Annotation<Email[]>({ reducer: (_a, b) => b, default: () => [] }),
   schedule: Annotation<Scheduled[]>({ reducer: (_a, b) => b, default: () => [] }),
+  // Credit tracking — each node appends its slice; the reducer accumulates.
+  creditsUsed: Annotation<number>({ reducer: (a, b) => (a ?? 0) + (b ?? 0), default: () => 0 }),
+  creditBreakdown: Annotation<Record<string, number>>({
+    reducer: (a, b) => {
+      const out: Record<string, number> = { ...(a ?? {}) };
+      for (const [k, v] of Object.entries(b ?? {})) out[k] = (out[k] ?? 0) + v;
+      return out;
+    },
+    default: () => ({}),
+  }),
 });
 
 type StateT = typeof AgentState.State;
@@ -398,11 +424,20 @@ async function orchestratorNode(state: StateT): Promise<Partial<StateT>> {
       `Goal: ${state.goal}\nICP: ${JSON.stringify(state.icp)}`
     );
     await completeTask(state.runId, taskId, "orchestrator", out);
+    await consumeCredits({
+      userId: state.userId,
+      amount: AGENT_CREDIT_COSTS.orchestrator,
+      action: "agent_orchestrator",
+      campaignId: state.campaignId ?? undefined,
+    });
+    await logTask(state.runId, taskId, `Credits deducted: ${AGENT_CREDIT_COSTS.orchestrator} (orchestrator run).`);
     return {
       plan: out.plan ?? [],
       audienceSize: out.audienceSize ?? 20,
       channels: out.channels?.length ? out.channels : ["email"],
       sequence: seq,
+      creditsUsed: AGENT_CREDIT_COSTS.orchestrator,
+      creditBreakdown: { orchestrator: AGENT_CREDIT_COSTS.orchestrator },
     };
   } catch (err) {
     await failTask(state.runId, taskId, "orchestrator", err);
@@ -560,7 +595,17 @@ async function prospectingNode(state: StateT): Promise<Partial<StateT>> {
         hunterErrors: errors.length,
         sampleEmails: leads.slice(0, 3).map((l) => l.email),
       });
-      return { leads, sequence: seq };
+      const prospectingCredits = leads.length * AGENT_CREDIT_COSTS.perLead;
+      if (prospectingCredits > 0) {
+        await consumeCredits({
+          userId: state.userId,
+          amount: prospectingCredits,
+          action: "agent_prospecting",
+          campaignId: state.campaignId ?? undefined,
+        });
+        await logTask(state.runId, taskId, `Credits deducted: ${prospectingCredits} (${leads.length} leads × ${AGENT_CREDIT_COSTS.perLead} each).`);
+      }
+      return { leads, sequence: seq, creditsUsed: prospectingCredits, creditBreakdown: { prospecting: prospectingCredits } };
     }
 
     await logTask(
@@ -614,7 +659,17 @@ async function fallbackProspecting(
       count: leads.length,
       source: "synthesized",
     });
-    return { leads, sequence: seq };
+    const prospectingCredits = leads.length * AGENT_CREDIT_COSTS.perLead;
+    if (prospectingCredits > 0) {
+      await consumeCredits({
+        userId: state.userId,
+        amount: prospectingCredits,
+        action: "agent_prospecting",
+        campaignId: state.campaignId ?? undefined,
+      });
+      await logTask(state.runId, taskId, `Credits deducted: ${prospectingCredits} (${leads.length} leads × ${AGENT_CREDIT_COSTS.perLead} each).`);
+    }
+    return { leads, sequence: seq, creditsUsed: prospectingCredits, creditBreakdown: { prospecting: prospectingCredits } };
   } catch (parseErr) {
     // JSON parsing failed even after all cleanups — log and continue with
     // zero leads so the rest of the graph (research, copywriter, sender)
@@ -734,7 +789,17 @@ async function researchNode(state: StateT): Promise<Partial<StateT>> {
       companiesWithWebHits: webHits,
       serperConfigured: isSerperConfigured(),
     });
-    return { leads: enrichedLeads, researched, sequence: seq };
+    const researchCredits = researched.length * AGENT_CREDIT_COSTS.perResearched;
+    if (researchCredits > 0) {
+      await consumeCredits({
+        userId: state.userId,
+        amount: researchCredits,
+        action: "agent_research",
+        campaignId: state.campaignId ?? undefined,
+      });
+      await logTask(state.runId, taskId, `Credits deducted: ${researchCredits} (${researched.length} leads × ${AGENT_CREDIT_COSTS.perResearched} each).`);
+    }
+    return { leads: enrichedLeads, researched, sequence: seq, creditsUsed: researchCredits, creditBreakdown: { research: researchCredits } };
   } catch (err) {
     await failTask(state.runId, taskId, "research", err);
   }
@@ -763,10 +828,21 @@ async function copywriterNode(state: StateT): Promise<Partial<StateT>> {
       COPYWRITER_PROMPT,
       `Prospects with research:\n${JSON.stringify(context)}`
     );
+    const emailCount = out.emails?.length ?? 0;
     await completeTask(state.runId, taskId, "copywriter", {
-      count: out.emails?.length ?? 0,
+      count: emailCount,
     });
-    return { emails: out.emails ?? [], sequence: seq };
+    const copywriterCredits = emailCount * AGENT_CREDIT_COSTS.perEmail;
+    if (copywriterCredits > 0) {
+      await consumeCredits({
+        userId: state.userId,
+        amount: copywriterCredits,
+        action: "agent_copywriter",
+        campaignId: state.campaignId ?? undefined,
+      });
+      await logTask(state.runId, taskId, `Credits deducted: ${copywriterCredits} (${emailCount} emails × ${AGENT_CREDIT_COSTS.perEmail} each).`);
+    }
+    return { emails: out.emails ?? [], sequence: seq, creditsUsed: copywriterCredits, creditBreakdown: { copywriter: copywriterCredits } };
   } catch (err) {
     await failTask(state.runId, taskId, "copywriter", err);
   }
@@ -805,7 +881,7 @@ async function senderNode(state: StateT): Promise<Partial<StateT>> {
         skipped: state.emails.length,
         skippedReason: "gmail_not_connected",
       });
-      return { schedule, sequence: seq };
+      return { schedule, sequence: seq, creditsUsed: 0, creditBreakdown: { sender: 0 } };
     }
 
     const gmailClient = new GmailClient(gmail.accessToken, gmail.refreshToken);
@@ -912,7 +988,17 @@ async function senderNode(state: StateT): Promise<Partial<StateT>> {
       skippedNoEmail,
       gmailAccount: gmail.accountEmail,
     });
-    return { schedule, sequence: seq };
+    const senderCredits = delivered * AGENT_CREDIT_COSTS.perSent;
+    if (senderCredits > 0) {
+      await consumeCredits({
+        userId: state.userId,
+        amount: senderCredits,
+        action: "agent_sender",
+        campaignId: state.campaignId ?? undefined,
+      });
+      await logTask(state.runId, taskId, `Credits deducted: ${senderCredits} (${delivered} emails sent × ${AGENT_CREDIT_COSTS.perSent} each).`);
+    }
+    return { schedule, sequence: seq, creditsUsed: senderCredits, creditBreakdown: { sender: senderCredits } };
   } catch (err) {
     await failTask(state.runId, taskId, "sender", err);
   }
@@ -948,6 +1034,17 @@ export async function runCampaignGraph(
     throw new Error("ANTHROPIC_API_KEY not configured");
   }
 
+  // Pre-run credit check — must have at least MIN_CREDITS_TO_RUN remaining.
+  const [sub] = await db
+    .select({ leadsLimit: subscriptions.leadsLimit, leadsUsed: subscriptions.leadsUsed })
+    .from(subscriptions)
+    .where(eq(subscriptions.userId, input.userId))
+    .limit(1);
+  const remaining = (sub?.leadsLimit ?? 0) - (sub?.leadsUsed ?? 0);
+  if (remaining < MIN_CREDITS_TO_RUN) {
+    throw new Error("Insufficient credits. Please upgrade your plan.");
+  }
+
   const [run] = await db
     .insert(agentRuns)
     .values({
@@ -978,6 +1075,8 @@ export async function runCampaignGraph(
       researched: [],
       emails: [],
       schedule: [],
+      creditsUsed: 0,
+      creditBreakdown: {},
     });
     const leadSource = final.leads.find((l) => l.source)?.source ?? "unknown";
     await db
@@ -990,6 +1089,8 @@ export async function runCampaignGraph(
           emailCount: final.emails.length,
           firstSendAt: final.schedule[0]?.sendAt ?? null,
           leadSource,
+          creditsUsed: final.creditsUsed,
+          creditBreakdown: final.creditBreakdown,
           sampleLeads: final.leads.slice(0, 5).map((l) => ({
             name: [l.firstName, l.lastName].filter(Boolean).join(" ").trim(),
             title: l.jobTitle || "",
