@@ -58,6 +58,8 @@ import {
 } from "./tools/serper";
 import { getBookingLinkForUser, isCalcomConfigured } from "./tools/calcom";
 import { GmailClient } from "@/lib/integrations/gmail";
+import { sendConnectionRequest, sendLinkedInMessage, isLinkedInConfigured } from "./tools/linkedin";
+import { sendWhatsAppMessage, isWhatsAppConfigured } from "./tools/whatsapp";
 
 /* ---------- Credit costs ---------- */
 
@@ -1006,6 +1008,106 @@ async function senderNode(state: StateT): Promise<Partial<StateT>> {
   return {};
 }
 
+/* ---------- LinkedIn outreach node ---------- */
+
+async function linkedinNode(state: StateT): Promise<Partial<StateT>> {
+  if (!state.channels.includes("linkedin") || !isLinkedInConfigured()) {
+    return {};
+  }
+
+  const seq = state.sequence + 1;
+  const taskId = await startTask(state.runId, "linkedin_outreach", seq, {
+    leadCount: state.leads.length,
+  });
+
+  try {
+    let sent = 0;
+    let skipped = 0;
+
+    for (const lead of state.leads) {
+      const linkedinUrl = lead.linkedin;
+      if (!linkedinUrl) {
+        skipped++;
+        continue;
+      }
+
+      try {
+        const note = state.researched.find((r) => r.leadIndex === state.leads.indexOf(lead))?.hook;
+        const message = note
+          ? `Hi ${lead.firstName}, ${note} Would love to connect and share how we might help.`
+          : `Hi ${lead.firstName}, I came across your profile and thought we should connect.`;
+
+        await sendConnectionRequest(linkedinUrl, message);
+        sent++;
+
+        if (sent <= 3 || sent % 5 === 0) {
+          await logTask(state.runId, taskId, `Connection request sent to ${lead.firstName} ${lead.lastName} (${linkedinUrl}).`);
+        }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        await logTask(state.runId, taskId, `LinkedIn send failed for ${lead.firstName}: ${msg.slice(0, 120)}`);
+      }
+    }
+
+    await logTask(state.runId, taskId, `LinkedIn outreach: ${sent} sent, ${skipped} skipped (no profile URL).`);
+    await completeTask(state.runId, taskId, "linkedin_outreach", { sent, skipped });
+    return { sequence: seq };
+  } catch (err) {
+    await failTask(state.runId, taskId, "linkedin_outreach", err);
+  }
+  return {};
+}
+
+/* ---------- WhatsApp outreach node ---------- */
+
+async function whatsappNode(state: StateT): Promise<Partial<StateT>> {
+  if (!state.channels.includes("whatsapp") || !isWhatsAppConfigured()) {
+    return {};
+  }
+
+  const seq = state.sequence + 1;
+  const taskId = await startTask(state.runId, "whatsapp_outreach", seq, {
+    leadCount: state.leads.length,
+  });
+
+  try {
+    let sent = 0;
+    let skipped = 0;
+
+    for (const lead of state.leads) {
+      const phone = (lead as any).phone;
+      if (!phone) {
+        skipped++;
+        continue;
+      }
+
+      try {
+        const research = state.researched.find((r) => r.leadIndex === state.leads.indexOf(lead));
+        const body = research?.hook
+          ? `Hi ${lead.firstName}, ${research.hook} I'd love to discuss how we can help ${lead.companyName}. Would you be open to a quick chat?`
+          : `Hi ${lead.firstName}, I'm reaching out from AryaSDR. Would love to discuss how we can help ${lead.companyName} with outreach automation.`;
+
+        await sendWhatsAppMessage(phone, body);
+        sent++;
+
+        if (sent <= 3) {
+          await logTask(state.runId, taskId, `WhatsApp sent to ${lead.firstName} at ${phone.slice(0, 6)}***.`);
+        }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        await logTask(state.runId, taskId, `WhatsApp failed for ${lead.firstName}: ${msg.slice(0, 120)}`);
+      }
+    }
+
+    await logTask(state.runId, taskId, `WhatsApp outreach: ${sent} sent, ${skipped} skipped (no phone).`);
+    await completeTask(state.runId, taskId, "whatsapp_outreach", { sent, skipped });
+    return { sequence: seq };
+  } catch (err) {
+    await failTask(state.runId, taskId, "whatsapp_outreach", err);
+  }
+  return {};
+}
+
 /* ---------- Graph ---------- */
 
 function buildGraph() {
@@ -1015,12 +1117,16 @@ function buildGraph() {
     .addNode("research", researchNode)
     .addNode("copywriter", copywriterNode)
     .addNode("sender", senderNode)
+    .addNode("linkedin_outreach", linkedinNode)
+    .addNode("whatsapp_outreach", whatsappNode)
     .addEdge(START, "orchestrator")
     .addEdge("orchestrator", "prospecting")
     .addEdge("prospecting", "research")
     .addEdge("research", "copywriter")
     .addEdge("copywriter", "sender")
-    .addEdge("sender", END)
+    .addEdge("sender", "linkedin_outreach")
+    .addEdge("linkedin_outreach", "whatsapp_outreach")
+    .addEdge("whatsapp_outreach", END)
     .compile();
 }
 

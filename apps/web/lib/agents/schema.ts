@@ -91,6 +91,130 @@ export async function ensureAgentTables(): Promise<void> {
     `);
     await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_outreach_messages_agent_run ON outreach_messages(agent_run_id);`);
 
+    // LinkedIn outreach tracking
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS linkedin_outreach (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        lead_id uuid REFERENCES leads(id) ON DELETE SET NULL,
+        profile_url text NOT NULL,
+        action varchar(32) NOT NULL DEFAULT 'connection_request',
+        message text,
+        status varchar(32) NOT NULL DEFAULT 'pending',
+        sent_at timestamptz,
+        created_at timestamptz NOT NULL DEFAULT now()
+      );
+    `);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_linkedin_outreach_user ON linkedin_outreach(user_id);`);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_linkedin_outreach_lead ON linkedin_outreach(lead_id);`);
+
+    // CRM integrations
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS crm_integrations (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        provider varchar(32) NOT NULL,
+        access_token text,
+        refresh_token text,
+        instance_url text,
+        settings jsonb DEFAULT '{}'::jsonb,
+        last_synced_at timestamptz,
+        created_at timestamptz NOT NULL DEFAULT now(),
+        updated_at timestamptz NOT NULL DEFAULT now()
+      );
+    `);
+    await db.execute(sql`CREATE UNIQUE INDEX IF NOT EXISTS idx_crm_integrations_user_provider ON crm_integrations(user_id, provider);`);
+
+    // WhatsApp messages
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS whatsapp_messages (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        lead_id uuid REFERENCES leads(id) ON DELETE SET NULL,
+        campaign_id uuid REFERENCES campaigns(id) ON DELETE SET NULL,
+        to_number varchar(32) NOT NULL,
+        body text NOT NULL,
+        status varchar(32) NOT NULL DEFAULT 'pending',
+        external_sid varchar(128),
+        sent_at timestamptz,
+        delivered_at timestamptz,
+        read_at timestamptz,
+        error text,
+        created_at timestamptz NOT NULL DEFAULT now()
+      );
+    `);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_whatsapp_messages_user ON whatsapp_messages(user_id);`);
+
+    // Voice calls
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS voice_calls (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        lead_id uuid REFERENCES leads(id) ON DELETE SET NULL,
+        campaign_id uuid REFERENCES campaigns(id) ON DELETE SET NULL,
+        to_number varchar(32) NOT NULL,
+        duration integer DEFAULT 0,
+        status varchar(32) NOT NULL DEFAULT 'pending',
+        transcript text,
+        outcome varchar(64),
+        recording_url text,
+        external_sid varchar(128),
+        created_at timestamptz NOT NULL DEFAULT now()
+      );
+    `);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_voice_calls_user ON voice_calls(user_id);`);
+
+    // SMS messages
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS sms_messages (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        lead_id uuid REFERENCES leads(id) ON DELETE SET NULL,
+        campaign_id uuid REFERENCES campaigns(id) ON DELETE SET NULL,
+        to_number varchar(32) NOT NULL,
+        body text NOT NULL,
+        status varchar(32) NOT NULL DEFAULT 'pending',
+        external_sid varchar(128),
+        sent_at timestamptz,
+        error text,
+        created_at timestamptz NOT NULL DEFAULT now()
+      );
+    `);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_sms_messages_user ON sms_messages(user_id);`);
+
+    // Warmup sessions
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS warmup_sessions (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        mailbox_email varchar(320) NOT NULL,
+        status varchar(32) NOT NULL DEFAULT 'active',
+        started_at timestamptz NOT NULL DEFAULT now(),
+        paused_at timestamptz,
+        daily_limit integer NOT NULL DEFAULT 5,
+        health_score integer NOT NULL DEFAULT 50,
+        created_at timestamptz NOT NULL DEFAULT now(),
+        updated_at timestamptz NOT NULL DEFAULT now()
+      );
+    `);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_warmup_sessions_user ON warmup_sessions(user_id);`);
+
+    // Warmup emails
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS warmup_emails (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        session_id uuid NOT NULL REFERENCES warmup_sessions(id) ON DELETE CASCADE,
+        direction varchar(16) NOT NULL DEFAULT 'outbound',
+        subject varchar(500),
+        status varchar(32) NOT NULL DEFAULT 'sent',
+        sent_at timestamptz NOT NULL DEFAULT now(),
+        replied_at timestamptz,
+        bounced_at timestamptz,
+        created_at timestamptz NOT NULL DEFAULT now()
+      );
+    `);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_warmup_emails_session ON warmup_emails(session_id);`);
+
     ensured = true;
   } catch (err) {
     console.error("[agents] ensureAgentTables failed:", err);

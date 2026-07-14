@@ -29,7 +29,7 @@ import {
   PanelLeftOpen,
   Building2,
   Coins,
-
+  Brain,
 } from "lucide-react";
 import { useUser, useClerk } from "@clerk/nextjs";
 import { AryaAvatar } from "@/components/arya/AryaAvatar";
@@ -43,6 +43,7 @@ const MANAGE_ITEMS = [
   { href: "/dashboard/agents", label: "Agents", icon: Bot },
   { href: "/campaigns", label: "Campaigns", icon: Send },
   { href: "/analytics", label: "Analytics", icon: BarChart2 },
+  { href: "/dashboard/coaching", label: "AI Coaching", icon: Brain },
   { href: "/dashboard/team", label: "Team", icon: Users2 },
 ];
 

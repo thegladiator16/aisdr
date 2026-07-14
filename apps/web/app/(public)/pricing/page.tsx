@@ -7,6 +7,7 @@ import { Check, X, Zap } from 'lucide-react'
 import { useUser } from '@clerk/nextjs'
 import { toast } from 'sonner'
 import { AryaAvatar } from "@/components/arya/AryaAvatar"
+import { ROICalculator } from "@/components/pricing/ROICalculator"
 import {
   resolveCurrency,
   writeStoredCurrency,
@@ -673,6 +674,18 @@ export default function PricingPage() {
         <p className="mx-auto max-w-3xl px-6 pt-8 text-center text-xs text-gray-400">
           * International payments via PayPal. Indian payments via Razorpay (UPI / Cards / NetBanking / Wallets).
         </p>
+      </section>
+
+      {/* ROI Calculator */}
+      <section className="mx-auto max-w-3xl px-6 py-16">
+        <motion.div
+          initial={{ opacity: 0, y: 24 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.5 }}
+        >
+          <ROICalculator />
+        </motion.div>
       </section>
 
       {/* FAQ */}

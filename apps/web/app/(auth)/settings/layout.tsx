@@ -10,6 +10,7 @@ import {
   Plug,
   CreditCard,
   KeyRound,
+  Mail,
 } from "lucide-react";
 
 const navItems = [
@@ -18,6 +19,8 @@ const navItems = [
   { label: "Access controls", href: "/settings/access-controls", icon: Shield },
   { label: "Notifications", href: "/settings/notifications", icon: Bell },
   { label: "Integrations", href: "/settings/integrations", icon: Plug },
+  { label: "Mailboxes", href: "/settings/mailboxes", icon: Mail },
+  { label: "Deliverability", href: "/settings/deliverability", icon: Shield },
   { label: "API keys", href: "/settings/api-keys", icon: KeyRound },
   { label: "Billing", href: "/settings/billing", icon: CreditCard },
 ];
