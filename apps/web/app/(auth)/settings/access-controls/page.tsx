@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Plus, X, Trash2, Route, Loader2 } from "lucide-react";
+import { Plus, X, Trash2, Route, Loader2, Shield, UserCheck, HelpCircle, UserPlus } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 type FeatureKey =
   | "campaigns"
@@ -14,15 +15,15 @@ type FeatureKey =
   | "creditPurchasing"
   | "billing";
 
-const features: { key: FeatureKey; label: string }[] = [
-  { key: "campaigns", label: "Campaigns" },
-  { key: "manageArya", label: "Manage Arya" },
-  { key: "inboxTasks", label: "Inbox & tasks" },
-  { key: "integrations", label: "Integrations" },
-  { key: "userManagement", label: "User management" },
-  { key: "accessTeam", label: "Access team members' tasks and inbox" },
-  { key: "creditPurchasing", label: "Credit purchasing" },
-  { key: "billing", label: "Billing" },
+const features: { key: FeatureKey; label: string; tooltip: string }[] = [
+  { key: "campaigns", label: "Campaigns", tooltip: "Create, edit, pause, and delete outreach campaigns" },
+  { key: "manageArya", label: "Manage Arya", tooltip: "Configure Arya's outreach behavior, sequences, and guardrails" },
+  { key: "inboxTasks", label: "Inbox & tasks", tooltip: "View and respond to lead replies, manage action items" },
+  { key: "integrations", label: "Integrations", tooltip: "Connect and manage third-party integrations" },
+  { key: "userManagement", label: "User management", tooltip: "Invite, remove, and manage team member roles" },
+  { key: "accessTeam", label: "Access team members' tasks and inbox", tooltip: "View and act on other team members' inbox items and tasks" },
+  { key: "creditPurchasing", label: "Credit purchasing", tooltip: "Purchase additional credits for the organization" },
+  { key: "billing", label: "Billing", tooltip: "View invoices, update payment method, and manage subscription" },
 ];
 
 type Role = {
@@ -674,6 +675,7 @@ function LeadRoutingSection() {
 /*  Access Controls Page                                               */
 /* ------------------------------------------------------------------ */
 export default function AccessControlsPage() {
+  const router = useRouter();
   const [roles, setRoles] = useState<Role[]>([]);
   const [loading, setLoading] = useState(true);
   const [showNewRoleModal, setShowNewRoleModal] = useState(false);
@@ -755,15 +757,20 @@ export default function AccessControlsPage() {
   return (
     <div className="max-w-4xl space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Access controls</h1>
-        <p className="text-sm text-gray-500 mt-1">
-          Manage permissions and roles for your organization
-        </p>
-        <p className="text-xs text-gray-400 mt-1">
-          These permissions are saved for reference across your roles. They
-          don&apos;t yet restrict actions elsewhere in the app.
-        </p>
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Access controls</h1>
+          <p className="text-sm text-gray-500 mt-1">
+            Manage how different roles can access the features on AryaSDR.
+          </p>
+        </div>
+        <button
+          onClick={() => router.push("/settings/organization")}
+          className="shrink-0 inline-flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700 active:scale-[0.98] transition-all"
+        >
+          <UserPlus className="h-4 w-4" />
+          Invite members
+        </button>
       </div>
 
       {/* Table */}
@@ -774,30 +781,34 @@ export default function AccessControlsPage() {
               <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-6 py-3">
                 Feature
               </th>
-              {roles.map((role) => (
-                <th
-                  key={role.id}
-                  className="text-center text-xs font-medium text-gray-500 uppercase tracking-wider px-6 py-3"
-                >
-                  <div className="flex items-center justify-center gap-2">
-                    {role.name}
-                    {!role.isSystem && (
-                      <button
-                        onClick={() => handleDeleteRole(role)}
-                        disabled={busyKey === `delete:${role.id}`}
-                        title="Delete role"
-                        className="text-gray-300 hover:text-red-500 disabled:opacity-50"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    )}
-                  </div>
-                </th>
-              ))}
+              {roles.map((role) => {
+                const RoleIcon = role.name.toLowerCase() === "admin" ? Shield : UserCheck;
+                return (
+                  <th
+                    key={role.id}
+                    className="text-center text-xs font-medium text-gray-500 px-6 py-3"
+                  >
+                    <div className="flex items-center justify-center gap-1.5">
+                      <RoleIcon className="h-3.5 w-3.5 text-gray-400" />
+                      <span>{role.name}</span>
+                      {!role.isSystem && (
+                        <button
+                          onClick={() => handleDeleteRole(role)}
+                          disabled={busyKey === `delete:${role.id}`}
+                          title="Delete role"
+                          className="text-gray-300 hover:text-red-500 disabled:opacity-50 ml-1"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </button>
+                      )}
+                    </div>
+                  </th>
+                );
+              })}
               <th className="text-center px-6 py-3">
                 <button
                   onClick={() => setShowNewRoleModal(true)}
-                  className="flex items-center gap-1 text-xs font-medium text-violet-600 hover:text-violet-700 mx-auto"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-violet-300 bg-violet-50/50 px-3 py-1.5 text-xs font-medium text-violet-600 hover:bg-violet-100 hover:border-violet-400 transition-all"
                 >
                   <Plus className="h-3.5 w-3.5" />
                   New role
@@ -816,14 +827,25 @@ export default function AccessControlsPage() {
                 </td>
               </tr>
             ) : (
-              features.map(({ key, label }, idx) => (
+              features.map(({ key, label, tooltip }, idx) => (
                 <tr
                   key={key}
                   className={
                     idx < features.length - 1 ? "border-b border-gray-100" : ""
                   }
                 >
-                  <td className="px-6 py-4 text-sm text-gray-700">{label}</td>
+                  <td className="px-6 py-4 text-sm text-gray-700">
+                    <div className="flex items-center gap-1.5 group relative">
+                      {label}
+                      <span className="relative">
+                        <HelpCircle className="h-3.5 w-3.5 text-gray-300 group-hover:text-gray-400 cursor-help" />
+                        <span className="pointer-events-none absolute left-1/2 -translate-x-1/2 bottom-full mb-2 hidden group-hover:block w-52 rounded-lg bg-gray-900 px-3 py-2 text-xs text-white text-center shadow-lg z-30">
+                          {tooltip}
+                          <span className="absolute left-1/2 -translate-x-1/2 top-full border-4 border-transparent border-t-gray-900" />
+                        </span>
+                      </span>
+                    </div>
+                  </td>
                   {roles.map((role) => (
                     <td key={role.id} className="px-6 py-4 text-center">
                       <div className="flex justify-center">
