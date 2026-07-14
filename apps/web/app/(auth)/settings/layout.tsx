@@ -11,14 +11,12 @@ import {
   CreditCard,
   KeyRound,
   Mail,
-  Palette,
 } from "lucide-react";
 
 const navItems = [
   { label: "My profile", href: "/settings/profile", icon: User },
   { label: "Organization", href: "/settings/organization", icon: Building2 },
   { label: "Access controls", href: "/settings/access-controls", icon: Shield },
-  { label: "Appearance", href: "/settings/appearance", icon: Palette },
   { label: "Notifications", href: "/settings/notifications", icon: Bell },
   { label: "Integrations", href: "/settings/integrations", icon: Plug },
   { label: "Mailboxes", href: "/settings/mailboxes", icon: Mail },

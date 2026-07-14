@@ -572,9 +572,9 @@ function LeadRoutingSection() {
             setEditing(null);
             setShowModal(true);
           }}
-          className="inline-flex items-center gap-1.5 rounded-lg bg-[#6C47FF] px-3 py-2 text-xs font-semibold text-white hover:bg-[#5a3ad4] transition-colors"
+          className="shrink-0 inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg bg-[#6C47FF] px-4 py-2 text-sm font-medium text-white hover:bg-[#5a3ad4] transition-colors"
         >
-          <Plus className="h-3.5 w-3.5" />
+          <Plus className="h-4 w-4" />
           New rule
         </button>
       </div>
