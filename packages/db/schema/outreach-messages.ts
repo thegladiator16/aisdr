@@ -55,6 +55,11 @@ export const outreachMessages = pgTable(
     threadId: varchar("thread_id", { length: 500 }),
     error: text("error"),
 
+    // FK to agent_runs when this message was produced by an autonomous
+    // multi-agent run. NULL for manually-sent or sequence-driven sends.
+    // Backfilled via ALTER TABLE in ensureAgentTables — see schema.ts.
+    agentRunId: uuid("agent_run_id"),
+
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
@@ -64,6 +69,7 @@ export const outreachMessages = pgTable(
     userIdx: index("idx_messages_user").on(table.userId),
     statusIdx: index("idx_messages_status").on(table.userId, table.status),
     scheduledIdx: index("idx_messages_scheduled").on(table.scheduledAt),
+    agentRunIdx: index("idx_outreach_messages_agent_run").on(table.agentRunId),
   })
 );
 

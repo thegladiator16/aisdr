@@ -28,6 +28,13 @@ export async function ensureRepliesColumns() {
     await db.execute(
       sql`ALTER TABLE replies ADD COLUMN IF NOT EXISTS thread_id varchar(500)`
     );
+    // rfc_message_id: the RFC 2822 Message-ID header value extracted from
+    // the inbound email (e.g. <CAAxxx@mail.gmail.com>). Used for
+    // In-Reply-To / References threading headers on auto-replies. Distinct
+    // from external_message_id which stores the Gmail API's opaque msg.id.
+    await db.execute(
+      sql`ALTER TABLE replies ADD COLUMN IF NOT EXISTS rfc_message_id varchar(1000)`
+    );
     repliesEnsured = true;
   } catch (err) {
     console.error("[ensure-schema] replies columns failed:", err);

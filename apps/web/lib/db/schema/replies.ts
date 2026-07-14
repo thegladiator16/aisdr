@@ -38,6 +38,10 @@ export const replies = pgTable(
 
     externalMessageId: varchar("external_message_id", { length: 255 }),
     threadId: varchar("thread_id", { length: 500 }),
+    // RFC 2822 Message-ID header value from the inbound mail, e.g.
+    // <CAAxxx@mail.gmail.com>. Used for In-Reply-To/References headers when
+    // auto-replying. external_message_id holds the Gmail API opaque id (dedup).
+    rfcMessageId: varchar("rfc_message_id", { length: 1000 }),
 
     receivedAt: timestamp("received_at", { withTimezone: true }).defaultNow(),
     createdAt: timestamp("created_at", { withTimezone: true })

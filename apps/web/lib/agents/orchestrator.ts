@@ -26,7 +26,16 @@ import { StateGraph, Annotation, START, END } from "@langchain/langgraph";
 import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { agentRuns, agentTasks, agentLogs } from "@/lib/db/schema";
+import {
+  agentRuns,
+  agentTasks,
+  agentLogs,
+  leads as leadsTable,
+  integrations,
+  outreachMessages,
+  replyDrafts,
+  users,
+} from "@/lib/db/schema";
 import { ensureAgentTables } from "./schema";
 import { agentLLM, isAgentsConfigured } from "./llm";
 import {
@@ -40,6 +49,13 @@ import {
   MEETING_BOOKER_PROMPT,
 } from "./prompts";
 import { findByCompanies, isHunterConfigured } from "./tools/hunter";
+import {
+  searchCompanies,
+  isSerperConfigured,
+  type CompanyResearch,
+} from "./tools/serper";
+import { getBookingLinkForUser, isCalcomConfigured } from "./tools/calcom";
+import { GmailClient } from "@/lib/integrations/gmail";
 
 /* ---------- Types ---------- */
 
@@ -88,12 +104,19 @@ interface Lead {
   confidence?: number;
   linkedin?: string | null;
   source?: "hunter" | "synthesized";
+  // Populated by persistLeadsForRun after the row is INSERTed into the
+  // `leads` table. Downstream nodes (sender) use it as the FK on
+  // outreach_messages.lead_id.
+  dbId?: string;
+  // Populated by the research node when Serper found grounded hits.
+  webContext?: CompanyResearch | null;
 }
 
 interface Researched {
   leadIndex: number;
   hook: string;
   painPoint: string;
+  source?: "web" | "generic";
 }
 
 interface Email {
@@ -200,6 +223,105 @@ async function failTask(
   await db.insert(agentLogs).values({ taskId, level: "error", message: msg });
   emit(runId, { kind: "task_failed", runId, taskId, agent, message: msg });
   throw new Error(`${agent}: ${msg}`);
+}
+
+/**
+ * Persist a batch of freshly-prospected leads into the `leads` table so
+ * later nodes (sender) can foreign-key them from outreach_messages.
+ * Best-effort: individual failures are logged but don't sink the run —
+ * the sender will just skip any lead that ended up without a dbId.
+ *
+ * Dedupes by (userId, email) — if a lead with the same email already
+ * exists for this user, we reuse it and skip the INSERT.
+ */
+async function persistLeadsForRun(
+  userId: string,
+  campaignId: string | null | undefined,
+  leadsIn: Lead[]
+): Promise<Lead[]> {
+  const out: Lead[] = [];
+  for (const l of leadsIn) {
+    try {
+      const email = (l.email ?? "").toLowerCase().trim() || null;
+
+      if (email) {
+        // Reuse an existing row for this (user, email) so we don't
+        // accumulate duplicates across runs.
+        const [existing] = await db
+          .select({ id: leadsTable.id })
+          .from(leadsTable)
+          .where(and(eq(leadsTable.userId, userId), eq(leadsTable.email, email)))
+          .limit(1);
+        if (existing) {
+          out.push({ ...l, dbId: existing.id });
+          continue;
+        }
+      }
+
+      const fullName = [l.firstName, l.lastName].filter(Boolean).join(" ").trim() || null;
+      const [row] = await db
+        .insert(leadsTable)
+        .values({
+          userId,
+          campaignId: campaignId ?? null,
+          firstName: l.firstName || null,
+          lastName: l.lastName || null,
+          fullName,
+          email,
+          linkedinUrl: l.linkedin ?? null,
+          companyName: l.companyName || null,
+          industry: l.industry || null,
+          location: l.location || null,
+          jobTitle: l.jobTitle || null,
+          status: "new",
+          source: l.source ?? null,
+        })
+        .returning({ id: leadsTable.id });
+      out.push({ ...l, dbId: row?.id });
+    } catch (err) {
+      console.error("[agents/persistLeadsForRun] insert failed for", l.email, err);
+      out.push(l); // no dbId — sender will skip
+    }
+  }
+  return out;
+}
+
+/** Look up the user's Gmail integration + minimal profile in one query. */
+async function getUserGmailContext(userId: string): Promise<{
+  gmail: {
+    accessToken: string;
+    refreshToken: string;
+    accountEmail: string | null;
+  } | null;
+  calendarLink: string | null;
+}> {
+  const [gmailRow] = await db
+    .select({
+      accessToken: integrations.accessToken,
+      refreshToken: integrations.refreshToken,
+      accountEmail: integrations.accountEmail,
+    })
+    .from(integrations)
+    .where(and(eq(integrations.userId, userId), eq(integrations.type, "gmail")))
+    .limit(1);
+
+  const [userRow] = await db
+    .select({ calendarLink: users.calendarLink })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+
+  return {
+    gmail:
+      gmailRow?.accessToken
+        ? {
+            accessToken: gmailRow.accessToken,
+            refreshToken: gmailRow.refreshToken ?? "",
+            accountEmail: gmailRow.accountEmail ?? null,
+          }
+        : null,
+    calendarLink: userRow?.calendarLink ?? null,
+  };
 }
 
 /** Round-trip Claude with a system prompt + user context, parse the JSON
@@ -364,7 +486,7 @@ async function prospectingNode(state: StateT): Promise<Partial<StateT>> {
 
       const industryTag = state.icp.industry?.[0] ?? "";
       const locationTag = state.icp.location?.[0] ?? "";
-      const leads: Lead[] = hunterLeads.map((h) => ({
+      const rawLeads: Lead[] = hunterLeads.map((h) => ({
         firstName: h.firstName ?? "",
         lastName: h.lastName ?? "",
         // Never fall back to the ICP's role here — the copywriter will
@@ -384,12 +506,22 @@ async function prospectingNode(state: StateT): Promise<Partial<StateT>> {
       await logTask(
         state.runId,
         taskId,
-        `Hunter returned ${leads.length} verified leads with real emails (avg confidence ${Math.round(
-          leads.reduce((s, l) => s + (l.confidence ?? 0), 0) / leads.length
+        `Hunter returned ${rawLeads.length} verified leads with real emails (avg confidence ${Math.round(
+          rawLeads.reduce((s, l) => s + (l.confidence ?? 0), 0) / rawLeads.length
         )}%).`
       );
+
+      const leads = await persistLeadsForRun(state.userId, state.campaignId, rawLeads);
+      const persisted = leads.filter((l) => l.dbId).length;
+      await logTask(
+        state.runId,
+        taskId,
+        `Persisted ${persisted}/${leads.length} leads to the leads table (sender will use these dbIds as outreach_messages FKs).`
+      );
+
       await completeTask(state.runId, taskId, "prospecting", {
         count: leads.length,
+        persisted,
         source: "hunter",
         companiesTried: targetCompanies.length,
         hunterErrors: errors.length,
@@ -425,7 +557,7 @@ async function fallbackProspecting(
   // Normalise — Claude occasionally drops a field when the prompt
   // drifts. The rest of the graph assumes strings, not undefined, so
   // we backfill empty strings here to keep downstream nodes safe.
-  const leads: Lead[] = (out.leads ?? []).slice(0, 50).map((l) => ({
+  const rawLeads: Lead[] = (out.leads ?? []).slice(0, 50).map((l) => ({
     firstName: l.firstName ?? "",
     lastName: l.lastName ?? "",
     jobTitle: l.jobTitle ?? "",
@@ -434,7 +566,12 @@ async function fallbackProspecting(
     location: l.location ?? state.icp.location?.[0] ?? "",
     source: "synthesized",
   }));
-  await logTask(state.runId, taskId, `Returned ${leads.length} synthesised prospects.`);
+  const leads = await persistLeadsForRun(state.userId, state.campaignId, rawLeads);
+  await logTask(
+    state.runId,
+    taskId,
+    `Returned ${leads.length} synthesised prospects (${leads.filter((l) => l.dbId).length} persisted to DB; no real emails yet — connect Hunter.io to unlock delivery).`
+  );
   await completeTask(state.runId, taskId, "prospecting", {
     count: leads.length,
     source: "synthesized",
@@ -446,21 +583,111 @@ async function researchNode(state: StateT): Promise<Partial<StateT>> {
   const seq = state.sequence + 1;
   const taskId = await startTask(state.runId, "research", seq, {
     leadCount: state.leads.length,
+    serperConfigured: isSerperConfigured(),
   });
   try {
+    let enrichedLeads = state.leads;
+    let webHits = 0;
+
+    if (isSerperConfigured() && state.leads.length > 0) {
+      await logTask(
+        state.runId,
+        taskId,
+        `Serper.dev configured — searching Google for real news + funding + press per lead…`
+      );
+
+      // De-dupe by company so we don't burn our free-tier quota
+      // searching the same company N times when N leads share it.
+      const uniqueCompanies = new Map<string, { company: string; personName: string; leadIndex: number }>();
+      state.leads.forEach((l, i) => {
+        const key = (l.companyName || "").toLowerCase().trim();
+        if (!key) return;
+        if (!uniqueCompanies.has(key)) {
+          uniqueCompanies.set(key, {
+            company: l.companyName,
+            personName: [l.firstName, l.lastName].filter(Boolean).join(" ").trim(),
+            leadIndex: i,
+          });
+        }
+      });
+
+      const { results, errors } = await searchCompanies([...uniqueCompanies.values()]);
+
+      // Fan the per-company research back out to every lead at that company.
+      const byCompany = new Map<string, CompanyResearch | null>();
+      results.forEach((r) => {
+        const lead = state.leads[r.leadIndex];
+        if (!lead) return;
+        byCompany.set((lead.companyName || "").toLowerCase().trim(), r.research);
+      });
+
+      enrichedLeads = state.leads.map((l) => {
+        const key = (l.companyName || "").toLowerCase().trim();
+        const research = byCompany.get(key) ?? null;
+        if (research && research.hits.length > 0) webHits++;
+        return { ...l, webContext: research };
+      });
+
+      await logTask(
+        state.runId,
+        taskId,
+        `Serper found ${webHits} companies with recent web coverage (${uniqueCompanies.size} unique companies queried, ${errors.length} errors).`
+      );
+      if (errors.length > 0) {
+        await logTask(
+          state.runId,
+          taskId,
+          `Partial failures (rate-limit / bad query): ${errors.slice(0, 3).join(" | ")}${errors.length > 3 ? "…" : ""}`
+        );
+      }
+    } else {
+      await logTask(
+        state.runId,
+        taskId,
+        `Enriching ${state.leads.length} leads with hooks + pain points (generic mode — add SERPER_API_KEY to unlock real web research)…`
+      );
+    }
+
+    // Compact payload to Claude — send only fields it needs so we don't
+    // bloat the prompt. webContext is the load-bearing new addition.
+    const payload = enrichedLeads.map((l, i) => ({
+      leadIndex: i,
+      firstName: l.firstName,
+      lastName: l.lastName,
+      jobTitle: l.jobTitle,
+      companyName: l.companyName,
+      industry: l.industry,
+      webContext: l.webContext
+        ? {
+            hooks: l.webContext.hooks,
+            fundingMention: l.webContext.fundingMention,
+            topHits: l.webContext.hits.slice(0, 3).map((h) => ({
+              title: h.title,
+              snippet: h.snippet,
+              date: h.date,
+            })),
+          }
+        : null,
+    }));
+
+    const out = await callAgent<{ researched: Researched[] }>(
+      RESEARCH_PROMPT,
+      `Leads:\n${JSON.stringify(payload)}`
+    );
+    const researched = out.researched ?? [];
+    const webGrounded = researched.filter((r) => r.source === "web").length;
     await logTask(
       state.runId,
       taskId,
-      `Enriching ${state.leads.length} leads with hooks + pain points…`
-    );
-    const out = await callAgent<{ researched: Researched[] }>(
-      RESEARCH_PROMPT,
-      `Leads:\n${JSON.stringify(state.leads)}`
+      `Copywriter will see ${webGrounded} web-grounded hooks and ${researched.length - webGrounded} generic ones.`
     );
     await completeTask(state.runId, taskId, "research", {
-      count: out.researched?.length ?? 0,
+      count: researched.length,
+      webGrounded,
+      companiesWithWebHits: webHits,
+      serperConfigured: isSerperConfigured(),
     });
-    return { researched: out.researched ?? [], sequence: seq };
+    return { leads: enrichedLeads, researched, sequence: seq };
   } catch (err) {
     await failTask(state.runId, taskId, "research", err);
   }
@@ -514,19 +741,131 @@ async function senderNode(state: StateT): Promise<Partial<StateT>> {
       SENDER_PROMPT,
       `Emails to schedule:\n${JSON.stringify(state.emails)}\nStart from: ${new Date().toISOString()}`
     );
-    // TODO: wire the actual send (Gmail integration exists in
-    // /api/v1/integrations/gmail — plug the schedule into
-    // outreach_messages rows once ready).
+    const schedule = out.schedule ?? [];
+
+    // ---- Real delivery via Gmail ----
+    const { gmail } = await getUserGmailContext(state.userId);
+    if (!gmail) {
+      await logTask(
+        state.runId,
+        taskId,
+        `Gmail not connected — schedule generated but no delivery. Connect Gmail in Settings → Integrations to enable actual sends.`
+      );
+      await completeTask(state.runId, taskId, "sender", {
+        count: schedule.length,
+        firstSendAt: schedule[0]?.sendAt ?? null,
+        delivered: 0,
+        skipped: state.emails.length,
+        skippedReason: "gmail_not_connected",
+      });
+      return { schedule, sequence: seq };
+    }
+
+    const gmailClient = new GmailClient(gmail.accessToken, gmail.refreshToken);
     await logTask(
       state.runId,
       taskId,
-      `Schedule generated. Delivery will happen via the outreach queue once Gmail send is wired.`
+      `Gmail connected as ${gmail.accountEmail ?? "unknown"} — beginning real delivery…`
+    );
+
+    let delivered = 0;
+    let skippedNoEmail = 0;
+    let failed = 0;
+    for (const email of state.emails) {
+      const lead = state.leads[email.leadIndex];
+      if (!lead) continue;
+
+      const to = (lead.email ?? "").trim();
+      if (!to || !lead.dbId) {
+        skippedNoEmail++;
+        continue;
+      }
+
+      // Compose the final body: research hook is already inside
+      // email.body per the copywriter prompt; append the CTA + a
+      // minimal signature line so replies attach cleanly to the
+      // right sender.
+      const composedBody = `${email.body}\n\n${email.cta}`;
+
+      try {
+        const { messageId, threadId } = await gmailClient.sendEmail({
+          to,
+          subject: email.subject,
+          body: composedBody,
+        });
+
+        await db.insert(outreachMessages).values({
+          userId: state.userId,
+          leadId: lead.dbId,
+          campaignId: state.campaignId ?? null,
+          agentRunId: state.runId,
+          channel: "email",
+          stepNumber: 1,
+          subject: email.subject,
+          body: composedBody,
+          aiGenerated: true,
+          modelUsed: "claude-sonnet-4-6",
+          status: "sent",
+          scheduledAt: new Date(),
+          sentAt: new Date(),
+          externalMessageId: messageId,
+          threadId,
+        });
+        delivered++;
+        // Best-effort per-lead log — keep it terse; the sample is
+        // captured in the task output for the dashboard.
+        if (delivered <= 5 || delivered % 10 === 0) {
+          await logTask(
+            state.runId,
+            taskId,
+            `Sent to ${to} via Gmail (message id ${messageId.slice(0, 12)}…, thread ${threadId.slice(0, 12)}…).`
+          );
+        }
+      } catch (err) {
+        failed++;
+        const errMsg = err instanceof Error ? err.message : String(err);
+        try {
+          await db.insert(outreachMessages).values({
+            userId: state.userId,
+            leadId: lead.dbId,
+            campaignId: state.campaignId ?? null,
+            agentRunId: state.runId,
+            channel: "email",
+            stepNumber: 1,
+            subject: email.subject,
+            body: composedBody,
+            aiGenerated: true,
+            modelUsed: "claude-sonnet-4-6",
+            status: "failed",
+            error: errMsg.slice(0, 500),
+          });
+        } catch {
+          /* swallow — the log below is enough */
+        }
+        if (failed <= 3) {
+          await logTask(
+            state.runId,
+            taskId,
+            `Gmail send failed for ${to}: ${errMsg.slice(0, 160)}`
+          );
+        }
+      }
+    }
+
+    await logTask(
+      state.runId,
+      taskId,
+      `Delivery complete: ${delivered} sent, ${failed} failed, ${skippedNoEmail} skipped (no email).`
     );
     await completeTask(state.runId, taskId, "sender", {
-      count: out.schedule?.length ?? 0,
-      firstSendAt: out.schedule?.[0]?.sendAt ?? null,
+      count: schedule.length,
+      firstSendAt: schedule[0]?.sendAt ?? null,
+      delivered,
+      failed,
+      skippedNoEmail,
+      gmailAccount: gmail.accountEmail,
     });
-    return { schedule: out.schedule ?? [], sequence: seq };
+    return { schedule, sequence: seq };
   } catch (err) {
     await failTask(state.runId, taskId, "sender", err);
   }
@@ -653,10 +992,33 @@ export interface ReplyClassification {
   sentiment: "positive" | "neutral" | "negative";
   shouldEscalate: boolean;
   draftReply: string | null;
+  draftSubject?: string | null;
 }
 
-export async function classifyReply(replyBody: string): Promise<ReplyClassification> {
-  return callAgent<ReplyClassification>(REPLY_HANDLER_PROMPT, `Reply body:\n${replyBody}`);
+export interface ReplyContext {
+  leadName?: string;
+  leadCompany?: string;
+  originalSubject?: string;
+  originalBody?: string;
+}
+
+export async function classifyReply(
+  replyBody: string,
+  context?: ReplyContext
+): Promise<ReplyClassification> {
+  const payload = context
+    ? {
+        replyBody,
+        senderName: context.leadName ?? "",
+        senderCompany: context.leadCompany ?? "",
+        originalSubject: context.originalSubject ?? "",
+        originalBody: context.originalBody ?? "",
+      }
+    : { replyBody };
+  return callAgent<ReplyClassification>(
+    REPLY_HANDLER_PROMPT,
+    JSON.stringify(payload)
+  );
 }
 
 export interface MeetingProposal {
@@ -669,11 +1031,158 @@ export interface MeetingProposal {
 export async function proposeMeeting(context: {
   leadName: string;
   replyBody: string;
+  bookingLink?: string | null;
 }): Promise<MeetingProposal> {
   return callAgent<MeetingProposal>(
     MEETING_BOOKER_PROMPT,
-    `Lead: ${context.leadName}\nReply that indicated interest:\n${context.replyBody}\nToday: ${new Date().toISOString()}`
+    JSON.stringify({
+      lead: context.leadName,
+      replyBody: context.replyBody,
+      bookingLink: context.bookingLink ?? null,
+      today: new Date().toISOString(),
+    })
   );
+}
+
+/**
+ * Full "classify + draft + optionally auto-send" pipeline for a single
+ * inbound reply. Used by the handle-replies cron. Returns the created
+ * reply_drafts row so the caller can log the outcome.
+ *
+ * Ownership: the caller is responsible for having already inserted the
+ * `replies` row and knowing `replyId` + `leadId`. This helper reads the
+ * lead/user context, generates the draft, substitutes booking-link
+ * placeholders, writes reply_drafts, and — if `autoSend` is true —
+ * sends the draft via Gmail and stamps sent_at.
+ */
+export async function classifyAndDraftReply(params: {
+  userId: string;
+  replyId: string;
+  replyBody: string;
+  replySubject?: string | null;
+  replyFromEmail: string;
+  replyThreadId?: string | null;
+  /** Gmail API opaque id (used only for dedup; not for RFC threading). */
+  replyExternalMessageId?: string | null;
+  /** RFC 2822 Message-ID header value from the inbound mail, e.g.
+   *  <CAAxxx@mail.gmail.com>. Used for In-Reply-To / References headers. */
+  rfcMessageId?: string | null;
+  leadName: string;
+  leadCompany: string;
+  originalSubject?: string;
+  originalBody?: string;
+  autoSend: boolean;
+}): Promise<{
+  draftId: string | null;
+  classification: ReplyClassification;
+  autoSent: boolean;
+  error?: string;
+}> {
+  const classification = await classifyReply(params.replyBody, {
+    leadName: params.leadName,
+    leadCompany: params.leadCompany,
+    originalSubject: params.originalSubject,
+    originalBody: params.originalBody,
+  });
+
+  if (!classification.draftReply) {
+    return { draftId: null, classification, autoSent: false };
+  }
+
+  // Substitute the booking-link placeholder when present.
+  let draftBody = classification.draftReply;
+  if (classification.intent === "interested" && draftBody.includes("{{BOOKING_LINK}}")) {
+    const { calendarLink } = await getUserGmailContext(params.userId);
+    const link = await getBookingLinkForUser(calendarLink);
+    if (link) {
+      draftBody = draftBody.replace(/\{\{BOOKING_LINK\}\}/g, link.url);
+    } else {
+      // No link available — strip the placeholder line rather than
+      // shipping a literal template artifact to the prospect.
+      draftBody = draftBody.replace(/^.*\{\{BOOKING_LINK\}\}.*$/gm, "").trim();
+    }
+  }
+
+  // Guard: if the body is empty after placeholder substitution, don't
+  // auto-send a blank email. Escalate to human instead.
+  if (!draftBody.trim()) {
+    return {
+      draftId: null,
+      classification: { ...classification, shouldEscalate: true },
+      autoSent: false,
+      error: "draft_body_empty_after_substitution",
+    };
+  }
+
+  const draftSubject =
+    classification.draftSubject ??
+    (params.replySubject ? `Re: ${params.replySubject.replace(/^Re:\s*/i, "")}` : null);
+
+  const [draftRow] = await db
+    .insert(replyDrafts)
+    .values({
+      userId: params.userId,
+      replyId: params.replyId,
+      intent: classification.intent,
+      draftBody,
+      draftSubject: draftSubject ?? null,
+    })
+    .returning({ id: replyDrafts.id });
+
+  // Auto-send guard — only fire for intents where a machine reply is
+  // safe. "other" + "not_interested" + "out_of_office" + "unsubscribe"
+  // never auto-send even if the toggle is on.
+  const safeToAutoSend =
+    params.autoSend &&
+    (classification.intent === "interested" || classification.intent === "question") &&
+    !classification.shouldEscalate;
+
+  if (!safeToAutoSend) {
+    return { draftId: draftRow?.id ?? null, classification, autoSent: false };
+  }
+
+  try {
+    const { gmail } = await getUserGmailContext(params.userId);
+    if (!gmail) {
+      return {
+        draftId: draftRow?.id ?? null,
+        classification,
+        autoSent: false,
+        error: "gmail_not_connected",
+      };
+    }
+    const gmailClient = new GmailClient(gmail.accessToken, gmail.refreshToken);
+    const { messageId } = await gmailClient.sendEmail({
+      to: params.replyFromEmail,
+      subject: draftSubject ?? "Re:",
+      body: draftBody,
+      threadId: params.replyThreadId ?? undefined,
+      // Use the RFC 2822 Message-ID header (e.g. <CAAxxx@mail.gmail.com>)
+      // for In-Reply-To / References — not the Gmail API's opaque msg.id.
+      replyToMessageId: params.rfcMessageId ?? undefined,
+    });
+    await db
+      .update(replyDrafts)
+      .set({
+        autoSent: true,
+        sentAt: new Date(),
+        externalMessageId: messageId,
+      })
+      .where(eq(replyDrafts.id, draftRow.id));
+    return { draftId: draftRow.id, classification, autoSent: true };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    await db
+      .update(replyDrafts)
+      .set({ error: msg.slice(0, 500) })
+      .where(eq(replyDrafts.id, draftRow.id));
+    return {
+      draftId: draftRow.id,
+      classification,
+      autoSent: false,
+      error: msg,
+    };
+  }
 }
 
 /* ---------- Convenience readers ---------- */
