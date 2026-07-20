@@ -53,6 +53,12 @@ const isAuthPage = createRouteMatcher(["/sign-in(.*)", "/sign-up(.*)"]);
 const isApiRoute = createRouteMatcher(["/api/(.*)"]);
 
 export default clerkMiddleware((auth, req) => {
+  // Defense-in-depth: block CVE-2025-29927 middleware bypass header even
+  // though Next.js 14.2.25+ already strips it at the framework level.
+  if (req.headers.get("x-middleware-subrequest")) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   const { userId, sessionId } = auth();
   const path = req.nextUrl.pathname;
 
