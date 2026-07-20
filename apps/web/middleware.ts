@@ -1,5 +1,6 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
+import { authLimiter, mutationLimiter, readLimiter } from "@/lib/ratelimit";
 
 const isPublicRoute = createRouteMatcher([
   "/",
@@ -12,34 +13,16 @@ const isPublicRoute = createRouteMatcher([
   "/demo(.*)",
   "/features(.*)",
   "/solutions(.*)",
-  // Public invite-accept landing page — an invited person may not have an
-  // account yet, so this must be reachable before Clerk auth exists. The
-  // page itself (app/invite/[token]/page.tsx) shows sign-in/sign-up prompts
-  // when the visitor isn't authenticated yet, and calls GET
-  // /api/team/invite/[token] (also public — the route handler doesn't
-  // require auth; the POST handler on that same path still requires auth
-  // and verifies the signer's email matches the invited email).
   "/invite(.*)",
   "/api/team/invite/(.*)",
   "/api/v1/health",
   "/api/debug/(.*)",
-  // Public payments-config check — the checkout modal on the public
-  // pricing page needs to be able to render a friendly "not configured"
-  // banner without requiring a session first. No per-user data leaks.
   "/api/billing/status",
-  // Public enrichment-config check — matches the billing/status pattern.
-  // The lead sidepanel pre-checks this so it can render the amber "provider
-  // not configured" banner without triggering a 503 on click. No per-user
-  // data is exposed; only which vendor (if any) is wired up.
   "/api/enrichment/status",
   "/api/v1/billing/webhook(.*)",
   "/api/billing/webhook/(.*)",
   "/api/webhooks/(.*)",
-  // Inbound-lead webhook — called by external systems (Zapier, form
-  // providers, CRMs) that authenticate via the `arya_...` API key in
-  // the URL / x-arya-key header, not via a Clerk session.
   "/api/hooks/lead/(.*)",
-  // System / SEO / icon routes — must be reachable to logged-out crawlers
   "/robots.txt",
   "/sitemap.xml",
   "/icon(.*)",
@@ -51,20 +34,66 @@ const isPublicRoute = createRouteMatcher([
 
 const isAuthPage = createRouteMatcher(["/sign-in(.*)", "/sign-up(.*)"]);
 const isApiRoute = createRouteMatcher(["/api/(.*)"]);
+const isAuthEndpoint = createRouteMatcher([
+  "/sign-in(.*)",
+  "/sign-up(.*)",
+  "/api/webhooks/(.*)",
+  "/api/hooks/lead/(.*)",
+]);
 
-export default clerkMiddleware((auth, req) => {
-  // Defense-in-depth: block CVE-2025-29927 middleware bypass header even
-  // though Next.js 14.2.25+ already strips it at the framework level.
+function getClientIp(req: Request): string {
+  return (
+    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    req.headers.get("x-real-ip") ||
+    "unknown"
+  );
+}
+
+export default clerkMiddleware(async (auth, req) => {
+  // Defense-in-depth: block CVE-2025-29927 middleware bypass header
   if (req.headers.get("x-middleware-subrequest")) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const { userId, sessionId } = auth();
   const path = req.nextUrl.pathname;
+  const method = req.method;
 
-  // Log every non-static request so we can trace the redirect chain in
-  // Vercel logs. Look for lines starting with [mw]. Filter to trace only
-  // meaningful routes — skip icons/favicon/etc.
+  // --- Rate limiting (runs before auth checks) ---
+  // Key: authenticated users by userId, anonymous by IP
+  const rateLimitKey = userId ?? `ip:${getClientIp(req)}`;
+
+  // Only rate-limit API routes and auth pages, not static pages
+  if (isApiRoute(req) || isAuthPage(req)) {
+    let limiter = readLimiter;
+    if (isAuthEndpoint(req)) {
+      limiter = authLimiter;
+    } else if (method !== "GET" && method !== "HEAD" && method !== "OPTIONS") {
+      limiter = mutationLimiter;
+    }
+
+    if (limiter) {
+      const { success, limit, remaining, reset } = await limiter.limit(rateLimitKey);
+      if (!success) {
+        const retryAfter = Math.ceil((reset - Date.now()) / 1000);
+        console.log(`[mw] RATELIMIT ${method} ${path} key=${rateLimitKey} limit=${limit} reset=${retryAfter}s`);
+        return NextResponse.json(
+          { error: "Too many requests. Please try again later." },
+          {
+            status: 429,
+            headers: {
+              "Retry-After": String(retryAfter),
+              "X-RateLimit-Limit": String(limit),
+              "X-RateLimit-Remaining": "0",
+              "X-RateLimit-Reset": String(reset),
+            },
+          }
+        );
+      }
+    }
+  }
+
+  // --- Logging ---
   const isNoisy =
     path.startsWith("/_next") ||
     path.startsWith("/favicon") ||
@@ -74,7 +103,7 @@ export default clerkMiddleware((auth, req) => {
     const sessionCookie = req.cookies.get("__session")?.value ? "y" : "n";
     const uatCookie = req.cookies.get("__client_uat")?.value ? "y" : "n";
     console.log(
-      `[mw] ${req.method} ${path} userId=${userId ?? "null"} sess=${sessionId ?? "null"} cookies(client=${clientCookie},session=${sessionCookie},uat=${uatCookie})`
+      `[mw] ${method} ${path} userId=${userId ?? "null"} sess=${sessionId ?? "null"} cookies(client=${clientCookie},session=${sessionCookie},uat=${uatCookie})`
     );
   }
 
@@ -86,7 +115,6 @@ export default clerkMiddleware((auth, req) => {
 
   // Unauthenticated users hitting private routes
   if (!userId && !isPublicRoute(req)) {
-    // API routes: return JSON 401 so clients can detect + refresh tokens
     if (isApiRoute(req)) {
       console.log(`[mw] 401 unauth-api ${path}`);
       return NextResponse.json(
@@ -94,7 +122,6 @@ export default clerkMiddleware((auth, req) => {
         { status: 401 }
       );
     }
-    // Pages: redirect to sign-in (preserve where the user was going)
     console.log(`[mw] REDIRECT unauth-private-page ${path} → /sign-in`);
     const url = new URL("/sign-in", req.url);
     url.searchParams.set("redirect_url", req.nextUrl.pathname + req.nextUrl.search);
