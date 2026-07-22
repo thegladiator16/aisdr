@@ -32,8 +32,8 @@ export const subscriptions = pgTable("subscriptions", {
   cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
   trialEndsAt: timestamp("trial_ends_at", { withTimezone: true }),
 
-  leadsLimit: integer("leads_limit").default(50),
-  emailsMonthlyLimit: integer("emails_monthly_limit").default(100),
+  leadsLimit: integer("leads_limit").default(10000),
+  emailsMonthlyLimit: integer("emails_monthly_limit").default(10000),
   linkedinEnabled: boolean("linkedin_enabled").default(false),
   whatsappEnabled: boolean("whatsapp_enabled").default(false),
   aiLeadFinderMonthly: integer("ai_lead_finder_monthly").default(0),

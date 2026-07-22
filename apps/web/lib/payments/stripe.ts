@@ -40,8 +40,8 @@ export const PLAN_LIMITS: Record<string, {
   emailAccountsLimit: number;
 }> = {
   free: {
-    leadsLimit: 50,
-    emailsMonthlyLimit: 100,
+    leadsLimit: 10000,
+    emailsMonthlyLimit: 10000,
     linkedinEnabled: false,
     whatsappEnabled: false,
     aiLeadFinderMonthly: 0,

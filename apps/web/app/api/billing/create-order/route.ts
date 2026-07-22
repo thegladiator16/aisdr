@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 
 import { auth, clerkClient } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
+import { headers } from "next/headers";
 import {
   razorpay,
   getPlanAmount,
@@ -56,9 +57,22 @@ export async function POST(req: Request) {
       ? "USD"
       : "INR";
 
-  // Definitive server-side +91 phone lock — client toggle can lie / be
-  // stale, so we always re-check Clerk here and force INR for Indian
-  // users regardless of what the request body said.
+  // Definitive server-side geo + phone lock — client toggle can lie / be
+  // stale, so we always re-check both and force the correct currency.
+  // Priority: Vercel edge geo header (authoritative) > Clerk +91 phone.
+  const h = headers();
+  const country =
+    h.get("x-vercel-ip-country") ||
+    h.get("cf-ipcountry") ||
+    h.get("x-country-code") ||
+    null;
+  if (country === "IN") {
+    currency = "INR";
+  } else if (country && country !== "IN") {
+    // Definite non-India signal — but still honor +91 phone below since a
+    // traveling Indian customer should be able to pay in INR.
+    if (currency !== "USD") currency = "USD";
+  }
   try {
     const clerkUser = await clerkClient.users.getUser(userId);
     const phones = clerkUser.phoneNumbers.map((p) => p.phoneNumber);
@@ -66,7 +80,7 @@ export async function POST(req: Request) {
       currency = "INR";
     }
   } catch {
-    // Clerk lookup hiccup — trust the request body's currency to avoid
+    // Clerk lookup hiccup — trust the geo/request currency to avoid
     // stranding paying customers. Same fail-open pattern as verify-payment.
   }
 

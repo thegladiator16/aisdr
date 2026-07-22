@@ -67,21 +67,49 @@ export function detectCurrencyFromBrowser(): Currency {
 
 /**
  * Resolve the user's currency in priority order:
- *   1. Clerk phone with +91 → INR (locked — cannot be overridden)
- *   2. Stored preference (localStorage) if the user has manually toggled
- *      AND the phone check didn't force a lock
- *   3. Browser locale detection
- *   4. INR as ultimate fallback
+ *   1. Server geo (Vercel x-ip-country) — hard lock in both directions:
+ *      IN → INR only, non-IN → USD only.
+ *   2. Clerk phone with +91 → INR (locked — cannot be overridden)
+ *   3. Stored preference (localStorage) if geo/phone didn't force a lock
+ *   4. Browser locale detection
+ *   5. INR as ultimate fallback
  */
 export function resolveCurrency(opts: {
   phones?: (string | null | undefined)[] | null;
+  /**
+   * From /api/geo. `true` = India (lock INR), `false` = definitely non-India
+   * (lock USD), `null`/`undefined` = unknown (fall through to other signals).
+   */
+  isIndia?: boolean | null;
 }): { currency: Currency; locked: boolean } {
-  if (isIndianByPhone(opts.phones)) {
+  if (opts.isIndia === true || isIndianByPhone(opts.phones)) {
     return { currency: "INR", locked: true };
+  }
+  if (opts.isIndia === false) {
+    return { currency: "USD", locked: true };
   }
   const stored = readStoredCurrency();
   if (stored) return { currency: stored, locked: false };
   return { currency: detectCurrencyFromBrowser(), locked: false };
+}
+
+/**
+ * Fetch geo from /api/geo. Returns `null` if the request fails so callers
+ * fall back to phone/locale detection.
+ */
+export async function fetchGeoIsIndia(): Promise<boolean | null> {
+  if (typeof window === "undefined") return null;
+  try {
+    const res = await fetch("/api/geo", { cache: "no-store" });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { isIndia?: boolean; country?: string | null };
+    // Only return a definite boolean when we actually got a country back.
+    // Missing header → country is null → we don't know → return null.
+    if (data.country == null) return null;
+    return !!data.isIndia;
+  } catch {
+    return null;
+  }
 }
 
 export function readStoredCurrency(): Currency | null {

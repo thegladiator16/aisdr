@@ -11,6 +11,7 @@ import { PayPalCheckoutButton } from "@/components/billing/PayPalCheckoutButton"
 import {
   resolveCurrency,
   writeStoredCurrency,
+  fetchGeoIsIndia,
   formatMoney,
   inrToUsdDisplay,
   type Currency,
@@ -140,18 +141,29 @@ export function ChangePlanModal({ onClose }: { onClose: () => void }) {
   }, [user]);
 
   useEffect(() => {
-    // Priority: +91 phone → INR (locked) > stored preference > browser locale.
-    // If a +91 user had previously toggled to USD and localStorage remembers
-    // it, we override that here and rewrite the preference back to INR.
-    const { currency: resolved, locked } = resolveCurrency({ phones: clerkPhones });
-    setCurrencyState(resolved);
-    setCurrencyLocked(locked);
-    if (locked) writeStoredCurrency("INR");
+    let cancelled = false;
+    (async () => {
+      // Server geo lock: IN → INR only, non-IN → USD only. Phone still
+      // overrides geo when Clerk has a +91 number.
+      const isIndia = await fetchGeoIsIndia();
+      if (cancelled) return;
+      const { currency: resolved, locked } = resolveCurrency({ phones: clerkPhones, isIndia });
+      setCurrencyState(resolved);
+      setCurrencyLocked(locked);
+      writeStoredCurrency(resolved);
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [clerkPhones]);
 
   const setCurrency = (next: Currency) => {
-    if (currencyLocked && next === "USD") {
-      toast.error("You are in India. Please pay in INR.");
+    if (currencyLocked) {
+      toast.error(
+        currency === "INR"
+          ? "INR is required for payments from India."
+          : "USD is required for payments outside India."
+      );
       return;
     }
     setCurrencyState(next);
@@ -238,36 +250,42 @@ export function ChangePlanModal({ onClose }: { onClose: () => void }) {
         <div className="p-6">
           {/* Currency + billing toggles */}
           <div className="flex flex-col items-center gap-3 mb-8">
-            <div className="inline-flex items-center rounded-full border border-gray-200 bg-white p-1">
-              <button
-                onClick={() => setCurrency("INR")}
-                disabled={currencyLocked && currency === "INR"}
-                className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                  currency === "INR"
-                    ? "bg-[#6C47FF] text-white"
-                    : "text-gray-600 hover:text-gray-900"
-                } disabled:cursor-default`}
-                aria-pressed={currency === "INR"}
-              >
-                <span aria-hidden>🇮🇳</span>
-                ₹ INR
-              </button>
-              <button
-                onClick={() => setCurrency("USD")}
-                disabled={currencyLocked}
-                className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                  currency === "USD"
-                    ? "bg-[#6C47FF] text-white"
-                    : "text-gray-600 hover:text-gray-900"
-                } ${currencyLocked ? "opacity-40 cursor-not-allowed" : ""}`}
-                aria-pressed={currency === "USD"}
-                aria-disabled={currencyLocked}
-                title={currencyLocked ? "You are in India. Please pay in INR." : undefined}
-              >
-                <span aria-hidden>🌍</span>
-                $ USD
-              </button>
-            </div>
+            {/* Hidden entirely when geo-locked — user's location decides currency */}
+            {!currencyLocked && (
+              <div className="inline-flex items-center rounded-full border border-gray-200 bg-white p-1">
+                <button
+                  onClick={() => setCurrency("INR")}
+                  className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                    currency === "INR"
+                      ? "bg-[#6C47FF] text-white"
+                      : "text-gray-600 hover:text-gray-900"
+                  }`}
+                  aria-pressed={currency === "INR"}
+                >
+                  <span aria-hidden>🇮🇳</span>
+                  ₹ INR
+                </button>
+                <button
+                  onClick={() => setCurrency("USD")}
+                  className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                    currency === "USD"
+                      ? "bg-[#6C47FF] text-white"
+                      : "text-gray-600 hover:text-gray-900"
+                  }`}
+                  aria-pressed={currency === "USD"}
+                >
+                  <span aria-hidden>🌍</span>
+                  $ USD
+                </button>
+              </div>
+            )}
+            {currencyLocked && (
+              <p className="text-[11px] text-violet-600 font-medium">
+                {currency === "INR"
+                  ? "🇮🇳 Prices shown in INR for payments from India."
+                  : "🌍 Prices shown in USD for international payments."}
+              </p>
+            )}
 
             <div className="flex items-center justify-center gap-2">
               <button

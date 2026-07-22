@@ -34,11 +34,17 @@ export async function createUser(data: {
   await ensureUsersOnboardingColumns();
   const result = await db.insert(users).values(data).returning();
   try {
+    // Mirror the Clerk webhook path: every new user gets a 14-day trial
+    // with 10,000 credits, matching the "10,000 credits included" marketing
+    // promise on the public landing page.
+    const trialEndsAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
     await db.insert(subscriptions).values({
       userId: result[0].id,
-      tier: "free",
-      leadsLimit: 50,
-      emailsMonthlyLimit: 100,
+      tier: "trial",
+      status: "trialing",
+      trialEndsAt,
+      leadsLimit: 10000,
+      emailsMonthlyLimit: 10000,
     });
   } catch {
     // subscription row is non-critical; user is still created

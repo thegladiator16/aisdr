@@ -21,6 +21,7 @@ import { useRazorpay } from "@/hooks/useRazorpay";
 import { useSubscription } from "@/lib/hooks/useSubscription";
 import {
   resolveCurrency,
+  fetchGeoIsIndia,
   formatMoney as formatCurrencyMoney,
   inrToUsdDisplay,
   type Currency as PrefCurrency,
@@ -517,19 +518,28 @@ export default function BillingPage() {
   // locale > INR fallback.
   const [currencyPref, setCurrencyPref] = useState<PrefCurrency>("INR");
   useEffect(() => {
-    const phones: string[] = [];
-    if (user?.primaryPhoneNumber?.phoneNumber) {
-      phones.push(user.primaryPhoneNumber.phoneNumber);
-    }
-    if (Array.isArray(user?.phoneNumbers)) {
-      for (const p of user.phoneNumbers) {
-        if (p?.phoneNumber && p.phoneNumber !== user?.primaryPhoneNumber?.phoneNumber) {
-          phones.push(p.phoneNumber);
+    let cancelled = false;
+    (async () => {
+      const phones: string[] = [];
+      if (user?.primaryPhoneNumber?.phoneNumber) {
+        phones.push(user.primaryPhoneNumber.phoneNumber);
+      }
+      if (Array.isArray(user?.phoneNumbers)) {
+        for (const p of user.phoneNumbers) {
+          if (p?.phoneNumber && p.phoneNumber !== user?.primaryPhoneNumber?.phoneNumber) {
+            phones.push(p.phoneNumber);
+          }
         }
       }
-    }
-    const { currency } = resolveCurrency({ phones });
-    setCurrencyPref(currency);
+      // Server geo (Vercel edge) locks currency by country: IN → INR, else USD.
+      const isIndia = await fetchGeoIsIndia();
+      if (cancelled) return;
+      const { currency } = resolveCurrency({ phones, isIndia });
+      setCurrencyPref(currency);
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [user]);
 
   useEffect(() => {

@@ -4,7 +4,7 @@
 
 export const PLAN_CREDITS: Record<string, number> = {
   trial: 10000,
-  free: 300,
+  free: 10000,
   starter: 5000,
   growth: 15000,
   scale: 999999,
@@ -12,7 +12,7 @@ export const PLAN_CREDITS: Record<string, number> = {
 
 export const PLAN_LEADS_DB_LIMIT: Record<string, number> = {
   trial: 10000,
-  free: 0,
+  free: 10000,
   starter: 500,
   growth: 5000,
   scale: 999999,
@@ -79,5 +79,5 @@ export function canRunCampaigns(tier: string): boolean {
 }
 
 export function getCreditsForPlan(tier: string): number {
-  return PLAN_CREDITS[tier] ?? 300;
+  return PLAN_CREDITS[tier] ?? 10000;
 }

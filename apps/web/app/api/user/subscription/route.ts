@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 const DAY = 1000 * 60 * 60 * 24;
 const TRIAL_DAYS = 14;
 const TRIAL_LEADS_LIMIT = 10000;
-const FREE_PLAN_CREDITS = 300;
+const FREE_PLAN_CREDITS = 10000;
 
 // Idempotent — only runs the ALTER if the column is missing. Guards against
 // schema drift between the app code and the production DB.
@@ -128,6 +128,28 @@ export async function GET() {
       subscription = inserted[0]!;
     }
 
+    // Self-heal: users who signed up before the credit-limit fix are stuck
+    // on old caps (50/100/300/500/1000). Bump them to the current
+    // trial/free allotment on next load so nobody has to run raw SQL.
+    if (
+      (subscription.tier === "trial" || subscription.tier === "free") &&
+      (subscription.leadsLimit ?? 0) < TRIAL_LEADS_LIMIT
+    ) {
+      try {
+        await db
+          .update(subscriptions)
+          .set({ leadsLimit: TRIAL_LEADS_LIMIT, leadsUsed: 0 })
+          .where(eq(subscriptions.id, subscription.id));
+        subscription = {
+          ...subscription,
+          leadsLimit: TRIAL_LEADS_LIMIT,
+          leadsUsed: 0,
+        };
+      } catch (err) {
+        console.error("[subscription] credit self-heal failed:", err);
+      }
+    }
+
     const now = Date.now();
     const trialEndsAt = subscription.trialEndsAt ?? null;
     const daysLeft = trialEndsAt
@@ -135,7 +157,7 @@ export async function GET() {
       : null;
     const trialExpired = subscription.tier === "trial" && (daysLeft ?? 0) <= 0;
 
-    // Auto-downgrade expired trials to the free plan (300 credits/month).
+    // Auto-downgrade expired trials to the free plan.
     // All campaigns are paused by the campaign runner when credits reach 0;
     // the tier change here stops new enrollments from being allowed.
     if (trialExpired) {
