@@ -1,6 +1,6 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
-import { authLimiter, mutationLimiter, readLimiter } from "@/lib/ratelimit";
+import { authLimiter, mutationLimiter, readLimiter, checkLimit } from "@/lib/ratelimit";
 
 const isPublicRoute = createRouteMatcher([
   "/",
@@ -50,82 +50,74 @@ function getClientIp(req: Request): string {
 }
 
 export default clerkMiddleware(async (auth, req) => {
-  // Defense-in-depth: block CVE-2025-29927 middleware bypass header
-  if (req.headers.get("x-middleware-subrequest")) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
-
-  const { userId, sessionId } = auth();
-  const path = req.nextUrl.pathname;
-  const method = req.method;
-
-  // --- Rate limiting (runs before auth checks) ---
-  // Key: authenticated users by userId, anonymous by IP
-  const rateLimitKey = userId ?? `ip:${getClientIp(req)}`;
-
-  // Only rate-limit API routes and auth pages, not static pages
-  if (isApiRoute(req) || isAuthPage(req)) {
-    let limiter = readLimiter;
-    if (isAuthEndpoint(req)) {
-      limiter = authLimiter;
-    } else if (method !== "GET" && method !== "HEAD" && method !== "OPTIONS") {
-      limiter = mutationLimiter;
+  try {
+    // Defense-in-depth: block CVE-2025-29927 middleware bypass header
+    if (req.headers.get("x-middleware-subrequest")) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    if (limiter) {
-      const { success, limit, remaining, reset } = await limiter.limit(rateLimitKey);
-      if (!success) {
-        const retryAfter = Math.ceil((reset - Date.now()) / 1000);
-        console.log(`[mw] RATELIMIT ${method} ${path} key=${rateLimitKey} limit=${limit} reset=${retryAfter}s`);
+    const { userId, sessionId } = auth();
+    const path = req.nextUrl.pathname;
+    const method = req.method;
+
+    // --- Rate limiting (fail-open; skipped if Upstash not configured) ---
+    if (isApiRoute(req) || isAuthPage(req)) {
+      const rateLimitKey = userId ?? `ip:${getClientIp(req)}`;
+      let limiter = readLimiter;
+      if (isAuthEndpoint(req)) {
+        limiter = authLimiter;
+      } else if (method !== "GET" && method !== "HEAD" && method !== "OPTIONS") {
+        limiter = mutationLimiter;
+      }
+      const rl = await checkLimit(limiter, rateLimitKey);
+      if (!rl.success) {
+        const retryAfter = Math.ceil((rl.reset - Date.now()) / 1000);
         return NextResponse.json(
           { error: "Too many requests. Please try again later." },
           {
             status: 429,
             headers: {
               "Retry-After": String(retryAfter),
-              "X-RateLimit-Limit": String(limit),
+              "X-RateLimit-Limit": String(rl.limit),
               "X-RateLimit-Remaining": "0",
-              "X-RateLimit-Reset": String(reset),
+              "X-RateLimit-Reset": String(rl.reset),
             },
           }
         );
       }
     }
-  }
 
-  // --- Logging ---
-  const isNoisy =
-    path.startsWith("/_next") ||
-    path.startsWith("/favicon") ||
-    path === "/api/debug/auth-state";
-  if (!isNoisy) {
-    const clientCookie = req.cookies.get("__client")?.value ? "y" : "n";
-    const sessionCookie = req.cookies.get("__session")?.value ? "y" : "n";
-    const uatCookie = req.cookies.get("__client_uat")?.value ? "y" : "n";
-    console.log(
-      `[mw] ${method} ${path} userId=${userId ?? "null"} sess=${sessionId ?? "null"} cookies(client=${clientCookie},session=${sessionCookie},uat=${uatCookie})`
-    );
-  }
-
-  // Authenticated users visiting sign-in/sign-up → redirect to dashboard
-  if (userId && isAuthPage(req)) {
-    console.log(`[mw] REDIRECT auth-page-while-signed-in ${path} → /dashboard (userId=${userId})`);
-    return NextResponse.redirect(new URL("/dashboard", req.url));
-  }
-
-  // Unauthenticated users hitting private routes
-  if (!userId && !isPublicRoute(req)) {
-    if (isApiRoute(req)) {
-      console.log(`[mw] 401 unauth-api ${path}`);
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
+    const isNoisy =
+      path.startsWith("/_next") ||
+      path.startsWith("/favicon") ||
+      path === "/api/debug/auth-state";
+    if (!isNoisy) {
+      const clientCookie = req.cookies.get("__client")?.value ? "y" : "n";
+      const sessionCookie = req.cookies.get("__session")?.value ? "y" : "n";
+      const uatCookie = req.cookies.get("__client_uat")?.value ? "y" : "n";
+      console.log(
+        `[mw] ${method} ${path} userId=${userId ?? "null"} sess=${sessionId ?? "null"} cookies(client=${clientCookie},session=${sessionCookie},uat=${uatCookie})`
       );
     }
-    console.log(`[mw] REDIRECT unauth-private-page ${path} → /sign-in`);
-    const url = new URL("/sign-in", req.url);
-    url.searchParams.set("redirect_url", req.nextUrl.pathname + req.nextUrl.search);
-    return NextResponse.redirect(url);
+
+    if (userId && isAuthPage(req)) {
+      console.log(`[mw] REDIRECT auth-page-while-signed-in ${path} → /dashboard (userId=${userId})`);
+      return NextResponse.redirect(new URL("/dashboard", req.url));
+    }
+
+    if (!userId && !isPublicRoute(req)) {
+      if (isApiRoute(req)) {
+        console.log(`[mw] 401 unauth-api ${path}`);
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      }
+      console.log(`[mw] REDIRECT unauth-private-page ${path} → /sign-in`);
+      const url = new URL("/sign-in", req.url);
+      url.searchParams.set("redirect_url", req.nextUrl.pathname + req.nextUrl.search);
+      return NextResponse.redirect(url);
+    }
+  } catch (err) {
+    // Ultimate safety net — middleware must never bring down the site
+    console.error("[mw] uncaught middleware error, allowing request:", err);
   }
 });
 
