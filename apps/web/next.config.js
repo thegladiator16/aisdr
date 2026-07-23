@@ -83,6 +83,22 @@ const nextConfig = {
           },
         ],
       },
+      {
+        // Marketing pages — Clerk middleware forces them "dynamic" so the
+        // per-page `revalidate` export is ignored. Force the CDN cache
+        // policy explicitly here so Vercel edge still serves them fast.
+        // The `s-maxage` alone is what Vercel edge respects; browsers still
+        // revalidate on the short `max-age` window.
+        source:
+          "/:path(features|privacy|terms|contact|solutions/enterprise|solutions/startups|solutions/smb)",
+        headers: [
+          {
+            key: "Cache-Control",
+            value:
+              "public, max-age=60, s-maxage=3600, stale-while-revalidate=86400",
+          },
+        ],
+      },
     ];
   },
 };
