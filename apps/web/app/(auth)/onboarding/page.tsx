@@ -115,48 +115,26 @@ export default function OnboardingPage() {
     dailyLimit: 30,
   });
 
-  /* Research simulation */
+  /* Prefill from Clerk user data — no artificial delay. */
   useEffect(() => {
     if (step !== 0) return;
-    setResearchDone(false);
-    setProgress(0);
+    const orgName =
+      user?.organizationMemberships?.[0]?.organization?.name ?? "";
+    const email = user?.primaryEmailAddress?.emailAddress ?? "";
+    const domain = email.split("@")[1] ?? "";
+    const guessedCompany =
+      orgName ||
+      (domain && !["gmail.com", "yahoo.com", "outlook.com", "hotmail.com"].includes(domain)
+        ? domain.replace(/\.\w+$/, "").replace(/^\w/, (c) => c.toUpperCase())
+        : "");
 
-    const interval = setInterval(() => {
-      setProgress((p) => {
-        if (p >= 100) {
-          clearInterval(interval);
-          return 100;
-        }
-        return p + Math.random() * 8 + 2;
-      });
-    }, 120);
-
-    const timer = setTimeout(() => {
-      clearInterval(interval);
-      setProgress(100);
-      /* Pre-fill from Clerk user data */
-      const orgName =
-        user?.organizationMemberships?.[0]?.organization?.name ?? "";
-      const email = user?.primaryEmailAddress?.emailAddress ?? "";
-      const domain = email.split("@")[1] ?? "";
-      const guessedCompany =
-        orgName ||
-        (domain && !["gmail.com", "yahoo.com", "outlook.com", "hotmail.com"].includes(domain)
-          ? domain.replace(/\.\w+$/, "").replace(/^\w/, (c) => c.toUpperCase())
-          : "");
-
-      setData((d) => ({
-        ...d,
-        companyName: guessedCompany || d.companyName,
-        role: d.role || "Founder",
-      }));
-      setResearchDone(true);
-    }, 3000);
-
-    return () => {
-      clearInterval(interval);
-      clearTimeout(timer);
-    };
+    setData((d) => ({
+      ...d,
+      companyName: guessedCompany || d.companyName,
+      role: d.role || "Founder",
+    }));
+    setProgress(100);
+    setResearchDone(true);
   }, [step, user]);
 
   /* Helpers */

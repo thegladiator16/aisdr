@@ -162,7 +162,14 @@ export async function GET() {
       (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
     );
 
-    return NextResponse.json({ data: items.slice(0, 10) });
+    return NextResponse.json(
+      { data: items.slice(0, 10) },
+      {
+        headers: {
+          "Cache-Control": "private, max-age=15, stale-while-revalidate=60",
+        },
+      }
+    );
   } catch (err) {
     console.error("[dashboard/activity:GET] error:", err);
     return NextResponse.json({ data: [] }, { status: 200 });

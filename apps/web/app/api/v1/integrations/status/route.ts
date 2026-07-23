@@ -64,16 +64,23 @@ export async function GET() {
       hasVisitorTracking = Boolean((vtResult as any).rows?.[0]?.has_vt);
     } catch {}
 
-    return NextResponse.json({
-      gmail: gmailConnected,
-      crm: crmConnected,
-      calendar: hasCalendar,
-      slack: hasSlack,
-      dnc: hasDnc,
-      campaign: hasCampaign,
-      teamCount,
-      visitorTracking: hasVisitorTracking,
-    });
+    return NextResponse.json(
+      {
+        gmail: gmailConnected,
+        crm: crmConnected,
+        calendar: hasCalendar,
+        slack: hasSlack,
+        dnc: hasDnc,
+        campaign: hasCampaign,
+        teamCount,
+        visitorTracking: hasVisitorTracking,
+      },
+      {
+        headers: {
+          "Cache-Control": "private, max-age=30, stale-while-revalidate=300",
+        },
+      }
+    );
   } catch {
     return NextResponse.json({
       gmail: false, crm: false, calendar: false, slack: false,

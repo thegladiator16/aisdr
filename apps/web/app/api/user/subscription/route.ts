@@ -187,17 +187,28 @@ export async function GET() {
         ? getPlanAmountInPaise(subscription.tier, "monthly") ?? 0
         : 0;
 
-    return NextResponse.json({
-      tier: subscription.tier,
-      status: subscription.status,
-      credits: subscription.leadsLimit ?? 0,
-      creditsUsed: subscription.leadsUsed ?? 0,
-      trialEndsAt,
-      currentPeriodEnd: subscription.currentPeriodEnd ?? null,
-      monthlyCostPaise,
-      daysLeft,
-      isTrialing,
-    });
+    return NextResponse.json(
+      {
+        tier: subscription.tier,
+        status: subscription.status,
+        credits: subscription.leadsLimit ?? 0,
+        creditsUsed: subscription.leadsUsed ?? 0,
+        trialEndsAt,
+        currentPeriodEnd: subscription.currentPeriodEnd ?? null,
+        monthlyCostPaise,
+        daysLeft,
+        isTrialing,
+      },
+      {
+        headers: {
+          // Per-user cache — safe because credit consumption is also
+          // enforced server-side in the agent orchestrator. Sidebar and
+          // trial banner remount on every navigation, so this stops the
+          // DB from being hit for each of them.
+          "Cache-Control": "private, max-age=30, stale-while-revalidate=120",
+        },
+      }
+    );
   } catch (error) {
     console.error("[subscription] GET error:", error);
     // Fall back to a safe trial-shaped response so the sidebar / trial banner

@@ -105,44 +105,48 @@ export async function GET(req: Request) {
     const replyRate = totalSent > 0 ? Math.round((totalReplied / totalSent) * 100) : 0;
     const bounceRate = emailsSent > 0 ? Math.round((bounces / emailsSent) * 100) : 0;
 
-    const subjectsResult = await db.execute(sql`
-      SELECT
-        subject,
-        COUNT(*)::int AS total,
-        SUM(CASE WHEN open_count > 0 THEN 1 ELSE 0 END)::int AS opened,
-        SUM(CASE WHEN replied_at IS NOT NULL THEN 1 ELSE 0 END)::int AS replied
-      FROM outreach_messages
-      WHERE user_id = ${user.id}
-        AND subject IS NOT NULL
-        AND sent_at IS NOT NULL
-        AND created_at >= NOW() - MAKE_INTERVAL(days => ${days})
-      GROUP BY subject
-      HAVING COUNT(*) >= 2
-      ORDER BY SUM(CASE WHEN replied_at IS NOT NULL THEN 1 ELSE 0 END)::float / GREATEST(COUNT(*), 1) DESC
-      LIMIT 5
-    `);
+    // Run both aggregation queries in parallel — they touch the same table
+    // but are independent, so no need to wait for one before starting the
+    // other. Saves one full DB round-trip on every analytics request.
+    const [subjectsResult, sendTimesResult] = await Promise.all([
+      db.execute(sql`
+        SELECT
+          subject,
+          COUNT(*)::int AS total,
+          SUM(CASE WHEN open_count > 0 THEN 1 ELSE 0 END)::int AS opened,
+          SUM(CASE WHEN replied_at IS NOT NULL THEN 1 ELSE 0 END)::int AS replied
+        FROM outreach_messages
+        WHERE user_id = ${user.id}
+          AND subject IS NOT NULL
+          AND sent_at IS NOT NULL
+          AND created_at >= NOW() - MAKE_INTERVAL(days => ${days})
+        GROUP BY subject
+        HAVING COUNT(*) >= 2
+        ORDER BY SUM(CASE WHEN replied_at IS NOT NULL THEN 1 ELSE 0 END)::float / GREATEST(COUNT(*), 1) DESC
+        LIMIT 5
+      `),
+      db.execute(sql`
+        SELECT
+          TO_CHAR(sent_at, 'Dy') AS day,
+          EXTRACT(HOUR FROM sent_at)::int AS hour,
+          COUNT(*)::int AS total,
+          SUM(CASE WHEN replied_at IS NOT NULL THEN 1 ELSE 0 END)::int AS replied
+        FROM outreach_messages
+        WHERE user_id = ${user.id}
+          AND sent_at IS NOT NULL
+          AND created_at >= NOW() - MAKE_INTERVAL(days => ${days})
+        GROUP BY day, hour
+        HAVING COUNT(*) >= 2
+        ORDER BY SUM(CASE WHEN replied_at IS NOT NULL THEN 1 ELSE 0 END)::float / GREATEST(COUNT(*), 1) DESC
+        LIMIT 5
+      `),
+    ]);
     const subjectRows = (subjectsResult as any).rows ?? subjectsResult ?? [];
     const topSubjects = (Array.isArray(subjectRows) ? subjectRows : []).map((r: any) => ({
       subject: r.subject,
       openRate: Number(r.total) > 0 ? Math.round((Number(r.opened) / Number(r.total)) * 100) : 0,
       replyRate: Number(r.total) > 0 ? Math.round((Number(r.replied) / Number(r.total)) * 100) : 0,
     }));
-
-    const sendTimesResult = await db.execute(sql`
-      SELECT
-        TO_CHAR(sent_at, 'Dy') AS day,
-        EXTRACT(HOUR FROM sent_at)::int AS hour,
-        COUNT(*)::int AS total,
-        SUM(CASE WHEN replied_at IS NOT NULL THEN 1 ELSE 0 END)::int AS replied
-      FROM outreach_messages
-      WHERE user_id = ${user.id}
-        AND sent_at IS NOT NULL
-        AND created_at >= NOW() - MAKE_INTERVAL(days => ${days})
-      GROUP BY day, hour
-      HAVING COUNT(*) >= 2
-      ORDER BY SUM(CASE WHEN replied_at IS NOT NULL THEN 1 ELSE 0 END)::float / GREATEST(COUNT(*), 1) DESC
-      LIMIT 5
-    `);
     const sendTimeRows = (sendTimesResult as any).rows ?? sendTimesResult ?? [];
     const bestSendTimes = (Array.isArray(sendTimeRows) ? sendTimeRows : []).map((r: any) => ({
       day: r.day,

@@ -482,19 +482,23 @@ export default function BillingPage() {
 
   useEffect(() => {
     async function loadBillingInfo() {
-      try {
-        const res = await fetch("/api/user/profile");
-        if (res.ok) {
-          const data = await res.json();
+      // Fire both requests in parallel — they're independent, and running
+      // them serially doubled the billing page's shell-to-hydrated latency.
+      const [profileRes, billingRes] = await Promise.all([
+        fetch("/api/user/profile").catch(() => null),
+        fetch("/api/user/billing-details").catch(() => null),
+      ]);
+      if (profileRes?.ok) {
+        try {
+          const data = await profileRes.json();
           const name = data.companyName || "My organization";
           setBillingName(name);
           setNameDraft(name);
-        }
-      } catch {}
-      try {
-        const res = await fetch("/api/user/billing-details");
-        if (res.ok) {
-          const data = await res.json();
+        } catch {}
+      }
+      if (billingRes?.ok) {
+        try {
+          const data = await billingRes.json();
           if (data.billingEmail) {
             setBillingEmail(data.billingEmail);
             setEmailDraft(data.billingEmail);
@@ -503,8 +507,8 @@ export default function BillingPage() {
             setBillingName(data.billingName);
             setNameDraft(data.billingName);
           }
-        }
-      } catch {}
+        } catch {}
+      }
     }
     loadBillingInfo();
   }, []);

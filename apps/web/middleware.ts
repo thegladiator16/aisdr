@@ -35,12 +35,28 @@ const isPublicRoute = createRouteMatcher([
 
 const isAuthPage = createRouteMatcher(["/sign-in(.*)", "/sign-up(.*)"]);
 const isApiRoute = createRouteMatcher(["/api/(.*)"]);
+// Rate limiting bypasses — cheap read-only status endpoints, webhooks
+// (already signature-verified), and health/debug endpoints must not pay
+// the Upstash round-trip on the Edge critical path.
+const skipRateLimit = createRouteMatcher([
+  "/api/v1/health",
+  "/api/geo",
+  "/api/debug/(.*)",
+  "/api/billing/status",
+  "/api/enrichment/status",
+  "/api/webhooks/(.*)",
+  "/api/hooks/lead/(.*)",
+  "/api/v1/billing/webhook(.*)",
+  "/api/billing/webhook/(.*)",
+]);
+// Only the actual auth POST/action endpoints get the strict 10/min limit,
+// not the /sign-in and /sign-up HTML page loads (which prefetch too).
 const isAuthEndpoint = createRouteMatcher([
-  "/sign-in(.*)",
-  "/sign-up(.*)",
   "/api/webhooks/(.*)",
   "/api/hooks/lead/(.*)",
 ]);
+
+const IS_DEV = process.env.NODE_ENV !== "production";
 
 function getClientIp(req: Request): string {
   return (
@@ -57,12 +73,24 @@ export default clerkMiddleware(async (auth, req) => {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const { userId, sessionId } = auth();
     const path = req.nextUrl.pathname;
     const method = req.method;
+    const apiRoute = isApiRoute(req);
+    const authPage = isAuthPage(req);
+    const publicRoute = isPublicRoute(req);
+
+    // Short-circuit for public non-API pages (marketing / landing) — no
+    // Clerk auth work, no rate limit, no logging. Cuts Edge CPU per request.
+    if (publicRoute && !apiRoute && !authPage) {
+      return;
+    }
+
+    const { userId, sessionId } = auth();
 
     // --- Rate limiting (fail-open; skipped if Upstash not configured) ---
-    if (isApiRoute(req) || isAuthPage(req)) {
+    // Skip for read-only status endpoints, webhooks (signature-verified),
+    // and health/debug — none of them benefit from Upstash gating.
+    if ((apiRoute || authPage) && !skipRateLimit(req)) {
       const rateLimitKey = userId ?? `ip:${getClientIp(req)}`;
       let limiter = readLimiter;
       if (isAuthEndpoint(req)) {
@@ -88,30 +116,27 @@ export default clerkMiddleware(async (auth, req) => {
       }
     }
 
-    const isNoisy =
-      path.startsWith("/_next") ||
-      path.startsWith("/favicon") ||
-      path === "/api/debug/auth-state";
-    if (!isNoisy) {
-      const clientCookie = req.cookies.get("__client")?.value ? "y" : "n";
-      const sessionCookie = req.cookies.get("__session")?.value ? "y" : "n";
-      const uatCookie = req.cookies.get("__client_uat")?.value ? "y" : "n";
-      console.log(
-        `[mw] ${method} ${path} userId=${userId ?? "null"} sess=${sessionId ?? "null"} cookies(client=${clientCookie},session=${sessionCookie},uat=${uatCookie})`
-      );
+    // --- Logging (dev only) ---
+    if (IS_DEV) {
+      const isNoisy =
+        path.startsWith("/_next") ||
+        path.startsWith("/favicon") ||
+        path === "/api/debug/auth-state";
+      if (!isNoisy) {
+        console.log(`[mw] ${method} ${path} userId=${userId ?? "null"} sess=${sessionId ?? "null"}`);
+      }
     }
 
-    if (userId && isAuthPage(req)) {
-      console.log(`[mw] REDIRECT auth-page-while-signed-in ${path} → /dashboard (userId=${userId})`);
+    // Authenticated users visiting sign-in/sign-up → dashboard
+    if (userId && authPage) {
       return NextResponse.redirect(new URL("/dashboard", req.url));
     }
 
-    if (!userId && !isPublicRoute(req)) {
-      if (isApiRoute(req)) {
-        console.log(`[mw] 401 unauth-api ${path}`);
+    // Unauthenticated users hitting private routes
+    if (!userId && !publicRoute) {
+      if (apiRoute) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
       }
-      console.log(`[mw] REDIRECT unauth-private-page ${path} → /sign-in`);
       const url = new URL("/sign-in", req.url);
       url.searchParams.set("redirect_url", req.nextUrl.pathname + req.nextUrl.search);
       return NextResponse.redirect(url);
@@ -124,7 +149,9 @@ export default clerkMiddleware(async (auth, req) => {
 
 export const config = {
   matcher: [
-    "/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)",
+    // Skip static file extensions AND well-known static paths so middleware
+    // never runs for robots/sitemap/manifest/etc.
+    "/((?!_next|robots\\.txt|sitemap\\.xml|manifest\\.webmanifest|favicon\\.ico|icon|apple-icon|og-image|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest|txt|xml|map|pdf|mp4)).*)",
     "/(api|trpc)(.*)",
   ],
 };

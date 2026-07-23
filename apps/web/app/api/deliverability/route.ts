@@ -89,7 +89,14 @@ export async function GET() {
       };
     });
 
-    return NextResponse.json({ mailboxes });
+    return NextResponse.json(
+      { mailboxes },
+      {
+        headers: {
+          "Cache-Control": "private, max-age=60, stale-while-revalidate=300",
+        },
+      }
+    );
   } catch (error) {
     console.error("[deliverability] error:", error);
     return NextResponse.json(

@@ -59,17 +59,15 @@ export async function GET(req: Request) {
     .from(integrations)
     .where(eq(integrations.type, "gmail"));
 
-  const syncResults: Array<{
-    userId: string;
-    scanned: number;
-    created: number;
-    matched: number;
-    errors: string[];
-  }> = [];
-  for (const u of connectedUsers) {
-    const r = await syncUserGmailInbox(u.userId);
-    syncResults.push({ userId: u.userId, ...r });
-  }
+  // Parallelize per-user Gmail sync — each user's IMAP scan is independent.
+  // Previously this ran fully serially, so total cron time scaled linearly
+  // with the number of connected accounts.
+  const syncResults = await Promise.all(
+    connectedUsers.map(async (u) => {
+      const r = await syncUserGmailInbox(u.userId);
+      return { userId: u.userId, ...r };
+    })
+  );
   const totalScanned = syncResults.reduce((s, r) => s + r.scanned, 0);
   const totalCreated = syncResults.reduce((s, r) => s + r.created, 0);
 

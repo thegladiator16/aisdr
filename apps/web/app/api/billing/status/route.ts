@@ -1,5 +1,4 @@
 export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import { isRazorpayConfigured } from "@/lib/payments/razorpay";
@@ -7,15 +6,18 @@ import { isRazorpayConfigured } from "@/lib/payments/razorpay";
 /**
  * Reports whether payments are available on this deployment. Used by
  * checkout modals to render a friendly "Payments aren't set up yet"
- * banner + disable the Pay button preemptively, instead of failing on
- * click with a scary error toast.
+ * banner + disable the Pay button preemptively.
  *
- * Intentionally public (no auth check) — the availability of payment
- * infrastructure is not a per-user secret, and letting the modal
- * pre-check without a session simplifies error UX.
+ * Public by design. The answer only changes on redeploy, so cache it
+ * aggressively at the edge.
  */
 export function GET() {
-  return NextResponse.json({
-    paymentsAvailable: isRazorpayConfigured(),
-  });
+  return NextResponse.json(
+    { paymentsAvailable: isRazorpayConfigured() },
+    {
+      headers: {
+        "Cache-Control": "public, s-maxage=300, stale-while-revalidate=3600",
+      },
+    }
+  );
 }

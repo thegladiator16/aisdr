@@ -1,11 +1,15 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 import { Toaster } from "sonner";
-import { Toaster as HotToaster } from "react-hot-toast";
 import "./globals.css";
 
-const inter = Inter({ subsets: ["latin"] });
+const inter = Inter({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-inter",
+  preload: true,
+});
 
 const SITE_URL = "https://aryasdr.in";
 const DEFAULT_TITLE = "AryaSDR: AI Sales Development Rep for Indian B2B";
@@ -58,6 +62,12 @@ export const metadata: Metadata = {
   // icons auto-generated from app/icon.tsx + app/apple-icon.tsx
 };
 
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  themeColor: "#6C47FF",
+};
+
 export default function RootLayout({
   children,
 }: {
@@ -65,11 +75,10 @@ export default function RootLayout({
 }) {
   return (
     <ClerkProvider>
-      <html lang="en">
+      <html lang="en" className={inter.variable}>
         <body className={inter.className}>
           {children}
           <Toaster richColors position="top-right" />
-          <HotToaster position="top-right" toastOptions={{ duration: 3000, style: { background: '#333', color: '#fff', fontSize: '14px' } }} />
         </body>
       </html>
     </ClerkProvider>

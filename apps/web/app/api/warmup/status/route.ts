@@ -95,7 +95,14 @@ export async function GET() {
       .filter((r) => r.email && r.status === "active")
       .map((r) => r.email as string);
 
-    return NextResponse.json({ sessions, connectedEmails });
+    return NextResponse.json(
+      { sessions, connectedEmails },
+      {
+        headers: {
+          "Cache-Control": "private, max-age=30, stale-while-revalidate=120",
+        },
+      }
+    );
   } catch (error) {
     console.error("[warmup/status] error:", error);
     return NextResponse.json(
