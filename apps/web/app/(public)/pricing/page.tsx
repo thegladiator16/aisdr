@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Check, X, Zap, Star, Quote } from 'lucide-react'
+import { Check, X, Zap, Star, Quote, ChevronDown } from 'lucide-react'
 import { useUser } from '@clerk/nextjs'
 import { toast } from 'sonner'
 import { AryaAvatar } from "@/components/arya/AryaAvatar"
@@ -282,6 +282,7 @@ export default function PricingPage() {
   // visitors without a session never see the lock — locale detection alone
   // decides their default.
   const [currencyLocked, setCurrencyLocked] = useState(false)
+  const [showComparison, setShowComparison] = useState(false)
 
   const clerkPhones = useMemo(() => {
     const list: string[] = []
@@ -621,18 +622,33 @@ export default function PricingPage() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.5 }}
-          className="text-2xl font-bold text-gray-900 text-center mb-8"
+          className="text-2xl font-bold text-gray-900 text-center mb-3"
         >
           Full feature comparison
         </motion.h2>
-        <motion.div
-          initial={{ opacity: 0, y: 24 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.5, delay: 0.1 }}
-          className="overflow-x-auto rounded-xl border border-gray-200 bg-white"
-        >
-          <table className="w-full text-sm">
+        <div className="flex justify-center mb-8">
+          <button
+            onClick={() => setShowComparison((v) => !v)}
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-[#6C47FF] hover:text-[#5538DD] transition-colors"
+            aria-expanded={showComparison}
+          >
+            {showComparison ? 'Hide full comparison' : 'Show full comparison'}
+            <ChevronDown
+              className={`h-4 w-4 transition-transform duration-300 ${showComparison ? 'rotate-180' : ''}`}
+            />
+          </button>
+        </div>
+        <AnimatePresence initial={false}>
+          {showComparison && (
+            <motion.div
+              key="comparison-table"
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+              className="overflow-x-auto rounded-xl border border-gray-200 bg-white"
+            >
+              <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100">
                 <th className="text-left px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider w-48">
@@ -674,9 +690,11 @@ export default function PricingPage() {
                   })}
                 </tr>
               ))}
-            </tbody>
-          </table>
-        </motion.div>
+                </tbody>
+              </table>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </section>
 
       {/* Cost comparison — Why AryaSDR over Artisan? */}

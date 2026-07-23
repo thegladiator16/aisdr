@@ -17,6 +17,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { ChangePlanModal } from "@/components/billing/ChangePlanModal";
+import CancellationFlowModal from "@/components/billing/CancellationFlowModal";
 import { CardBrandLogo, type CardBrand } from "@/components/brand/CardBrandLogo";
 import { useRazorpay } from "@/hooks/useRazorpay";
 import { useSubscription } from "@/lib/hooks/useSubscription";
@@ -472,6 +473,7 @@ export default function BillingPage() {
 
   const [showCreditsModal, setShowCreditsModal] = useState(false);
   const [showPlanModal, setShowPlanModal] = useState(false);
+  const [showCancelModal, setShowCancelModal] = useState(false);
 
   // Edit billing details
   const [editingDetails, setEditingDetails] = useState(false);
@@ -842,6 +844,39 @@ export default function BillingPage() {
         </table>
       </div>
 
+      {/* Payment method */}
+      <div className="bg-white border border-[#E5E7EB] rounded-xl p-6">
+        <div className="flex items-start justify-between mb-4">
+          <h2 className="text-sm font-semibold text-[#111827]">Payment method</h2>
+          <button
+            onClick={() => setShowPlanModal(true)}
+            className="px-3 py-1.5 text-xs font-medium text-[#6C47FF] border border-[#E5E7EB] rounded-lg hover:bg-[#F9FAFB] transition-colors"
+          >
+            Update payment method
+          </button>
+        </div>
+        {transactions && transactions.length > 0 ? (
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <CardBrandLogo brand="VISA" className="h-6 w-10" />
+              <div>
+                <p className="text-sm text-[#111827] font-mono tracking-widest">
+                  •••• •••• •••• 4242
+                </p>
+                <p className="text-xs text-[#6B7280] mt-0.5">Expires 12/28</p>
+              </div>
+            </div>
+            <span className="rounded-full bg-[#F3F4F6] px-2.5 py-1 text-[11px] font-medium text-[#6B7280]">
+              Managed via Razorpay Checkout
+            </span>
+          </div>
+        ) : (
+          <p className="text-sm text-[#6B7280]">
+            No payment method on file. A card is captured the first time you upgrade a plan or buy credits.
+          </p>
+        )}
+      </div>
+
       {/* Other costs */}
       <div className="bg-white border border-gray-200 rounded-xl p-6">
         <h2 className="text-sm font-semibold text-gray-900 mb-4">Other costs</h2>
@@ -1110,9 +1145,44 @@ export default function BillingPage() {
         </table>
       </div>
 
+      {/* Cancel subscription */}
+      {subscription &&
+        ["starter", "growth", "scale"].includes(subscription.tier) &&
+        subscription.status === "active" && (
+          <div className="bg-red-50 border border-red-200 rounded-xl p-6">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-sm font-semibold text-red-800">
+                  Cancel subscription
+                </h2>
+                <p className="text-xs text-red-700 mt-1">
+                  You&apos;ll keep access to your plan until the end of the current billing period.
+                </p>
+              </div>
+              <button
+                onClick={() => setShowCancelModal(true)}
+                className="shrink-0 px-3 py-1.5 text-xs font-medium text-red-700 border border-red-300 rounded-lg hover:bg-red-100 transition-colors"
+              >
+                Cancel subscription
+              </button>
+            </div>
+          </div>
+        )}
+
       {/* Modals */}
       {showCreditsModal && <BuyCreditsModal onClose={() => setShowCreditsModal(false)} />}
       {showPlanModal && <ChangePlanModal onClose={() => setShowPlanModal(false)} />}
+      {showCancelModal && subscription && (
+        <CancellationFlowModal
+          planName={PLAN_LABELS[subscription.tier] ?? subscription.tier}
+          onClose={() => setShowCancelModal(false)}
+          onCancelConfirmed={async () => {
+            const res = await fetch("/api/billing/cancel", { method: "POST" });
+            if (!res.ok) throw new Error("Failed to cancel subscription");
+            router.refresh();
+          }}
+        />
+      )}
     </div>
   );
 }

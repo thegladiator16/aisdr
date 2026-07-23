@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useUser } from "@clerk/nextjs";
 import { X, Check, Loader2 } from "lucide-react";
@@ -125,6 +125,46 @@ export function ChangePlanModal({ onClose }: { onClose: () => void }) {
   const [currencyLocked, setCurrencyLocked] = useState(false);
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
   const [paymentsAvailable, setPaymentsAvailable] = useState<boolean | null>(null);
+
+  // Proration preview: fetched on hover/focus of a plan CTA so the user sees
+  // the true prorated charge (accounting for unused time on their current
+  // plan) before clicking through to checkout. Purely informational — the
+  // create-order endpoint remains the source of truth for the real charge.
+  type Proration = {
+    chargeToday: number;
+    unusedCredit: number;
+    daysRemaining: number;
+    currency: Currency;
+  } | null;
+  const [proration, setProration] = useState<Record<string, Proration>>({});
+  const prorationCache = useRef<Map<string, Proration>>(new Map());
+
+  async function fetchProration(planKey: string) {
+    const cacheKey = `${planKey}|${billing}|${currency}`;
+    if (prorationCache.current.has(cacheKey)) return;
+    // Reserve the slot immediately so concurrent hovers don't double-fetch.
+    prorationCache.current.set(cacheKey, null);
+    try {
+      const res = await fetch("/api/billing/proration", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ toPlan: planKey, billing, currency }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (data && typeof data.chargeToday === "number") {
+        const p: Proration = {
+          chargeToday: data.chargeToday,
+          unusedCredit: data.unusedCredit ?? 0,
+          daysRemaining: data.daysRemaining ?? 0,
+          currency: (data.currency ?? currency) as Currency,
+        };
+        prorationCache.current.set(cacheKey, p);
+        setProration((prev) => ({ ...prev, [cacheKey]: p }));
+      }
+    } catch {
+      // Silent — proration block just stays hidden on failure.
+    }
+  }
 
   // Extract the user's phone number(s) once — Clerk sometimes populates
   // primaryPhoneNumber, sometimes phoneNumbers[]; check both.
@@ -424,7 +464,40 @@ export function ChangePlanModal({ onClose }: { onClose: () => void }) {
                            @paypal/react-paypal-js. NEVER opens Razorpay.
                         4. INR + starter/growth → labeled button opens
                            Razorpay Checkout via handleUpgrade. */}
-                  <div className="mt-auto">
+                  <div
+                    className="mt-auto"
+                    onMouseEnter={
+                      plan.key === "enterprise" || isCurrentPlan
+                        ? undefined
+                        : () => fetchProration(plan.key)
+                    }
+                    onFocus={
+                      plan.key === "enterprise" || isCurrentPlan
+                        ? undefined
+                        : () => fetchProration(plan.key)
+                    }
+                  >
+                    {(() => {
+                      const prorationKey = `${plan.key}|${billing}|${currency}`;
+                      const p = proration[prorationKey];
+                      if (
+                        plan.key !== "enterprise" &&
+                        !isCurrentPlan &&
+                        p &&
+                        p.chargeToday > 0
+                      ) {
+                        return (
+                          <div className="mb-2 rounded-md bg-violet-50 border border-violet-100 px-2.5 py-2 text-[11px] text-violet-700">
+                            You will be charged{" "}
+                            <span className="font-semibold tabular-nums">
+                              {formatMoney(p.chargeToday, p.currency)}
+                            </span>{" "}
+                            today for the remaining {p.daysRemaining} days.
+                          </div>
+                        );
+                      }
+                      return null;
+                    })()}
                     {isCurrentPlan ? (
                       <button
                         disabled
