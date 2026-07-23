@@ -17,6 +17,9 @@ export const metadata: Metadata = {
     "Terms governing your use of AryaSDR: subscriptions, billing, refund policy, acceptable use, and limitations of liability.",
 };
 
+// Fully static — cache at the edge for an hour.
+export const revalidate = 3600;
+
 const SECTIONS = [
   { id: "acceptance", label: "Acceptance of Terms" },
   { id: "account", label: "Your Account" },

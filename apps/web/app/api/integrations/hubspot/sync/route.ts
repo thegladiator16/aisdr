@@ -41,34 +41,42 @@ export async function POST() {
     let failed = 0;
     const errors: Array<{ email: string; error: string }> = [];
 
-    for (const lead of leads) {
-      const row = lead as {
-        id: string;
-        email: string;
-        first_name: string | null;
-        last_name: string | null;
-        company_name: string | null;
-        job_title: string | null;
-        phone: string | null;
-      };
-
-      try {
-        await syncLeadToHubspot({
-          email: row.email,
-          firstName: row.first_name ?? undefined,
-          lastName: row.last_name ?? undefined,
-          company: row.company_name ?? undefined,
-          title: row.job_title ?? undefined,
-          phone: row.phone ?? undefined,
-        });
-        synced++;
-      } catch (err) {
-        failed++;
-        errors.push({
-          email: row.email,
-          error: err instanceof Error ? err.message : "Unknown error",
-        });
-      }
+    // Bounded concurrency — 8 in-flight requests to HubSpot. Sequential
+    // was ~100 * latency; batching all 100 at once would trip HubSpot's
+    // rate limit (100 req / 10s). 8 keeps us safely under.
+    const CONCURRENCY = 8;
+    for (let i = 0; i < leads.length; i += CONCURRENCY) {
+      const chunk = leads.slice(i, i + CONCURRENCY);
+      await Promise.all(
+        chunk.map(async (lead: unknown) => {
+          const row = lead as {
+            id: string;
+            email: string;
+            first_name: string | null;
+            last_name: string | null;
+            company_name: string | null;
+            job_title: string | null;
+            phone: string | null;
+          };
+          try {
+            await syncLeadToHubspot({
+              email: row.email,
+              firstName: row.first_name ?? undefined,
+              lastName: row.last_name ?? undefined,
+              company: row.company_name ?? undefined,
+              title: row.job_title ?? undefined,
+              phone: row.phone ?? undefined,
+            });
+            synced++;
+          } catch (err) {
+            failed++;
+            errors.push({
+              email: row.email,
+              error: err instanceof Error ? err.message : "Unknown error",
+            });
+          }
+        })
+      );
     }
 
     return NextResponse.json({

@@ -9,6 +9,9 @@ export const metadata: Metadata = {
     "How AryaSDR collects, uses, and protects your data. India DPDP Act 2023 and GDPR compliant.",
 };
 
+// Fully static — cache at the edge for an hour.
+export const revalidate = 3600;
+
 const SECTIONS = [
   { id: "info-we-collect", label: "Information We Collect" },
   { id: "how-we-use", label: "How We Use Your Data" },

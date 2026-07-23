@@ -8,6 +8,9 @@ export const metadata: Metadata = {
   description: "AryaSDR for enterprise B2B teams. Dedicated CSM, SSO/SAML, custom volume, priority support.",
 };
 
+// Fully static — cache at the edge for an hour.
+export const revalidate = 3600;
+
 export default function EnterprisePage() {
   return (
     <div className="min-h-screen bg-[#FAFAFA]">

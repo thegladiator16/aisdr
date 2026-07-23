@@ -8,6 +8,10 @@ export const metadata: Metadata = {
   description: "Everything AryaSDR does: lead discovery, personalized outreach, multi-channel sequences, intent signals, inbox AI, analytics.",
 };
 
+// Fully static — regenerate at most once an hour. Marketing copy doesn't
+// change per user or per session, so serve straight from the Vercel edge.
+export const revalidate = 3600;
+
 const FEATURES = [
   {
     id: 'leads',

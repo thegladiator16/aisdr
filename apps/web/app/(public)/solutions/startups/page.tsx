@@ -8,6 +8,8 @@ export const metadata: Metadata = {
   description: "AryaSDR for early-stage startups. Get to first 10 meetings without an expensive sales hire.",
 };
 
+export const revalidate = 3600;
+
 export default function StartupsPage() {
   return (
     <div className="min-h-screen bg-[#FAFAFA]">

@@ -76,6 +76,16 @@ export default function RootLayout({
   return (
     <ClerkProvider>
       <html lang="en" className={inter.variable}>
+        <head>
+          {/* Preconnect + dns-prefetch to third-party origins the app uses
+              on hot paths — cuts the initial-handshake cost when Clerk boots,
+              Razorpay checkout opens, or any Neon/Upstash call is made. */}
+          <link rel="preconnect" href="https://clerk.aryasdr.in" crossOrigin="" />
+          <link rel="preconnect" href="https://checkout.razorpay.com" crossOrigin="" />
+          <link rel="dns-prefetch" href="https://api.razorpay.com" />
+          <link rel="dns-prefetch" href="https://accounts.google.com" />
+          <link rel="dns-prefetch" href="https://apis.google.com" />
+        </head>
         <body className={inter.className}>
           {children}
           <Toaster richColors position="top-right" />

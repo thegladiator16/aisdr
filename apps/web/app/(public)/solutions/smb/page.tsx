@@ -8,6 +8,8 @@ export const metadata: Metadata = {
   description: "AryaSDR for SMBs. Scale outbound without hiring more SDRs. Built for Indian B2B founders.",
 };
 
+export const revalidate = 3600;
+
 export default function SMBPage() {
   return (
     <div className="min-h-screen bg-[#FAFAFA]">
