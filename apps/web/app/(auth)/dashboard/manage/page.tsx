@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import toast from "react-hot-toast";
+import { toast } from "sonner";
 import { BrandLogo } from "@/components/brand/BrandLogo";
 import SignatureEditor from "@/components/signature/SignatureEditor";
 import {
