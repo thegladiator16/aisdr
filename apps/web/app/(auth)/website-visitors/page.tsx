@@ -585,7 +585,7 @@ export default function WebsiteVisitorsPage() {
               <p className="mt-2 max-w-md text-center text-sm text-gray-500">
                 Domain tracking and snippet verification are live, but matching an anonymous
                 pageview to a real person or company needs a reverse-IP identity data provider,
-                which isn&apos;t connected yet — so this list stays empty until that&apos;s wired up.
+                which isn&apos;t connected yet, so this list stays empty until that&apos;s wired up.
               </p>
             </>
           )}

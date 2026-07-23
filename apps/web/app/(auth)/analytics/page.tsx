@@ -1114,7 +1114,7 @@ function CreditsTab({
           <DollarSign className="h-12 w-12 text-gray-200 mb-3" />
           <p className="text-sm text-gray-500">No usage breakdown yet</p>
           <p className="text-xs text-gray-400 mt-1">
-            Per-{breakdownView} credit attribution isn&apos;t tracked yet — this needs
+            Per-{breakdownView} credit attribution isn&apos;t tracked yet, this needs
             per-action metering to be wired into each credit-consuming feature.
           </p>
         </div>

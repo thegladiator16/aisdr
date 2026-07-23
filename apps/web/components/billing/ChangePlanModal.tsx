@@ -210,7 +210,7 @@ export function ChangePlanModal({ onClose }: { onClose: () => void }) {
         currency: orderCurrency,
         keyId,
         name: "AryaSDR",
-        description: `${plan.name} plan — ${billing}`,
+        description: `${plan.name} plan, ${billing}`,
         prefill: {
           email: user?.primaryEmailAddress?.emailAddress,
           name: user?.fullName ?? undefined,
@@ -323,7 +323,7 @@ export function ChangePlanModal({ onClose }: { onClose: () => void }) {
               <p className="text-[11px] text-gray-400 text-center max-w-md">
                 {currency === "USD"
                   ? "International payments are processed securely via PayPal. On the next screen, select PayPal from the payment options."
-                  : "Indian payments via Razorpay — UPI / Cards / NetBanking."}
+                  : "Indian payments via Razorpay: UPI / Cards / NetBanking."}
               </p>
             )}
           </div>
@@ -447,7 +447,7 @@ export function ChangePlanModal({ onClose }: { onClose: () => void }) {
                           plan: plan.key as "starter" | "growth" | "scale",
                           billing,
                         }}
-                        buttonLabel={`Get ${plan.name}${priceLabel ? ` — ${priceLabel}/mo` : ""}`}
+                        buttonLabel={`Get ${plan.name}${priceLabel ? `: ${priceLabel}/mo` : ""}`}
                         colorClass={ctaColorClass}
                         onSuccess={() => {
                           onClose();
@@ -467,7 +467,7 @@ export function ChangePlanModal({ onClose }: { onClose: () => void }) {
                             Processing…
                           </>
                         ) : (
-                          <>Get {plan.name}{priceLabel ? ` — ${priceLabel}/mo` : ""}</>
+                          <>Get {plan.name}{priceLabel ? `: ${priceLabel}/mo` : ""}</>
                         )}
                       </button>
                     )}

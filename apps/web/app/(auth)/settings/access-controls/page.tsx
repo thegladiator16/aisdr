@@ -423,7 +423,7 @@ function RuleModal({
               onChange={(e) => setAssignTo(e.target.value)}
               className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
             >
-              <option value="">— unassigned (fall through) —</option>
+              <option value="">unassigned (fall through)</option>
               {members.map((m) => (
                 <option key={m.id} value={m.id}>
                   {m.email}
@@ -563,7 +563,7 @@ function LeadRoutingSection() {
           </h2>
           <p className="text-sm text-gray-500 mt-1">
             Assign incoming leads to team members based on industry, region,
-            company size, and more. Rules run in priority order — first match
+            company size, and more. Rules run in priority order, first match
             wins.
           </p>
         </div>

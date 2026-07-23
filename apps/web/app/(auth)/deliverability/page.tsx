@@ -75,7 +75,7 @@ function buildRecommendations(domain: DomainResult | null): string[] {
   ];
   const tips: string[] = [];
   if (!domain.dmarcPolicy || domain.dmarcPolicy === "none")
-    tips.push("Set your DMARC policy to 'quarantine' or 'reject' — your current policy doesn't protect against spoofing.");
+    tips.push("Set your DMARC policy to 'quarantine' or 'reject', your current policy doesn't protect against spoofing.");
   else if (domain.dmarcPolicy === "quarantine")
     tips.push("DMARC is set to 'quarantine'. Consider tightening to 'reject' for maximum protection.");
   if (!domain.spfFound)
@@ -83,7 +83,7 @@ function buildRecommendations(domain: DomainResult | null): string[] {
   if (!domain.dkimFound)
     tips.push("No DKIM found on common selectors. Enable DKIM signing in your email provider settings.");
   if (!domain.mxFound)
-    tips.push("No MX records detected. This domain can't receive replies — set up MX records.");
+    tips.push("No MX records detected. This domain can't receive replies. Set up MX records.");
   if (domain.scoreOutOf100 >= 75)
     tips.push("Your domain health looks good! Keep bounce rate below 2% to maintain high inbox placement.");
   tips.push("Keep daily send volume under 50 emails during the first 2 weeks of warmup.");
@@ -205,7 +205,7 @@ export default function DeliverabilityPage() {
           {domainResult ? (
             <p className="text-sm text-gray-500 mt-1">
               {checkedDomain} scored <strong>{domainResult.scoreOutOf100}/100</strong> on DNS health checks.
-              {domainResult.scoreOutOf100 >= 75 ? " All major records are properly set up." : " Some records need attention — see below."}
+              {domainResult.scoreOutOf100 >= 75 ? " All major records are properly set up." : " Some records need attention, see below."}
             </p>
           ) : checkingDomain ? (
             <p className="text-sm text-gray-500 mt-1">Checking DNS records for {checkedDomain}…</p>

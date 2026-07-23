@@ -8,15 +8,15 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"] });
 
 const SITE_URL = "https://aryasdr.in";
-const DEFAULT_TITLE = "AryaSDR — AI Sales Development Rep for Indian B2B";
+const DEFAULT_TITLE = "AryaSDR: AI Sales Development Rep for Indian B2B";
 const DEFAULT_DESC =
-  "Arya finds leads, writes personalized outreach, handles replies, and books meetings — at a fraction of the cost of a human SDR. Built for Indian B2B founders.";
+  "Arya finds leads, writes personalized outreach, handles replies, and books meetings, at a fraction of the cost of a human SDR. Built for Indian B2B founders.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
     default: DEFAULT_TITLE,
-    template: "%s — AryaSDR",
+    template: "%s | AryaSDR",
   },
   description: DEFAULT_DESC,
   keywords: [
@@ -41,7 +41,7 @@ export const metadata: Metadata = {
         url: "/og-image.png",
         width: 1200,
         height: 630,
-        alt: "AryaSDR — AI Sales Development Rep",
+        alt: "AryaSDR: AI Sales Development Rep",
       },
     ],
   },

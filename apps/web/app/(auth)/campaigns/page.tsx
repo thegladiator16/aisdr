@@ -1087,7 +1087,7 @@ export default function CampaignsPage() {
                   {newTriggerType === "credits_used_pct" &&
                     "Fires when leads-used / leads-limit crosses this percentage (0-100)."}
                   {newTriggerType === "manual" &&
-                    "Manual triggers don't fire on a threshold — they're kicked off by a workflow."}
+                    "Manual triggers don't fire on a threshold; they're kicked off by a workflow."}
                 </p>
               </div>
             </div>
@@ -1472,7 +1472,7 @@ export default function CampaignsPage() {
                         onChange={(e) => setFilterMinReplies(e.target.value)}
                         className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-[#6C47FF] focus:outline-none focus:ring-1 focus:ring-[#6C47FF]"
                       />
-                      <span className="text-gray-400 text-sm">—</span>
+                      <span className="text-gray-400 text-sm">to</span>
                       <input
                         type="number"
                         placeholder="Max"
@@ -1492,7 +1492,7 @@ export default function CampaignsPage() {
                         onChange={(e) => setFilterMinMeetings(e.target.value)}
                         className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-[#6C47FF] focus:outline-none focus:ring-1 focus:ring-[#6C47FF]"
                       />
-                      <span className="text-gray-400 text-sm">—</span>
+                      <span className="text-gray-400 text-sm">to</span>
                       <input
                         type="number"
                         placeholder="Max"

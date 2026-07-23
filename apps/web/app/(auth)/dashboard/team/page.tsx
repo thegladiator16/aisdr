@@ -180,7 +180,7 @@ export default function TeamPage() {
       toast.success(
         `${successCount} invite link${
           successCount > 1 ? "s" : ""
-        } created — copy and send to each person`
+        } created, copy and send to each person`
       );
       loadData();
     }
@@ -373,7 +373,7 @@ export default function TeamPage() {
                         className="py-10 text-center text-sm text-gray-400"
                       >
                         {members.length === 0
-                          ? 'Nobody invited yet — it’s just you. Click "+ Invite" to add teammates.'
+                          ? 'Nobody invited yet, it’s just you. Click "+ Invite" to add teammates.'
                           : "No members match your search."}
                       </td>
                     </tr>
@@ -475,7 +475,7 @@ export default function TeamPage() {
               Sender invite settings
             </h2>
             <p className="text-sm text-gray-500 mt-2">
-              Not available yet — per-sender assignment isn&apos;t built yet.
+              Not available yet, per-sender assignment isn&apos;t built yet.
             </p>
           </div>
         )}
@@ -505,7 +505,7 @@ export default function TeamPage() {
             {inviteOutcomes ? (
               <div>
                 <p className="text-sm text-gray-500 mb-4">
-                  Copy each link below and send it to the person yourself — we
+                  Copy each link below and send it to the person yourself, we
                   don&apos;t send emails automatically.
                 </p>
                 <div className="space-y-3 mb-6 max-h-64 overflow-y-auto">
@@ -549,7 +549,7 @@ export default function TeamPage() {
             ) : (
               <>
                 <p className="text-sm text-gray-500 mb-6">
-                  We&apos;ll generate a shareable invite link for each email —
+                  We&apos;ll generate a shareable invite link for each email,
                   you send it yourself.
                 </p>
 

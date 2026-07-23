@@ -100,9 +100,9 @@ const AGENT_PIPELINE: {
 /* ---------- Helpers ---------- */
 
 function durationStr(startedAt: string, completedAt: string | null): string {
-  if (!completedAt) return "—";
+  if (!completedAt) return "-";
   const ms = new Date(completedAt).getTime() - new Date(startedAt).getTime();
-  if (ms < 0) return "—";
+  if (ms < 0) return "-";
   if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
   return `${Math.floor(ms / 60000)}m ${Math.round((ms % 60000) / 1000)}s`;
 }
@@ -151,19 +151,19 @@ function getWarnings(tasks: Task[]): Warning[] {
     if (t.agentName === "prospecting" && t.output?.source === "synthesized") {
       out.push({
         type: "info",
-        message: "This run used synthesised demo leads — Hunter.io was not configured at the time.",
+        message: "This run used synthesised demo leads, Hunter.io was not configured at the time.",
       });
     }
     if (t.agentName === "research" && t.output?.serperConfigured === false) {
       out.push({
         type: "info",
-        message: "This run did not use web research — Serper was not configured at the time.",
+        message: "This run did not use web research, Serper was not configured at the time.",
       });
     }
     if (t.agentName === "sender" && t.output?.skippedReason === "gmail_not_connected") {
       out.push({
         type: "info",
-        message: "Emails were scheduled but not delivered — Gmail was not connected at the time.",
+        message: "Emails were scheduled but not delivered, Gmail was not connected at the time.",
       });
     }
   }
@@ -279,7 +279,7 @@ function PipelineStep({
       <div className={`flex-1 min-w-0 ${isLast ? "pb-0" : "pb-4"}`}>
         <div className="flex items-center gap-2 mb-0.5">
           <span className="text-[13px] font-semibold text-gray-900">{config.label}</span>
-          {dur && dur !== "—" && (
+          {dur && dur !== "-" && (
             <span className="text-[11px] text-gray-400 tabular-nums">{dur}</span>
           )}
           {status === "completed" && (
@@ -393,14 +393,14 @@ function RunDetailPanel({ detail }: { detail: RunDetail }) {
               <Users className="h-3 w-3 text-gray-400" />
               <span className="text-[10px] font-medium text-gray-400 uppercase tracking-wide">Leads</span>
             </div>
-            <div className="text-[13px] font-semibold text-gray-900 tabular-nums">{output?.leadCount ?? "—"}</div>
+            <div className="text-[13px] font-semibold text-gray-900 tabular-nums">{output?.leadCount ?? "-"}</div>
           </div>
           <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5">
             <div className="flex items-center gap-1.5 mb-1">
               <Zap className="h-3 w-3 text-gray-400" />
               <span className="text-[10px] font-medium text-gray-400 uppercase tracking-wide">Credits</span>
             </div>
-            <div className="text-[13px] font-semibold text-gray-900 tabular-nums">{output?.creditsUsed ?? "—"}</div>
+            <div className="text-[13px] font-semibold text-gray-900 tabular-nums">{output?.creditsUsed ?? "-"}</div>
           </div>
         </div>
 
@@ -503,7 +503,7 @@ function RunDetailPanel({ detail }: { detail: RunDetail }) {
                   <div className="flex-1 min-w-0">
                     <div className="text-[13px] font-semibold text-gray-900 truncate">{lead.name || "Unknown"}</div>
                     <div className="text-[11px] text-gray-500 truncate">
-                      {lead.title || "—"}
+                      {lead.title || "-"}
                       {lead.company && (
                         <span className="text-gray-400"> at {lead.company}</span>
                       )}

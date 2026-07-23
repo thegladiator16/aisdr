@@ -353,7 +353,7 @@ export default function SignalsPage() {
                 <div
                   key={signal.id}
                   onClick={() => handleSignalClick(signal)}
-                  title={signal.comingSoon ? "Coming soon — join waitlist" : undefined}
+                  title={signal.comingSoon ? "Coming soon, join waitlist" : undefined}
                   className={`relative rounded-xl border border-gray-200 bg-white p-5 transition ${
                     signal.comingSoon
                       ? "opacity-60 cursor-default"

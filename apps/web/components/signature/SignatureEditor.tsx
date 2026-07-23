@@ -240,7 +240,7 @@ export default function SignatureEditor({ onClose, onSaved }: SignatureEditorPro
                     className="w-full px-3 py-2 text-sm font-mono border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent resize-none"
                   />
                   <p className="text-xs text-gray-500 mt-1">
-                    Editing the raw signature — structured fields are ignored.
+                    Editing the raw signature; structured fields are ignored.
                   </p>
                 </div>
               ) : (

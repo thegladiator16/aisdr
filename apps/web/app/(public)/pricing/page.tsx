@@ -208,19 +208,19 @@ const FAQ = [
   },
   {
     q: 'What are multi-agent runs?',
-    a: 'A multi-agent run is when Arya\'s AI agents work end-to-end autonomously — prospecting, researching, writing, and sending. Starter gets 5/month, Growth gets 25/month, and Scale gets unlimited.',
+    a: 'A multi-agent run is when Arya\'s AI agents work end-to-end autonomously: prospecting, researching, writing, and sending. Starter gets 5/month, Growth gets 25/month, and Scale gets unlimited.',
   },
   {
     q: 'How is AryaSDR different from Artisan?',
-    a: 'AryaSDR offers the same AI SDR capabilities — autonomous prospecting, research, email writing, and sending — at a fraction of Artisan\'s $600+/month price. Our Scale plan at $294/mo gives you 20,000 credits and unlimited multi-agent runs.',
+    a: 'AryaSDR offers the same AI SDR capabilities, autonomous prospecting, research, email writing, and sending, at a fraction of Artisan\'s $600+/month price. Our Scale plan at $294/mo gives you 20,000 credits and unlimited multi-agent runs.',
   },
   {
     q: 'How does billing work?',
-    a: 'Monthly billing in INR via Razorpay or USD via PayPal. Yearly billing gives ~17% off. Cancel anytime — no lock-in, no contracts.',
+    a: 'Monthly billing in INR via Razorpay or USD via PayPal. Yearly billing gives ~17% off. Cancel anytime, no lock-in, no contracts.',
   },
   {
     q: 'Do unused credits roll over?',
-    a: "Yes — on monthly plans, unused credits carry over to the next month. They don't expire as long as your subscription is active.",
+    a: "Yes, on monthly plans, unused credits carry over to the next month. They don't expire as long as your subscription is active.",
   },
   {
     q: 'What payment methods do you accept?',
@@ -323,14 +323,14 @@ export default function PricingPage() {
       >
         <div className="inline-flex items-center gap-2 bg-violet-50 text-violet-700 text-xs font-semibold px-3 py-1.5 rounded-full mb-4">
           <Zap className="h-3 w-3" />
-          14-day free trial on all paid plans — no credit card required
+          14-day free trial on all paid plans, no credit card required
         </div>
         <h1 className="text-4xl sm:text-5xl font-bold text-gray-900 mb-4">
           Simple, transparent pricing
         </h1>
         <p className="text-lg text-gray-500 max-w-2xl mx-auto">
           Pay a fraction of a human SDR. Arya does the prospecting, enrichment,
-          outreach, and follow-up — all on autopilot.
+          outreach, and follow-up, all on autopilot.
         </p>
 
         {/* Currency + billing toggles */}

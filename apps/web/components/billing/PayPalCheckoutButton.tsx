@@ -78,7 +78,7 @@ export function PayPalCheckoutButton({
 
       const json = (await res.json()) as { approveUrl?: string | null };
       if (!json.approveUrl) {
-        toast.error("PayPal did not return a checkout URL — please try again.");
+        toast.error("PayPal did not return a checkout URL, please try again.");
         return;
       }
 

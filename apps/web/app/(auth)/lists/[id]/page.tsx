@@ -321,8 +321,8 @@ export default function ListDetailPage() {
                         </div>
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-gray-600 hidden md:table-cell">{lead.companyName ?? "—"}</td>
-                    <td className="px-4 py-3 text-gray-600 hidden lg:table-cell">{lead.email ?? "—"}</td>
+                    <td className="px-4 py-3 text-gray-600 hidden md:table-cell">{lead.companyName ?? "-"}</td>
+                    <td className="px-4 py-3 text-gray-600 hidden lg:table-cell">{lead.email ?? "-"}</td>
                     <td className="px-4 py-3">
                       <span className={cn("inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium capitalize", STATUS_COLOR[lead.status ?? "new"] ?? "text-zinc-500 bg-zinc-100")}>
                         {formatStatus(lead.status ?? "new")}

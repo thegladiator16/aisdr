@@ -1684,7 +1684,7 @@ export default function ManageAryaPage() {
                       </p>
                       <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">
                         {t.taskType.replaceAll("_", " ")}
-                        {t.message ? ` — ${t.message}` : ""}
+                        {t.message ? `: ${t.message}` : ""}
                       </p>
                     </div>
                     <span className="text-xs text-gray-400 shrink-0">
@@ -1910,7 +1910,7 @@ export default function ManageAryaPage() {
                     {proofHighlights.length === 0 ? (
                       <div className="flex flex-col items-center justify-center py-10 text-center">
                         <p className="text-sm text-gray-500">
-                          No highlights yet. Add wins Arya can drop into outreach — e.g.
+                          No highlights yet. Add wins Arya can drop into outreach, e.g.
                           &quot;3x more meetings&quot;.
                         </p>
                       </div>
@@ -2190,7 +2190,7 @@ export default function ManageAryaPage() {
                   <p className="font-medium text-gray-900">CRM sync not available yet</p>
                   <p className="text-sm text-gray-500 mt-1 max-w-md">
                     Connect a CRM integration to sync do-not-contact entries automatically. This is on
-                    the roadmap — for now, add DNC entries directly to the Email, Domain, or Phone tabs.
+                    the roadmap. For now, add DNC entries directly to the Email, Domain, or Phone tabs.
                   </p>
                 </div>
               ) : (

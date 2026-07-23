@@ -4,7 +4,7 @@ import { ArrowLeft, Building2 } from 'lucide-react'
 import { AryaAvatar } from '@/components/arya/AryaAvatar'
 
 export const metadata: Metadata = {
-  title: "SMB — AI SDR for Growing Companies",
+  title: "SMB: AI SDR for Growing Companies",
   description: "AryaSDR for SMBs. Scale outbound without hiring more SDRs. Built for Indian B2B founders.",
 };
 

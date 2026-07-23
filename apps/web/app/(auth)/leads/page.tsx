@@ -1606,13 +1606,13 @@ export default function LeadsPage() {
                             {lead.email}
                           </a>
                         ) : (
-                          "—"
+                          "-"
                         )}
                       </td>
                     )}
                     {visibleColumns.has("title") && (
                       <td className="px-4 py-3 text-muted-foreground truncate max-w-[180px]">
-                        {lead.jobTitle ?? "—"}
+                        {lead.jobTitle ?? "-"}
                       </td>
                     )}
                     {visibleColumns.has("phone") && (
@@ -1626,13 +1626,13 @@ export default function LeadsPage() {
                             {lead.phone}
                           </a>
                         ) : (
-                          "—"
+                          "-"
                         )}
                       </td>
                     )}
                     {visibleColumns.has("location") && (
                       <td className="px-4 py-3 text-xs text-muted-foreground truncate max-w-[180px]">
-                        {[lead.location, lead.country].filter(Boolean).join(", ") || "—"}
+                        {[lead.location, lead.country].filter(Boolean).join(", ") || "-"}
                       </td>
                     )}
                     {visibleColumns.has("website") && (
@@ -1653,7 +1653,7 @@ export default function LeadsPage() {
                             <ExternalLink className="h-3 w-3" />
                           </a>
                         ) : (
-                          <span className="text-muted-foreground">—</span>
+                          <span className="text-muted-foreground">-</span>
                         )}
                       </td>
                     )}
@@ -1670,7 +1670,7 @@ export default function LeadsPage() {
                           </span>
                         ) : (
                           <span className="text-muted-foreground text-xs">
-                            —
+                            -
                           </span>
                         )}
                       </td>
@@ -1694,7 +1694,7 @@ export default function LeadsPage() {
                           ? new Date(lead.lastActivityAt).toLocaleDateString()
                           : lead.createdAt
                           ? new Date(lead.createdAt).toLocaleDateString()
-                          : "—"}
+                          : "-"}
                       </td>
                     )}
                     <td

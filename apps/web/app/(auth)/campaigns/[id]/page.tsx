@@ -299,7 +299,7 @@ export default function CampaignBuilderPage() {
       try {
         await persistSequence();
       } catch {
-        toast.error("Couldn't save sequence — campaign not launched");
+        toast.error("Couldn't save sequence, campaign not launched");
         return;
       }
       const res = await fetch(`/api/campaigns/${id}`, {

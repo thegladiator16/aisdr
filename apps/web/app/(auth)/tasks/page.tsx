@@ -101,7 +101,7 @@ function truncate(str: string, max: number) {
 }
 
 function formatDate(value: string | null) {
-  if (!value) return "—";
+  if (!value) return "-";
   return new Date(value).toLocaleDateString("en-IN", {
     month: "short",
     day: "numeric",
@@ -619,7 +619,7 @@ export default function TasksPage() {
                         </div>
                         <div>
                           <p className="font-medium text-gray-900 leading-snug">{name}</p>
-                          <p className="text-xs text-gray-400 mt-0.5">{task.leadEmail ?? task.leadCompanyName ?? "—"}</p>
+                          <p className="text-xs text-gray-400 mt-0.5">{task.leadEmail ?? task.leadCompanyName ?? "-"}</p>
                         </div>
                       </div>
                     </td>
@@ -630,7 +630,7 @@ export default function TasksPage() {
                           <p className="text-sm text-gray-600 leading-snug">{truncate(task.message, 80)}</p>
                         </div>
                       ) : (
-                        <span className="text-gray-400">—</span>
+                        <span className="text-gray-400">-</span>
                       )}
                     </td>
                     <td className="px-4 py-3.5 hidden md:table-cell">
@@ -639,7 +639,7 @@ export default function TasksPage() {
                           {task.campaignName}
                         </span>
                       ) : (
-                        <span className="text-gray-400 text-sm">—</span>
+                        <span className="text-gray-400 text-sm">-</span>
                       )}
                     </td>
                     <td className="px-4 py-3.5">

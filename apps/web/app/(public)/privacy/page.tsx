@@ -125,7 +125,7 @@ export default function PrivacyPage() {
             </p>
             <p><strong>Payment metadata.</strong> Plan tier, subscription
               status, transaction ids. Actual card numbers and UPI IDs are
-              never seen or stored by us — they are handled directly by
+              never seen or stored by us; they are handled directly by
               Razorpay (see Section 3).
             </p>
           </div>
@@ -139,12 +139,12 @@ export default function PrivacyPage() {
               </h2>
             </div>
             <ul>
-              <li>To operate the platform — running your campaigns,
+              <li>To operate the platform: running your campaigns,
                 sending outreach, syncing replies, generating analytics.</li>
               <li>To generate AI-drafted outreach content using models from
                 Anthropic (Claude). Only the minimum context required for a
                 given draft is sent to the model.</li>
-              <li>To secure your account — detecting suspicious login
+              <li>To secure your account: detecting suspicious login
                 activity, rate-limiting abuse, preventing fraud.</li>
               <li>To bill you and process payments through Razorpay.</li>
               <li>To communicate with you about product updates, billing
@@ -263,12 +263,12 @@ export default function PrivacyPage() {
               personal data:
             </p>
             <ul>
-              <li><strong>Access</strong> — request a copy of the data we hold about you.</li>
-              <li><strong>Correction</strong> — ask us to fix inaccurate or incomplete data.</li>
-              <li><strong>Deletion</strong> — request permanent deletion of your account and data.</li>
-              <li><strong>Portability</strong> — receive your data in a common, machine-readable format.</li>
-              <li><strong>Withdraw consent</strong> — for any processing that relies on consent (e.g. integrations).</li>
-              <li><strong>Complain</strong> — file a complaint with the Data Protection Board of India or your local supervisory authority.</li>
+              <li><strong>Access</strong>: request a copy of the data we hold about you.</li>
+              <li><strong>Correction</strong>: ask us to fix inaccurate or incomplete data.</li>
+              <li><strong>Deletion</strong>: request permanent deletion of your account and data.</li>
+              <li><strong>Portability</strong>: receive your data in a common, machine-readable format.</li>
+              <li><strong>Withdraw consent</strong>: for any processing that relies on consent (e.g. integrations).</li>
+              <li><strong>Complain</strong>: file a complaint with the Data Protection Board of India or your local supervisory authority.</li>
             </ul>
             <p>
               To exercise any of these rights, email{" "}

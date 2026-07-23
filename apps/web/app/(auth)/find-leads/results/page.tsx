@@ -178,11 +178,11 @@ export default function FindLeadsResultsPage() {
   }
 
   const getDisplayName = (lead: Lead) =>
-    lead.fullName ?? ([lead.firstName, lead.lastName].filter(Boolean).join(" ") || "—");
+    lead.fullName ?? ([lead.firstName, lead.lastName].filter(Boolean).join(" ") || "-");
 
   const getInitials = (lead: Lead) => {
     const name = getDisplayName(lead);
-    if (name === "—") return "?";
+    if (name === "-") return "?";
     return name.split(" ").map((n) => n[0]).slice(0, 2).join("").toUpperCase();
   };
 
@@ -622,8 +622,8 @@ export default function FindLeadsResultsPage() {
                             <span className="text-sm font-medium text-gray-900">{c.name}</span>
                           </div>
                         </td>
-                        <td className="py-3 px-4 text-sm text-gray-600">{c.industry ?? "—"}</td>
-                        <td className="py-3 px-4 text-sm text-gray-600">{c.location ?? "—"}</td>
+                        <td className="py-3 px-4 text-sm text-gray-600">{c.industry ?? "-"}</td>
+                        <td className="py-3 px-4 text-sm text-gray-600">{c.location ?? "-"}</td>
                         <td className="py-3 px-4 text-sm text-gray-600">
                           {c.website ? (
                             <a
@@ -635,7 +635,7 @@ export default function FindLeadsResultsPage() {
                             >
                               {c.website.replace(/^https?:\/\//, "").replace(/\/$/, "")}
                             </a>
-                          ) : "—"}
+                          ) : "-"}
                         </td>
                         <td className="py-3 px-4">
                           <span className="inline-flex items-center rounded-full bg-violet-50 text-violet-700 px-2 py-0.5 text-xs font-semibold ring-1 ring-violet-200">
@@ -721,13 +721,13 @@ export default function FindLeadsResultsPage() {
                               </div>
                               <span className="text-sm text-gray-700">{lead.companyName}</span>
                             </div>
-                          ) : <span className="text-sm text-gray-400">—</span>}
+                          ) : <span className="text-sm text-gray-400">-</span>}
                         </td>
-                        <td className="py-3 px-4 text-sm text-gray-600">{lead.location ?? "—"}</td>
+                        <td className="py-3 px-4 text-sm text-gray-600">{lead.location ?? "-"}</td>
                         <td className="py-3 px-4">
                           {lead.industry ? (
                             <span className="text-sm text-gray-600">{lead.industry}</span>
-                          ) : <span className="text-sm text-gray-400">—</span>}
+                          ) : <span className="text-sm text-gray-400">-</span>}
                         </td>
                         <td className="py-3 px-4">
                           {lead.companyWebsite ? (
@@ -740,7 +740,7 @@ export default function FindLeadsResultsPage() {
                             >
                               {lead.companyWebsite.replace(/^https?:\/\//, "").replace(/\/$/, "")}
                             </a>
-                          ) : <span className="text-sm text-gray-400">—</span>}
+                          ) : <span className="text-sm text-gray-400">-</span>}
                         </td>
                       </tr>
                     );

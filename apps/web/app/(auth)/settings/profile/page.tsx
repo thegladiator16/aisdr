@@ -235,7 +235,7 @@ function TwoFactorModal({
       onEnable();
       onClose();
     } catch (err: any) {
-      toast.error(err?.errors?.[0]?.message ?? "Invalid code — try again");
+      toast.error(err?.errors?.[0]?.message ?? "Invalid code, try again");
     } finally {
       setVerifying(false);
     }
@@ -254,7 +254,7 @@ function TwoFactorModal({
         </div>
         <div className="p-6 space-y-6">
           <p className="text-sm text-gray-600">
-            Add this key to your authenticator app (Google Authenticator, Authy, etc.) —
+            Add this key to your authenticator app (Google Authenticator, Authy, etc.):
             look for &quot;enter a setup key&quot; instead of scanning a QR code.
           </p>
           <div className="flex items-center justify-center">
@@ -688,7 +688,7 @@ export default function ProfilePage() {
           </div>
         ) : (
           <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50 p-4 text-sm text-gray-500">
-            No signature yet — set one up so Arya can sign off properly.
+            No signature yet. Set one up so Arya can sign off properly.
           </div>
         )}
       </div>
@@ -705,7 +705,7 @@ export default function ProfilePage() {
               <p className="text-xs text-gray-500">
                 {user.passwordEnabled
                   ? "Update the password used to sign in"
-                  : `Signed in via ${user.externalAccounts[0]?.provider ?? "an external provider"} — set a password to also sign in directly`}
+                  : `Signed in via ${user.externalAccounts[0]?.provider ?? "an external provider"}. Set a password to also sign in directly`}
               </p>
             </div>
             <button

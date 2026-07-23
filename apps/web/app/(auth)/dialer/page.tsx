@@ -38,7 +38,7 @@ const FEATURES = [
   {
     icon: Users,
     title: "Past interaction summary",
-    desc: "See every email, reply, and note before you dial — no prep time needed.",
+    desc: "See every email, reply, and note before you dial, no prep time needed.",
   },
   {
     icon: BarChart3,
@@ -208,7 +208,7 @@ export default function DialerPage() {
                 Close more deals with AI-assisted calls
               </h2>
               <p className="text-violet-100 text-sm leading-relaxed mb-6">
-                Arya listens in real-time and surfaces the perfect talking points, objection handlers, and competitor insights — right when you need them.
+                Arya listens in real-time and surfaces the perfect talking points, objection handlers, and competitor insights, right when you need them.
               </p>
               <button
                 onClick={() => setDialerModalOpen(true)}
@@ -396,7 +396,7 @@ export default function DialerPage() {
                       <div className="flex items-start gap-2">
                         <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
                         <p className="text-xs text-amber-800 leading-relaxed">
-                          Dialer seats require a Twilio (or equivalent) telephony integration to place real calls. The integration isn&apos;t configured yet — purchases are real, but calling won&apos;t work until you set it up.
+                          Dialer seats require a Twilio (or equivalent) telephony integration to place real calls. The integration isn&apos;t configured yet. Purchases are real, but calling won&apos;t work until you set it up.
                         </p>
                       </div>
                     </div>

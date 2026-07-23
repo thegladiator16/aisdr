@@ -121,7 +121,7 @@ const FEATURE_CHIPS = [
 const PRESS = ["YourStory", "Inc42", "Economic Times", "Entrackr", "StartupStories"]
 
 const FAQ = [
-  { q: "How does the free trial work?", a: "Sign up and get 10,000 credits for 14 days with all features unlocked. No credit card needed. Explore the full platform — prospecting, email, multi-agent runs — and upgrade when you're ready." },
+  { q: "How does the free trial work?", a: "Sign up and get 10,000 credits for 14 days with all features unlocked. No credit card needed. Explore the full platform, prospecting, email, multi-agent runs, and upgrade when you're ready." },
   { q: "Can Arya send WhatsApp messages?", a: "Yes! Arya supports WhatsApp Business API, a channel where Indian prospects actually respond. This is unavailable in most global tools." },
   { q: "Is this compliant with GDPR and India DPDPA?", a: "Absolutely. All data handling is GDPR and India DPDPA compliant. We provide opt-out links and honor unsubscribe requests automatically." },
   { q: "How is this different from Apollo or Instantly?", a: "Arya is built for India-first B2B. WhatsApp outreach, Hindi/Hinglish support, pricing 5x cheaper than US tools, Indian company database, and flexible payment options." },

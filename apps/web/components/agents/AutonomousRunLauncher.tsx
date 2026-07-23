@@ -40,7 +40,7 @@ export function AutonomousRunLauncher({ campaignId }: { campaignId?: string }) {
 
   async function start() {
     if (!goal.trim()) {
-      toast.error("Give Arya a goal first — e.g. 'Book 5 demos with FinTech CFOs'.");
+      toast.error("Give Arya a goal first, e.g. 'Book 5 demos with FinTech CFOs'.");
       return;
     }
     setRunning(true);
@@ -118,7 +118,7 @@ export function AutonomousRunLauncher({ campaignId }: { campaignId?: string }) {
             </span>
           </h3>
           <p className="text-xs text-gray-500">
-            Hand Arya the goal — orchestrator, prospecting, research, copywriter, and sender agents run end-to-end.
+            Hand Arya the goal: orchestrator, prospecting, research, copywriter, and sender agents run end-to-end.
           </p>
         </div>
       </div>

@@ -14,7 +14,7 @@ import {
 export const metadata: Metadata = {
   title: "Terms of Service | AryaSDR",
   description:
-    "Terms governing your use of AryaSDR — subscriptions, billing, refund policy, acceptable use, and limitations of liability.",
+    "Terms governing your use of AryaSDR: subscriptions, billing, refund policy, acceptable use, and limitations of liability.",
 };
 
 const SECTIONS = [
@@ -60,7 +60,7 @@ export default function TermsPage() {
         <div className="mx-auto max-w-5xl px-6 py-14">
           <div className="inline-flex items-center gap-2 rounded-full bg-violet-50 px-3 py-1 text-xs font-medium text-[#6C47FF] mb-4">
             <FileText className="h-3.5 w-3.5" />
-            Legal terms — please read carefully
+            Legal terms, please read carefully
           </div>
           <h1 className="text-4xl font-bold text-[#111827] tracking-tight">
             Terms of Service
@@ -150,7 +150,7 @@ export default function TermsPage() {
             </p>
             <ul>
               <li>
-                <strong>Anti-spam laws</strong> — CAN-SPAM (US), CASL (Canada),
+                <strong>Anti-spam laws</strong>: CAN-SPAM (US), CASL (Canada),
                 GDPR (EU/UK), DPDP Act 2023 (India), and any other law
                 governing electronic communications in the jurisdictions where
                 your recipients reside.

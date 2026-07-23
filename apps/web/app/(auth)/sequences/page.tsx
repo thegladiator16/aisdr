@@ -680,7 +680,7 @@ export default function SequencesPage() {
                     <div className="flex items-center gap-2 rounded-md border border-dashed border-border bg-background px-3 py-2 text-xs text-muted-foreground">
                       <FileText className="h-3.5 w-3.5" />
                       <span>
-                        Non-automated step — creates a task in the Tasks queue
+                        Non-automated step: creates a task in the Tasks queue
                         for a human to handle.
                       </span>
                     </div>

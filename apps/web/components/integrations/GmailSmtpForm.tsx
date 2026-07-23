@@ -62,7 +62,7 @@ export default function GmailSmtpForm({
       setSuccess("Gmail connected successfully!");
       setPassword("");
     } catch {
-      setError("Network error — please try again");
+      setError("Network error, please try again");
     } finally {
       setLoading(false);
     }
@@ -112,7 +112,7 @@ export default function GmailSmtpForm({
             <p className="text-xs text-gray-500">Today</p>
           </div>
           <div className="text-center border-x border-gray-100">
-            <p className="text-sm font-bold text-gray-900">{dailyEmailLimit ?? "—"}</p>
+            <p className="text-sm font-bold text-gray-900">{dailyEmailLimit ?? "-"}</p>
             <p className="text-xs text-gray-500">Limit</p>
           </div>
           <div className="text-center">

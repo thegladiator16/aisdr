@@ -308,7 +308,7 @@ function BuyCreditsModal({ onClose }: { onClose: () => void }) {
                       <p className="text-sm font-semibold text-[#111827]">Pay by UPI</p>
                       <p className="text-xs text-[#6B7280] mt-1">
                         Enter your UPI ID, scan a QR code, or approve the request
-                        directly in your UPI app — Razorpay handles the whole flow
+                        directly in your UPI app. Razorpay handles the whole flow
                         securely.
                       </p>
                     </div>
@@ -340,7 +340,7 @@ function BuyCreditsModal({ onClose }: { onClose: () => void }) {
 
                 <p className="text-xs text-[#6B7280] flex items-center gap-1.5">
                   <Lock className="h-3 w-3" /> UPI PIN is entered on your bank&apos;s
-                  secure screen — never on ours.
+                  secure screen, never on ours.
                 </p>
               </div>
             )}
@@ -431,7 +431,7 @@ export default function BillingPage() {
     const paypal = searchParams.get("paypal");
     if (!paypal) return;
     if (paypal === "success") {
-      toast.success("Your subscription is active — welcome aboard!", {
+      toast.success("Your subscription is active. Welcome aboard!", {
         duration: 6000,
       });
       // Nudge the subscription hook so the "Current Plan" chip flips
@@ -439,7 +439,7 @@ export default function BillingPage() {
       refreshSubscription();
       router.refresh();
     } else if (paypal === "cancelled") {
-      toast("Checkout cancelled — no charge was made.", { duration: 5000 });
+      toast("Checkout cancelled, no charge was made.", { duration: 5000 });
     } else if (paypal === "error") {
       const code = searchParams.get("code");
       toast.error(

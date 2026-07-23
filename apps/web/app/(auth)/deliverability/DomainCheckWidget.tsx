@@ -204,7 +204,7 @@ export function DomainCheckWidget() {
               summary={
                 result.mx.length > 0
                   ? `${result.mx.length} mail server${result.mx.length > 1 ? "s" : ""} configured.`
-                  : "No mail server configured — domain can't receive email."
+                  : "No mail server configured, domain can't receive email."
               }
               detail={
                 result.mx.length > 0
@@ -221,7 +221,7 @@ export function DomainCheckWidget() {
               summary={
                 result.spf.found
                   ? result.spf.insecure
-                    ? "Present but uses '+all' — insecure."
+                    ? "Present but uses '+all': insecure."
                     : `Present${
                         result.spf.mechanisms && result.spf.mechanisms.length
                           ? ` (${result.spf.mechanisms.length} mechanisms).`
