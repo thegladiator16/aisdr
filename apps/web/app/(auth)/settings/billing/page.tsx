@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useUser } from "@clerk/nextjs";
 import { toast } from "sonner";
+import { motion } from "framer-motion";
 import {
   Download,
   Minus,
@@ -697,14 +698,42 @@ export default function BillingPage() {
         </p>
       </div>
 
+      {/* Low-credit warning — fires at 80% usage (20% remaining or less) */}
+      {subscription && creditsRemainingPct <= 20 && creditsRemainingPct > 0 && (
+        <div className={`flex items-start gap-3 rounded-xl border px-4 py-3 ${
+          creditsRemainingPct <= 5
+            ? "border-red-200 bg-red-50 text-red-700"
+            : "border-amber-200 bg-amber-50 text-amber-700"
+        }`}>
+          <div className="text-lg leading-none">{creditsRemainingPct <= 5 ? "🚨" : "⚠️"}</div>
+          <div className="flex-1 text-sm">
+            <p className="font-semibold">
+              {creditsRemainingPct <= 5
+                ? "You're almost out of credits."
+                : "You're running low on credits."}
+            </p>
+            <p className="text-xs opacity-90 mt-0.5">
+              {creditsRemaining.toLocaleString("en-US")} of {subscription.credits.toLocaleString("en-US")} left.
+              Upgrade or buy a top-up pack to avoid interrupted campaigns.
+            </p>
+          </div>
+          <button
+            onClick={() => setShowCreditsModal(true)}
+            className="shrink-0 rounded-lg bg-white/70 hover:bg-white px-3 py-1.5 text-xs font-semibold border border-current/20 transition-colors"
+          >
+            Buy credits
+          </button>
+        </div>
+      )}
+
       {/* Current credit balance */}
-      <div className="bg-white border border-gray-200 rounded-xl p-6">
+      <div className="bg-white border border-[#E5E7EB] rounded-xl p-6">
         <div className="flex items-start justify-between mb-4">
-          <h2 className="text-sm font-semibold text-gray-900">Current credit balance</h2>
+          <h2 className="text-sm font-semibold text-[#111827]">Current credit balance</h2>
           <div className="flex items-center gap-3">
             <button
               onClick={() => setShowCreditsModal(true)}
-              className="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              className="px-4 py-2 text-sm font-medium text-[#111827] border border-[#E5E7EB] rounded-lg hover:bg-[#F9FAFB] transition-colors"
             >
               Buy extra credits
             </button>
@@ -717,19 +746,23 @@ export default function BillingPage() {
           </div>
         </div>
         <div className="flex items-end justify-between mb-3">
-          <span className="text-4xl font-bold text-gray-900">
+          <span className="text-4xl font-bold text-[#111827] tabular-nums">
             {creditsRemaining.toLocaleString("en-US")}
           </span>
-          <span className="text-sm text-gray-500">
+          <span className="text-sm text-[#6B7280] tabular-nums">
             {subscription
               ? `${subscription.creditsUsed.toLocaleString("en-US")} / ${subscription.credits.toLocaleString("en-US")} used`
               : "Loading…"}
           </span>
         </div>
-        <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
-          <div
-            className="h-full rounded-full transition-all duration-500"
-            style={{ width: `${creditsRemainingPct}%`, backgroundColor: creditsBarColor }}
+        <div className="w-full h-2 bg-[#F3F4F6] rounded-full overflow-hidden">
+          {/* Animate width from 0 → actual on mount using Framer Motion */}
+          <motion.div
+            className="h-full rounded-full"
+            initial={{ width: 0 }}
+            animate={{ width: `${creditsRemainingPct}%` }}
+            transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
+            style={{ backgroundColor: creditsBarColor }}
           />
         </div>
       </div>

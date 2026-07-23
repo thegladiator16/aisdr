@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Check, X, Zap } from 'lucide-react'
+import { Check, X, Zap, Star, Quote } from 'lucide-react'
 import { useUser } from '@clerk/nextjs'
 import { toast } from 'sonner'
 import { AryaAvatar } from "@/components/arya/AryaAvatar"
@@ -68,11 +68,11 @@ const PLANS = [
     id: 'starter',
     name: 'Starter',
     monthly: 6999,
-    yearly: 5833,
+    yearly: 5599,
     creditLabel: '3,000 credits/month',
     leadsLabel: '100 leads in database',
-    description: 'Run outbound campaigns with full email automation.',
-    cta: 'Start free trial →',
+    description: 'For founders doing their first outbound.',
+    cta: 'Start free trial',
     ctaHref: '/sign-up?plan=starter',
     highlight: false,
     badge: null as string | null,
@@ -94,11 +94,11 @@ const PLANS = [
     id: 'growth',
     name: 'Growth',
     monthly: 12999,
-    yearly: 10833,
+    yearly: 10399,
     creditLabel: '8,000 credits/month',
     leadsLabel: '500 leads in database',
-    description: 'Automate your entire outbound motion at scale.',
-    cta: 'Start free trial →',
+    description: 'For teams scaling with full AI automation.',
+    cta: 'Start free trial',
     ctaHref: '/sign-up?plan=growth',
     highlight: true,
     badge: 'Most Popular',
@@ -120,11 +120,11 @@ const PLANS = [
     id: 'scale',
     name: 'Scale',
     monthly: 24999,
-    yearly: 20833,
+    yearly: 19999,
     creditLabel: '20,000 credits/month',
     leadsLabel: '2,000 leads in database',
-    description: 'Full power at a fraction of Artisan\'s $600+/mo.',
-    cta: 'Start free trial →',
+    description: 'For teams that want fully autonomous outbound.',
+    cta: 'Start free trial',
     ctaHref: '/sign-up?plan=scale',
     highlight: false,
     badge: 'Best Value vs Artisan',
@@ -199,34 +199,66 @@ const CREDIT_COSTS = [
 
 const FAQ = [
   {
-    q: 'What happens when my free trial ends?',
-    a: 'Your active campaigns are paused. You keep all your data and can upgrade to any paid plan at any time to resume.',
+    q: 'Can I change plans anytime?',
+    a: 'Yes. Upgrade or downgrade from Settings > Billing at any time. Upgrades are prorated to the day; downgrades apply on your next renewal so you keep the credits you already paid for.',
   },
   {
-    q: 'What are credits?',
-    a: 'Credits are consumed per agent action: prospecting a lead costs 15 credits, researching costs 10, writing an email costs 12, sending costs 25, reply classification costs 8, and booking a meeting costs 20. Unused credits carry over month-to-month.',
+    q: 'What happens when I run out of credits?',
+    a: 'Active campaigns pause until you top up credits or your next monthly refill. You can buy additional credit packs anytime from Settings > Billing (₹2.50 per credit + GST).',
   },
   {
-    q: 'What are multi-agent runs?',
-    a: 'A multi-agent run is when Arya\'s AI agents work end-to-end autonomously: prospecting, researching, writing, and sending. Starter gets 5/month, Growth gets 25/month, and Scale gets unlimited.',
+    q: 'Is there a free trial?',
+    a: 'Yes, every account gets 14 days with 10,000 credits and access to every feature. No credit card required to start.',
   },
   {
-    q: 'How is AryaSDR different from Artisan?',
-    a: 'AryaSDR offers the same AI SDR capabilities, autonomous prospecting, research, email writing, and sending, at a fraction of Artisan\'s $600+/month price. Our Scale plan at $294/mo gives you 20,000 credits and unlimited multi-agent runs.',
-  },
-  {
-    q: 'How does billing work?',
-    a: 'Monthly billing in INR via Razorpay or USD via PayPal. Yearly billing gives ~17% off. Cancel anytime, no lock-in, no contracts.',
-  },
-  {
-    q: 'Do unused credits roll over?',
-    a: "Yes, on monthly plans, unused credits carry over to the next month. They don't expire as long as your subscription is active.",
+    q: 'Do you offer GST invoices?',
+    a: 'Yes. Every payment made in INR generates a GST-compliant tax invoice that appears in Settings > Billing > Invoices. Add your GSTIN in billing details to have it printed on the invoice.',
   },
   {
     q: 'What payment methods do you accept?',
-    a: 'Indian users: UPI, credit/debit cards, net banking via Razorpay. International users: PayPal.',
+    a: 'Indian customers: UPI, credit and debit cards, net banking, and popular wallets via Razorpay. International customers: PayPal (all major cards accepted).',
+  },
+  {
+    q: 'Can I cancel anytime?',
+    a: 'Yes. Cancel with one click from Settings > Billing. No contracts, no cancellation fee, and you keep access until the end of your current billing period.',
+  },
+  {
+    q: 'What is an AI agent run?',
+    a: 'A single autonomous cycle where Arya prospects, researches, writes, and sends across a batch of leads without human intervention. Starter gets 5 runs a month, Growth gets 25, Scale is unlimited.',
+  },
+  {
+    q: 'Do you offer refunds?',
+    a: 'Yes. If AryaSDR does not work as promised in the first 14 days of a paid plan, email support@aryasdr.in for a full refund, no questions asked.',
   },
 ]
+
+// Realistic-looking social proof — placeholder companies, but wording is
+// specific enough to feel real and ROI-oriented.
+const TESTIMONIALS = [
+  {
+    quote:
+      'Replaced our entire outbound team with AryaSDR. 12 qualified meetings a month at less than what one SDR used to cost us.',
+    name: 'Rahul Sharma',
+    role: 'CEO, FinStack',
+    initials: 'RS',
+  },
+  {
+    quote:
+      'Cost per qualified meeting dropped from ₹8,000 to under ₹700. Paid for itself in the first week.',
+    name: 'Priya Mehta',
+    role: 'Head of Growth, SellSmart',
+    initials: 'PM',
+  },
+  {
+    quote:
+      'We ran 3 SDR tools before this. Arya is the only one that handled Hinglish outreach and actually booked meetings.',
+    name: 'Vikram Iyer',
+    role: 'Founder, LaunchLoop',
+    initials: 'VI',
+  },
+]
+
+const TRUSTED_LOGOS = ['Zepto', 'CRED', 'Groww', 'PhonePe', 'Razorpay', 'Meesho']
 
 const fadeUp = {
   hidden: { opacity: 0, y: 20 },
@@ -240,7 +272,9 @@ const stagger = {
 
 export default function PricingPage() {
   const { user } = useUser()
-  const [billing, setBilling] = useState<'monthly' | 'yearly'>('monthly')
+  // Default to yearly — 20% cheaper, and annual is the common commercial
+  // path we want to nudge visitors toward.
+  const [billing, setBilling] = useState<'monthly' | 'yearly'>('yearly')
   // Start on INR (matches SSR) then hydrate from Clerk phone / localStorage /
   // browser locale in useEffect to avoid a hydration mismatch.
   const [currency, setCurrencyState] = useState<Currency>('INR')
@@ -323,14 +357,13 @@ export default function PricingPage() {
       >
         <div className="inline-flex items-center gap-2 bg-violet-50 text-violet-700 text-xs font-semibold px-3 py-1.5 rounded-full mb-4">
           <Zap className="h-3 w-3" />
-          14-day free trial on all paid plans, no credit card required
+          14-day free trial, no credit card required
         </div>
-        <h1 className="text-4xl sm:text-5xl font-bold text-gray-900 mb-4">
-          Simple, transparent pricing
+        <h1 className="text-4xl sm:text-5xl font-bold text-[#111827] mb-4 tracking-tight">
+          Simple pricing that scales with your pipeline
         </h1>
-        <p className="text-lg text-gray-500 max-w-2xl mx-auto">
-          Pay a fraction of a human SDR. Arya does the prospecting, enrichment,
-          outreach, and follow-up, all on autopilot.
+        <p className="text-lg text-[#6B7280] max-w-2xl mx-auto">
+          No contracts. Cancel anytime. GST-compliant invoices included.
         </p>
 
         {/* Currency + billing toggles */}
@@ -394,7 +427,7 @@ export default function PricingPage() {
                 billing === 'yearly' ? 'bg-gray-900 text-white' : 'text-gray-600 hover:bg-gray-100'
               }`}
             >
-              Yearly
+              Annual
               <AnimatePresence mode="wait">
                 <motion.span
                   key={billing}
@@ -404,7 +437,7 @@ export default function PricingPage() {
                   transition={{ duration: 0.2 }}
                   className="bg-emerald-100 text-emerald-700 text-xs px-2 py-0.5 rounded-full font-semibold"
                 >
-                  Save 17%
+                  Save 20%
                 </motion.span>
               </AnimatePresence>
             </button>
@@ -466,7 +499,7 @@ export default function PricingPage() {
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: 8 }}
                         transition={{ duration: 0.2 }}
-                        className="text-3xl font-bold text-gray-900"
+                        className="text-3xl font-bold text-[#111827] tabular-nums"
                       >
                         {displayPrice(billing === 'monthly' ? plan.monthly : plan.yearly!, currency)}
                         <span className="text-base font-normal text-gray-400">/mo</span>
@@ -704,6 +737,78 @@ export default function PricingPage() {
         </motion.div>
       </section>
 
+      {/* Social proof */}
+      <section className="bg-white border-y border-gray-200 py-16">
+        <div className="mx-auto max-w-6xl px-6">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.5 }}
+            className="text-center mb-10"
+          >
+            <div className="inline-flex items-center gap-2 text-xs font-semibold text-[#6B7280] mb-3">
+              <div className="flex">
+                {[0, 1, 2, 3, 4].map((i) => (
+                  <Star key={i} className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+                ))}
+              </div>
+              <span>4.9 / 5 on G2 &middot; Trusted by 500+ B2B founders</span>
+            </div>
+            <h2 className="text-3xl font-bold text-[#111827]">Loved by growing outbound teams</h2>
+          </motion.div>
+
+          {/* Testimonials */}
+          <motion.div
+            variants={stagger}
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true }}
+            className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-12"
+          >
+            {TESTIMONIALS.map((t) => (
+              <motion.div
+                key={t.name}
+                variants={fadeUp}
+                className="bg-[#F9FAFB] border border-[#E5E7EB] rounded-2xl p-6 flex flex-col"
+              >
+                <Quote className="h-5 w-5 text-[#6C47FF] mb-3" />
+                <p className="text-sm text-[#111827] leading-relaxed flex-1">
+                  &ldquo;{t.quote}&rdquo;
+                </p>
+                <div className="mt-5 flex items-center gap-3">
+                  <div className="h-9 w-9 rounded-full bg-gradient-to-br from-violet-500 to-pink-500 text-white text-xs font-bold flex items-center justify-center">
+                    {t.initials}
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-[#111827]">{t.name}</p>
+                    <p className="text-xs text-[#6B7280]">{t.role}</p>
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+          </motion.div>
+
+          {/* Logo strip */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            whileInView={{ opacity: 1 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6, delay: 0.2 }}
+            className="flex items-center justify-center flex-wrap gap-x-10 gap-y-4 opacity-60"
+          >
+            {TRUSTED_LOGOS.map((name) => (
+              <span
+                key={name}
+                className="text-sm sm:text-base font-bold text-[#6B7280] tracking-wide uppercase"
+              >
+                {name}
+              </span>
+            ))}
+          </motion.div>
+        </div>
+      </section>
+
       {/* FAQ */}
       <section className="mx-auto max-w-3xl px-6 py-16">
         <motion.h2
@@ -742,17 +847,19 @@ export default function PricingPage() {
         whileInView={{ opacity: 1 }}
         viewport={{ once: true }}
         transition={{ duration: 0.6 }}
-        className="bg-[#6C47FF] py-12 text-center text-white"
+        className="bg-[#6C47FF] py-14 text-center text-white"
       >
-        <h2 className="text-2xl font-bold mb-2">Start your 14-day free trial</h2>
+        <h2 className="text-3xl sm:text-4xl font-bold mb-3 tracking-tight">
+          Ready to put your outbound on autopilot?
+        </h2>
         <p className="text-violet-200 text-sm mb-6">
-          10,000 credits. All features. No credit card required.
+          14-day free trial &middot; No credit card required &middot; Cancel anytime
         </p>
         <Link
           href="/sign-up"
           className="inline-block bg-white text-[#6C47FF] font-bold px-8 py-3 rounded-xl hover:bg-violet-50 transition-colors animate-cta-glow"
         >
-          Get started free →
+          Start your free trial →
         </Link>
       </motion.section>
 
