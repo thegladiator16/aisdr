@@ -290,6 +290,22 @@
 /* ===== Modal open/close (scale + fade) — used via framer-motion ===== */
 /* kept in JS; this comment is a marker */
 
+/* ===== AuthBrandPanel — floating chip idle drift ===== */
+@keyframes chip-drift {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  50%      { transform: translate3d(-3px, -6px, 0); }
+}
+.chip-drift {
+  animation: chip-drift 5s ease-in-out infinite;
+  will-change: transform;
+}
+
+/* ===== Edge-fade mask utility (for marquees / horizontal scrollers) ===== */
+.mask-fade-x {
+  -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 10%, #000 90%, transparent 100%);
+          mask-image: linear-gradient(90deg, transparent 0%, #000 10%, #000 90%, transparent 100%);
+}
+
 /* ===== prefers-reduced-motion: silence everything ===== */
 @media (prefers-reduced-motion: reduce) {
   .animate-marquee,
@@ -299,6 +315,7 @@
   .animate-float,
   .animate-float-delay,
   .animate-float-delay-2,
+  .chip-drift,
   .skeleton,
   .arya-pulse-ring,
   .arya-button-in,
