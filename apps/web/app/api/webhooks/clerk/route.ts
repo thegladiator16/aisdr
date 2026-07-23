@@ -8,15 +8,8 @@ import { users, subscriptions } from "@aisdr/db/schema";
 export const runtime = "nodejs";
 
 export async function POST(req: Request) {
-  const secret = process.env.CLERK_WEBHOOK_SECRET;
-  if (!secret) {
-    console.error("[clerk-webhook] CLERK_WEBHOOK_SECRET not set");
-    return NextResponse.json(
-      { ok: false, error: "Server misconfigured" },
-      { status: 500 }
-    );
-  }
-
+  // Validate svix headers FIRST — a malformed request should always be a 400,
+  // regardless of whether the server-side secret happens to be configured.
   const svixId = req.headers.get("svix-id");
   const svixTimestamp = req.headers.get("svix-timestamp");
   const svixSignature = req.headers.get("svix-signature");
@@ -25,6 +18,15 @@ export async function POST(req: Request) {
     return NextResponse.json(
       { ok: false, error: "Missing svix headers" },
       { status: 400 }
+    );
+  }
+
+  const secret = process.env.CLERK_WEBHOOK_SECRET;
+  if (!secret) {
+    console.error("[clerk-webhook] CLERK_WEBHOOK_SECRET not set");
+    return NextResponse.json(
+      { ok: false, error: "Server misconfigured" },
+      { status: 500 }
     );
   }
 

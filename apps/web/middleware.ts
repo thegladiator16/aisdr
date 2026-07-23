@@ -24,6 +24,14 @@ const isPublicRoute = createRouteMatcher([
   "/api/billing/webhook/(.*)",
   "/api/webhooks/(.*)",
   "/api/hooks/lead/(.*)",
+  // Public tracking pixel — anonymous email recipients must be able to hit
+  // it without a Clerk session. Handler validates trackingId itself.
+  "/api/track",
+  // Third-party return / OAuth callback URLs — the browser lands here from
+  // an external origin and may not have a valid session cookie. Each
+  // handler enforces its own auth + short-circuits with a 302 to the app.
+  "/api/billing/paypal-return",
+  "/api/v1/integrations/(.*)/callback",
   "/robots.txt",
   "/sitemap.xml",
   "/icon(.*)",

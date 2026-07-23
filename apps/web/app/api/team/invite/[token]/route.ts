@@ -49,6 +49,19 @@ export async function GET(
       },
     });
   } catch (err) {
+    // Public endpoint: an unknown/invalid token OR a not-yet-materialized
+    // team_members table must present as 404, never as a server crash.
+    // 42P01 = undefined_table, 42703 = undefined_column.
+    const code =
+      typeof err === "object" && err !== null && "code" in err
+        ? String((err as { code?: unknown }).code)
+        : undefined;
+    if (code === "42P01" || code === "42703") {
+      return NextResponse.json(
+        { error: "This invite link is invalid or has already been used" },
+        { status: 404 }
+      );
+    }
     console.error("[team/invite/[token]:GET] error:", err);
     return NextResponse.json(
       { error: "Internal server error" },
