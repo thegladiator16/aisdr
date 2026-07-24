@@ -280,18 +280,33 @@ export function Sidebar({ onChatOpen }: SidebarProps) {
       {/* Header — fixed height so collapse/expand doesn't jog the nav below */}
       <div className={cn(
         "flex h-14 items-center px-3 border-b border-gray-100 shrink-0",
-        collapsed ? "justify-center" : "justify-start"
+        collapsed ? "justify-center" : "justify-between"
       )}>
         {collapsed ? (
-          <AryaAvatar size="sm" />
+          <button
+            onClick={() => setCollapsed(false)}
+            className="rounded-lg p-1.5 text-gray-500 hover:bg-gray-50 transition-colors"
+            title="Expand sidebar"
+          >
+            <PanelLeftOpen className="h-4 w-4" />
+          </button>
         ) : (
-          <div className="flex items-center gap-2">
-            <AryaAvatar size="sm" />
-            <span className="font-bold text-gray-900 text-sm">AryaSDR</span>
-            <span className="text-[10px] font-semibold text-[#6C47FF] bg-[#6C47FF]/10 px-1.5 py-0.5 rounded">
-              BETA
-            </span>
-          </div>
+          <>
+            <div className="flex items-center gap-2">
+              <AryaAvatar size="sm" />
+              <span className="font-bold text-gray-900 text-sm">AryaSDR</span>
+              <span className="text-[10px] font-semibold text-[#6C47FF] bg-[#6C47FF]/10 px-1.5 py-0.5 rounded">
+                BETA
+              </span>
+            </div>
+            <button
+              onClick={() => setCollapsed(true)}
+              className="rounded-lg p-1.5 text-gray-500 hover:bg-gray-50 transition-colors"
+              title="Collapse sidebar"
+            >
+              <PanelLeftClose className="h-4 w-4" />
+            </button>
+          </>
         )}
       </div>
 
@@ -363,22 +378,6 @@ export function Sidebar({ onChatOpen }: SidebarProps) {
             </motion.button>
           )}
         </AnimatePresence>
-
-        {/* Collapse / Expand toggle — moved here from the header */}
-        <SidebarTooltip label={collapsed ? "Expand sidebar" : "Collapse sidebar"} show={collapsed}>
-          <button
-            onClick={() => setCollapsed(!collapsed)}
-            className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-            title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-          >
-            {collapsed ? (
-              <PanelLeftOpen className="h-4 w-4 text-gray-500 shrink-0" />
-            ) : (
-              <PanelLeftClose className="h-4 w-4 text-gray-500 shrink-0" />
-            )}
-            {!collapsed && <span>Collapse sidebar</span>}
-          </button>
-        </SidebarTooltip>
 
         {/* Notifications bell — polls /api/notifications every 30s */}
         <SidebarTooltip label="Notifications" show={collapsed}>
