@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { Bot, Loader2, Play, Sparkles } from "lucide-react";
+import { Bot, Loader2, Play, Sparkles, Search, BarChart3, PenLine, Send, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 
@@ -104,18 +104,23 @@ export function AutonomousRunLauncher({ campaignId }: { campaignId?: string }) {
     }
   }
 
+  const pipelineIcons = [
+    { icon: Bot, label: "Orchestrator" },
+    { icon: Search, label: "Research" },
+    { icon: BarChart3, label: "Analysis" },
+    { icon: PenLine, label: "Copywriter" },
+    { icon: Send, label: "Sender" },
+  ];
+
   return (
-    <div className="rounded-xl border border-violet-200 bg-gradient-to-br from-violet-50 to-white p-5 space-y-4">
-      <div className="flex items-center gap-2">
+    <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-8 space-y-6">
+      <div className="flex items-center gap-3">
         <div className="h-8 w-8 rounded-lg bg-violet-600 text-white flex items-center justify-center">
           <Bot className="h-4 w-4" />
         </div>
         <div className="flex-1">
-          <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-1.5">
+          <h3 className="text-sm font-semibold text-gray-900">
             Autonomous Mode
-            <span className="text-[10px] font-semibold text-violet-700 bg-violet-100 px-1.5 py-0.5 rounded">
-              BETA
-            </span>
           </h3>
           <p className="text-xs text-gray-500">
             Hand Arya the goal: orchestrator, prospecting, research, copywriter, and sender agents run end-to-end.
@@ -123,12 +128,33 @@ export function AutonomousRunLauncher({ campaignId }: { campaignId?: string }) {
         </div>
       </div>
 
+      {/* Agent pipeline visualization */}
+      <div className="flex items-center justify-center gap-2 py-2">
+        {pipelineIcons.map((step, i) => {
+          const Icon = step.icon;
+          return (
+            <div key={step.label} className="flex items-center gap-2">
+              <div
+                className="h-10 w-10 bg-violet-50 border border-violet-200 rounded-lg flex items-center justify-center"
+                title={step.label}
+                aria-label={step.label}
+              >
+                <Icon className="h-4 w-4 text-violet-600" />
+              </div>
+              {i < pipelineIcons.length - 1 && (
+                <ChevronRight className="h-4 w-4 text-gray-300 shrink-0" />
+              )}
+            </div>
+          );
+        })}
+      </div>
+
       <div className="grid grid-cols-1 gap-2">
         <input
           value={goal}
           onChange={(e) => setGoal(e.target.value)}
           disabled={running}
-          placeholder="e.g. Book 5 demos with Series A FinTech CFOs in Bangalore"
+          placeholder="Book 5 demos with B2B SaaS founders in India"
           className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#6C47FF]/30 focus:border-[#6C47FF]"
         />
         <div className="grid grid-cols-3 gap-2">
@@ -159,7 +185,7 @@ export function AutonomousRunLauncher({ campaignId }: { campaignId?: string }) {
       <button
         onClick={start}
         disabled={running}
-        className="w-full rounded-lg bg-[#6C47FF] text-white py-2.5 text-sm font-semibold flex items-center justify-center gap-2 hover:bg-[#5A38E0] active:scale-[0.98] transition-all duration-150 disabled:opacity-70 disabled:cursor-not-allowed"
+        className="w-full rounded-full bg-[#6C47FF] text-white py-2.5 text-sm font-semibold flex items-center justify-center gap-2 hover:bg-[#5835E8] active:scale-[0.98] transition-all duration-150 disabled:opacity-70 disabled:cursor-not-allowed"
       >
         {running ? (
           <>

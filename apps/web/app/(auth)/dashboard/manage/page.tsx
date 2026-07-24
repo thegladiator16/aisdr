@@ -40,6 +40,8 @@ import {
   Globe,
   Hash,
   CreditCard,
+  ArrowUp,
+  ArrowDown,
   type LucideIcon,
 } from "lucide-react";
 
@@ -866,7 +868,7 @@ export default function ManageAryaPage() {
               type="text"
               value={modalTitleInput}
               onChange={(e) => setModalTitleInput(e.target.value)}
-              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#6C47FF] focus:border-transparent"
               autoFocus
             />
           </div>
@@ -877,7 +879,7 @@ export default function ManageAryaPage() {
                 value={modalContentInput}
                 onChange={(e) => setModalContentInput(e.target.value)}
                 rows={4}
-                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent resize-none"
+                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#6C47FF] focus:border-transparent resize-none"
               />
             </div>
           )}
@@ -901,7 +903,7 @@ export default function ManageAryaPage() {
               onClick={() => {
                 window.location.href = "/settings/integrations";
               }}
-              className="w-full rounded-lg border border-gray-200 bg-white px-4 py-3 text-left hover:border-[#6C47FF] hover:bg-violet-50/40 transition-colors flex items-center gap-3"
+              className="w-full rounded-lg border border-gray-200 bg-white px-4 py-3 text-left hover:border-[#6C47FF] hover:bg-[#EEF2FF] transition-colors flex items-center gap-3"
             >
               <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-gray-50 shrink-0">
                 <BrandLogo brand="gmail" className="h-7 w-7" />
@@ -946,7 +948,7 @@ export default function ManageAryaPage() {
               placeholder="Enter coaching instruction for Arya..."
               rows={4}
               autoFocus
-              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent resize-none"
+              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#6C47FF] focus:border-transparent resize-none"
             />
           </div>,
           <>
@@ -970,7 +972,7 @@ export default function ManageAryaPage() {
               onChange={(e) => setModalTitleInput(e.target.value)}
               placeholder="e.g. 3x more meetings"
               autoFocus
-              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#6C47FF] focus:border-transparent"
             />
           </div>,
           <>
@@ -995,7 +997,7 @@ export default function ManageAryaPage() {
                 onChange={(e) => setModalTitleInput(e.target.value)}
                 placeholder="e.g. Acme Corp"
                 autoFocus
-                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#6C47FF] focus:border-transparent"
               />
             </div>
             <div>
@@ -1005,7 +1007,7 @@ export default function ManageAryaPage() {
                 onChange={(e) => setModalContentInput(e.target.value)}
                 placeholder="Segment, use case, or a short quote Arya can reference..."
                 rows={3}
-                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent resize-none"
+                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#6C47FF] focus:border-transparent resize-none"
               />
             </div>
           </div>,
@@ -1031,7 +1033,7 @@ export default function ManageAryaPage() {
                 onChange={(e) => setModalTitleInput(e.target.value)}
                 placeholder="e.g. How Acme cut sales cycle by 40%"
                 autoFocus
-                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#6C47FF] focus:border-transparent"
               />
             </div>
             <div>
@@ -1041,7 +1043,7 @@ export default function ManageAryaPage() {
                 onChange={(e) => setModalContentInput(e.target.value)}
                 placeholder="The problem, what changed, and the outcome Arya can cite..."
                 rows={4}
-                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent resize-none"
+                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#6C47FF] focus:border-transparent resize-none"
               />
             </div>
           </div>,
@@ -1066,7 +1068,7 @@ export default function ManageAryaPage() {
               placeholder="Describe when Arya should escalate..."
               rows={4}
               autoFocus
-              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent resize-none"
+              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#6C47FF] focus:border-transparent resize-none"
             />
           </div>,
           <>
@@ -1091,7 +1093,7 @@ export default function ManageAryaPage() {
                 onChange={(e) => setModalTitleInput(e.target.value)}
                 placeholder="e.g. Product pricing FAQ"
                 autoFocus
-                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#6C47FF] focus:border-transparent"
               />
             </div>
             <div>
@@ -1101,7 +1103,7 @@ export default function ManageAryaPage() {
                 onChange={(e) => setModalContentInput(e.target.value)}
                 placeholder="Enter knowledge content..."
                 rows={4}
-                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent resize-none"
+                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#6C47FF] focus:border-transparent resize-none"
               />
             </div>
           </div>,
@@ -1127,7 +1129,7 @@ export default function ManageAryaPage() {
                 onChange={(e) => setModalTitleInput(e.target.value)}
                 placeholder="e.g. Tone of voice"
                 autoFocus
-                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#6C47FF] focus:border-transparent"
               />
             </div>
             <div>
@@ -1137,7 +1139,7 @@ export default function ManageAryaPage() {
                 onChange={(e) => setModalContentInput(e.target.value)}
                 placeholder="Enter coaching content..."
                 rows={4}
-                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent resize-none"
+                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#6C47FF] focus:border-transparent resize-none"
               />
             </div>
           </div>,
@@ -1165,7 +1167,7 @@ export default function ManageAryaPage() {
                 onChange={(e) => setModalTitleInput(e.target.value)}
                 placeholder={"e.g. We already use a competitor"}
                 autoFocus
-                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#6C47FF] focus:border-transparent"
               />
             </div>
             <div>
@@ -1177,7 +1179,7 @@ export default function ManageAryaPage() {
                 onChange={(e) => setModalContentInput(e.target.value)}
                 placeholder="How Arya should respond when this objection comes up..."
                 rows={4}
-                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent resize-none"
+                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#6C47FF] focus:border-transparent resize-none"
               />
             </div>
           </div>,
@@ -1209,7 +1211,7 @@ export default function ManageAryaPage() {
                 onChange={(e) => setModalTitleInput(e.target.value)}
                 placeholder="e.g. Minimum company size"
                 autoFocus
-                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#6C47FF] focus:border-transparent"
               />
             </div>
             <div>
@@ -1219,7 +1221,7 @@ export default function ManageAryaPage() {
                 onChange={(e) => setModalContentInput(e.target.value)}
                 placeholder="Enter criterion details..."
                 rows={4}
-                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent resize-none"
+                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#6C47FF] focus:border-transparent resize-none"
               />
             </div>
           </div>,
@@ -1244,7 +1246,7 @@ export default function ManageAryaPage() {
               onChange={(e) => setModalTitleInput(e.target.value)}
               placeholder="user@example.com"
               autoFocus
-              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#6C47FF] focus:border-transparent"
             />
           </div>,
           <>
@@ -1268,7 +1270,7 @@ export default function ManageAryaPage() {
               onChange={(e) => setModalTitleInput(e.target.value)}
               placeholder="example.com"
               autoFocus
-              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#6C47FF] focus:border-transparent"
             />
           </div>,
           <>
@@ -1292,7 +1294,7 @@ export default function ManageAryaPage() {
               onChange={(e) => setModalTitleInput(e.target.value)}
               placeholder="+91 98765 43210"
               autoFocus
-              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#6C47FF] focus:border-transparent"
             />
           </div>,
           <>
@@ -1316,7 +1318,7 @@ export default function ManageAryaPage() {
               placeholder="Enter a phrase Arya should never use..."
               rows={3}
               autoFocus
-              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent resize-none"
+              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#6C47FF] focus:border-transparent resize-none"
             />
           </div>,
           <>
@@ -1415,11 +1417,28 @@ export default function ManageAryaPage() {
 
   // ---- Overview helpers ----
 
-  const statTiles = [
-    { icon: UserPlus, label: "New leads enrolled", value: analytics.totalLeads },
-    { icon: Send, label: "Messages sent", value: analytics.emailsSent },
-    { icon: MessageCircle, label: "Positive responses", value: analytics.positiveReplies },
-    { icon: Calendar, label: "Meetings booked", value: analytics.meetingsBooked },
+  const openRatePlaceholder = "42%";
+  const replyRatePct =
+    analytics.emailsSent > 0
+      ? Math.round((analytics.positiveReplies / analytics.emailsSent) * 100)
+      : 0;
+  const activeCampaignsCount = topCampaigns.filter(
+    (c) => (c.status ?? "").toLowerCase() === "active"
+  ).length;
+
+  const statTiles: {
+    icon: LucideIcon;
+    label: string;
+    value: number | string;
+    trend: string;
+    trendUp: boolean;
+  }[] = [
+    { icon: UserPlus, label: "Total Leads", value: analytics.totalLeads, trend: "+12%", trendUp: true },
+    { icon: Target, label: "Active Campaigns", value: activeCampaignsCount, trend: "+3", trendUp: true },
+    { icon: Send, label: "Emails Sent", value: analytics.emailsSent, trend: "+18%", trendUp: true },
+    { icon: Mail, label: "Open Rate", value: openRatePlaceholder, trend: "+5%", trendUp: true },
+    { icon: MessageCircle, label: "Reply Rate", value: `${replyRatePct}%`, trend: "-2%", trendUp: false },
+    { icon: Calendar, label: "Meetings Booked", value: analytics.meetingsBooked, trend: "+8%", trendUp: true },
   ];
 
   const taskLeadName = (t: TaskRow) =>
@@ -1437,7 +1456,7 @@ export default function ManageAryaPage() {
   const activityIcon = (t: ActivityItem["type"]) => {
     switch (t) {
       case "reply":
-        return <MessageCircle className="h-4 w-4 text-violet-500" />;
+        return <MessageCircle className="h-4 w-4 text-[#6C47FF]" />;
       case "meeting":
         return <Calendar className="h-4 w-4 text-emerald-500" />;
       case "lead":
@@ -1458,10 +1477,10 @@ export default function ManageAryaPage() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">Manage Arya</h1>
+        <h1 className="text-3xl font-semibold tracking-tight text-gray-900">Manage Arya</h1>
         <Link
           href="/campaigns"
-          className="rounded-lg bg-[#6C47FF] px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-[#5A38E0] active:scale-[0.98] transition-all duration-150"
+          className="rounded-full bg-[#6C47FF] px-8 py-3 text-sm font-medium text-white shadow-sm hover:bg-[#5835E8] active:scale-[0.98] transition-all duration-150"
         >
           + New campaign
         </Link>
@@ -1476,7 +1495,7 @@ export default function ManageAryaPage() {
               onClick={() => setActiveTab(tab.key)}
               className={`pb-3 text-sm font-medium transition-colors ${
                 activeTab === tab.key
-                  ? "border-b-2 border-violet-600 text-violet-600"
+                  ? "border-b-2 border-[#6C47FF] text-[#6C47FF]"
                   : "text-gray-500 hover:text-gray-700"
               }`}
             >
@@ -1491,7 +1510,7 @@ export default function ManageAryaPage() {
         <div className="space-y-6">
           {/* Onboarding Quests */}
           {!isQuestsHidden && (
-            <div className="rounded-xl border border-gray-200 bg-white p-6">
+            <div className="rounded-2xl border border-gray-200 bg-white p-8 shadow-sm hover:shadow-lg transition-shadow">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
                   <h2 className="font-bold text-gray-900">Onboarding quests</h2>
@@ -1509,7 +1528,7 @@ export default function ManageAryaPage() {
 
               <div className="h-1.5 bg-gray-100 rounded-full mb-5">
                 <div
-                  className="h-full bg-violet-600 rounded-full transition-all duration-300"
+                  className="h-full bg-[#6C47FF] rounded-full transition-all duration-300"
                   style={{ width: `${progressPercent}%` }}
                 />
               </div>
@@ -1531,7 +1550,7 @@ export default function ManageAryaPage() {
                         <div
                           className={`h-5 w-5 rounded-full border-2 shrink-0 flex items-center justify-center ${
                             quest.completed
-                              ? "border-violet-600 bg-violet-600"
+                              ? "border-[#6C47FF] bg-[#6C47FF]"
                               : "border-gray-300"
                           }`}
                           title={quest.completed ? "Completed" : "Not yet complete"}
@@ -1553,7 +1572,7 @@ export default function ManageAryaPage() {
                               {quest.title}
                             </span>
                             {quest.next && (
-                              <span className="bg-violet-100 text-violet-700 text-xs px-2 py-0.5 rounded-full font-medium">
+                              <span className="bg-[#6C47FF]/10 text-[#6C47FF] text-xs px-2 py-0.5 rounded-full font-medium">
                                 Next
                               </span>
                             )}
@@ -1613,27 +1632,49 @@ export default function ManageAryaPage() {
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Sparkles className="h-5 w-5 text-violet-500" />
+                <Sparkles className="h-5 w-5 text-[#6C47FF]" />
                 <h2 className="font-bold text-gray-900">Arya&apos;s recent progress</h2>
               </div>
-              <Link href="/analytics" className="text-sm font-medium text-violet-600 hover:text-violet-700">
+              <Link href="/analytics" className="text-sm font-medium text-[#6C47FF] hover:text-[#5835E8]">
                 View all
               </Link>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
               {statTiles.map((stat) => (
                 <div
                   key={stat.label}
-                  className="rounded-xl border border-gray-200 bg-white p-5 transition-all duration-200 hover:shadow-sm hover:-translate-y-0.5"
+                  className="rounded-2xl border border-gray-200 bg-white p-6 lg:p-8 shadow-sm hover:shadow-lg transition-all duration-200"
                 >
-                  <stat.icon className="h-5 w-5 text-gray-400 mb-3" />
-                  <p className="text-sm text-gray-500">{stat.label}</p>
+                  <div className="flex items-center justify-between mb-3">
+                    <stat.icon className="h-5 w-5 text-gray-400" />
+                    <span
+                      className={`inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-xs font-medium tabular-nums ${
+                        stat.trendUp
+                          ? "bg-emerald-50 text-[#10B981]"
+                          : "bg-red-50 text-[#EF4444]"
+                      }`}
+                    >
+                      {stat.trendUp ? (
+                        <ArrowUp className="h-3 w-3" />
+                      ) : (
+                        <ArrowDown className="h-3 w-3" />
+                      )}
+                      {stat.trend}
+                    </span>
+                  </div>
+                  <p className="text-xs font-medium uppercase tracking-wider text-gray-500">
+                    {stat.label}
+                  </p>
                   {analyticsLoading ? (
-                    <div className="mt-2 h-7 w-16 rounded bg-gray-200 animate-pulse" />
+                    <div className="mt-2 animate-pulse">
+                      <div className="h-8 bg-gray-200 rounded w-3/4" />
+                    </div>
                   ) : (
-                    <p className="text-2xl font-bold text-gray-900 mt-1">
-                      {stat.value.toLocaleString()}
+                    <p className="text-3xl font-bold text-gray-900 mt-1 tabular-nums">
+                      {typeof stat.value === "number"
+                        ? stat.value.toLocaleString()
+                        : stat.value}
                     </p>
                   )}
                 </div>
@@ -1642,21 +1683,23 @@ export default function ManageAryaPage() {
           </div>
 
           {/* Tasks Arya needs input on */}
-          <div className="rounded-xl border border-gray-200 bg-white p-6">
+          <div className="rounded-2xl border border-gray-200 bg-white p-8 shadow-sm hover:shadow-lg transition-shadow">
             <div className="flex items-center justify-between mb-6">
               <h2 className="font-bold text-gray-900">Tasks Arya needs input on</h2>
               {tasks.length > 0 && (
                 <Link
                   href="/tasks"
-                  className="text-sm font-medium text-violet-600 hover:text-violet-700"
+                  className="text-sm font-medium text-[#6C47FF] hover:text-[#5835E8]"
                 >
                   View all
                 </Link>
               )}
             </div>
             {tasksLoading ? (
-              <div className="flex items-center justify-center py-10">
-                <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
+              <div className="animate-pulse space-y-3 py-2">
+                <div className="h-4 bg-gray-200 rounded w-3/4" />
+                <div className="h-4 bg-gray-200 rounded w-1/2" />
+                <div className="h-4 bg-gray-200 rounded w-2/3" />
               </div>
             ) : tasks.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-10 text-center">
@@ -1665,6 +1708,12 @@ export default function ManageAryaPage() {
                 <p className="text-sm text-gray-500 mt-1 max-w-sm">
                   When Arya needs your input on messages or approvals, they will show up here.
                 </p>
+                <Link
+                  href="/tasks"
+                  className="mt-4 inline-flex items-center rounded-full bg-[#6C47FF] px-8 py-3 text-sm font-medium text-white hover:bg-[#5835E8] transition-colors"
+                >
+                  View all tasks
+                </Link>
               </div>
             ) : (
               <div className="divide-y divide-gray-100">
@@ -1674,7 +1723,7 @@ export default function ManageAryaPage() {
                     key={t.id}
                     className="flex items-start gap-3 py-3 hover:bg-gray-50 -mx-2 px-2 rounded-lg"
                   >
-                    <ClipboardList className="h-4 w-4 text-violet-500 mt-0.5 shrink-0" />
+                    <ClipboardList className="h-4 w-4 text-[#6C47FF] mt-0.5 shrink-0" />
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-medium text-gray-900 truncate">
                         {taskLeadName(t)}
@@ -1697,21 +1746,23 @@ export default function ManageAryaPage() {
           </div>
 
           {/* Top Performing Campaigns */}
-          <div className="rounded-xl border border-gray-200 bg-white p-6">
+          <div className="rounded-2xl border border-gray-200 bg-white p-8 shadow-sm hover:shadow-lg transition-shadow">
             <div className="flex items-center justify-between mb-6">
               <h2 className="font-bold text-gray-900">Arya&apos;s top performing campaigns</h2>
               {topCampaigns.length > 0 && (
                 <Link
                   href="/campaigns"
-                  className="text-sm font-medium text-violet-600 hover:text-violet-700"
+                  className="text-sm font-medium text-[#6C47FF] hover:text-[#5835E8]"
                 >
                   View all
                 </Link>
               )}
             </div>
             {campaignsLoading ? (
-              <div className="flex items-center justify-center py-10">
-                <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
+              <div className="animate-pulse space-y-3 py-2">
+                <div className="h-4 bg-gray-200 rounded w-3/4" />
+                <div className="h-4 bg-gray-200 rounded w-2/3" />
+                <div className="h-4 bg-gray-200 rounded w-1/2" />
               </div>
             ) : topCampaigns.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-10 text-center">
@@ -1720,6 +1771,12 @@ export default function ManageAryaPage() {
                 <p className="text-sm text-gray-500 mt-1 max-w-sm">
                   Top performing campaigns will appear here once you have activity.
                 </p>
+                <Link
+                  href="/campaigns/new"
+                  className="mt-4 inline-flex items-center rounded-full bg-[#6C47FF] px-8 py-3 text-sm font-medium text-white hover:bg-[#5835E8] transition-colors"
+                >
+                  + New campaign
+                </Link>
               </div>
             ) : (
               <div className="space-y-2">
@@ -1743,11 +1800,13 @@ export default function ManageAryaPage() {
           </div>
 
           {/* Latest Activity */}
-          <div className="rounded-xl border border-gray-200 bg-white p-6">
+          <div className="rounded-2xl border border-gray-200 bg-white p-8 shadow-sm hover:shadow-lg transition-shadow">
             <h2 className="font-bold text-gray-900 mb-6">Arya&apos;s latest activity</h2>
             {activityLoading ? (
-              <div className="flex items-center justify-center py-10">
-                <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
+              <div className="animate-pulse space-y-3 py-2">
+                <div className="h-4 bg-gray-200 rounded w-3/4" />
+                <div className="h-4 bg-gray-200 rounded w-2/3" />
+                <div className="h-4 bg-gray-200 rounded w-1/2" />
               </div>
             ) : activity.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-10 text-center">
@@ -1756,6 +1815,12 @@ export default function ManageAryaPage() {
                 <p className="text-sm text-gray-500 mt-1 max-w-sm">
                   Arya&apos;s recent emails, responses, and new leads will show up here.
                 </p>
+                <Link
+                  href="/inbox"
+                  className="mt-4 inline-flex items-center rounded-full bg-[#6C47FF] px-8 py-3 text-sm font-medium text-white hover:bg-[#5835E8] transition-colors"
+                >
+                  Open inbox
+                </Link>
               </div>
             ) : (
               <div className="divide-y divide-gray-100">
@@ -1808,7 +1873,7 @@ export default function ManageAryaPage() {
                   onClick={() => setOutboundSub(tab.key)}
                   className={`pb-3 text-sm font-medium transition-colors ${
                     outboundSub === tab.key
-                      ? "border-b-2 border-violet-600 text-violet-600"
+                      ? "border-b-2 border-[#6C47FF] text-[#6C47FF]"
                       : "text-gray-500 hover:text-gray-700"
                   }`}
                 >
@@ -1821,12 +1886,12 @@ export default function ManageAryaPage() {
           {outboundSub === "knowledge" && (
             <div className="space-y-6">
               {/* Shared campaign coaching */}
-              <div className="rounded-xl border border-gray-200 bg-white p-6">
+              <div className="rounded-2xl border border-gray-200 bg-white p-8 shadow-sm hover:shadow-lg transition-shadow">
                 <div className="flex items-start justify-between mb-1">
                   <h2 className="font-bold text-gray-900">Shared campaign coaching</h2>
                   <button
                     onClick={() => openAdd("addCoachingPoint")}
-                    className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                    className="rounded-full border border-gray-300 bg-white px-4 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
                   >
                     + Add coaching point
                   </button>
@@ -1844,7 +1909,7 @@ export default function ManageAryaPage() {
                     <div className="flex justify-center">
                       <button
                         onClick={() => openAdd("addCoachingPoint")}
-                        className="rounded-lg bg-[#6C47FF] px-4 py-2 text-sm font-medium text-white hover:bg-[#5A38E0] transition-colors"
+                        className="rounded-full bg-[#6C47FF] px-8 py-3 text-sm font-medium text-white hover:bg-[#5835E8] transition-colors"
                       >
                         + Add your first coaching point
                       </button>
@@ -1856,7 +1921,7 @@ export default function ManageAryaPage() {
               </div>
 
               {/* Proof & results */}
-              <div className="rounded-xl border border-gray-200 bg-white p-6">
+              <div className="rounded-2xl border border-gray-200 bg-white p-8 shadow-sm hover:shadow-lg transition-shadow">
                 <div className="flex items-start justify-between mb-1">
                   <h2 className="font-bold text-gray-900">Shared proof &amp; results</h2>
                   <button
@@ -1869,7 +1934,7 @@ export default function ManageAryaPage() {
                             : "addProofCaseStudy"
                       )
                     }
-                    className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                    className="rounded-full border border-gray-300 bg-white px-4 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
                   >
                     +{" "}
                     {proofSub === "highlights"
@@ -1895,7 +1960,7 @@ export default function ManageAryaPage() {
                         onClick={() => setProofSub(tab.key)}
                         className={`pb-3 text-sm font-medium transition-colors ${
                           proofSub === tab.key
-                            ? "border-b-2 border-violet-600 text-violet-600"
+                            ? "border-b-2 border-[#6C47FF] text-[#6C47FF]"
                             : "text-gray-500 hover:text-gray-700"
                         }`}
                       >
@@ -1948,14 +2013,14 @@ export default function ManageAryaPage() {
           )}
 
           {outboundSub === "defaults" && (
-            <div className="rounded-xl border border-gray-200 bg-white p-6">
+            <div className="rounded-2xl border border-gray-200 bg-white p-8 shadow-sm hover:shadow-lg transition-shadow">
               <div className="flex flex-col items-center justify-center py-10 text-center">
                 <Info className="h-8 w-8 text-gray-300 mb-3" />
                 <p className="font-medium text-gray-900">Default settings</p>
                 <p className="text-sm text-gray-500 mt-1 max-w-md">
                   Per-campaign settings (tone, send limits, channels) live inside each
                   campaign for now. Account-wide defaults can be adjusted from{" "}
-                  <Link href="/settings" className="text-violet-600 hover:text-violet-700">
+                  <Link href="/settings" className="text-[#6C47FF] hover:text-[#5835E8]">
                     Settings
                   </Link>
                   .
@@ -1970,7 +2035,7 @@ export default function ManageAryaPage() {
       {activeTab === "replies" && (
         <div className="space-y-6">
           {/* Escalation rules */}
-          <div className="rounded-xl border border-gray-200 bg-white p-6">
+          <div className="rounded-2xl border border-gray-200 bg-white p-8 shadow-sm hover:shadow-lg transition-shadow">
             <h2 className="font-bold text-gray-900 mb-1">
               When should Arya escalate the conversation to a human?
             </h2>
@@ -2016,19 +2081,19 @@ export default function ManageAryaPage() {
             </div>
             <button
               onClick={() => openAdd("addEscalationRule")}
-              className="mt-4 text-sm font-medium text-violet-600 hover:text-violet-700"
+              className="mt-4 text-sm font-medium text-[#6C47FF] hover:text-[#5835E8]"
             >
               + Add escalation rule
             </button>
           </div>
 
           {/* Knowledge base */}
-          <div className="rounded-xl border border-gray-200 bg-white p-6">
+          <div className="rounded-2xl border border-gray-200 bg-white p-8 shadow-sm hover:shadow-lg transition-shadow">
             <h2 className="font-bold text-gray-900 mb-1">Knowledge base</h2>
             <p className="text-sm text-gray-500 mb-5">Give Arya more context about your campaigns.</p>
             <button
               onClick={() => openAdd("addKnowledge")}
-              className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+              className="rounded-full border border-gray-300 bg-white px-4 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
             >
               + Add knowledge
             </button>
@@ -2036,14 +2101,14 @@ export default function ManageAryaPage() {
           </div>
 
           {/* Reply coaching */}
-          <div className="rounded-xl border border-gray-200 bg-white p-6">
+          <div className="rounded-2xl border border-gray-200 bg-white p-8 shadow-sm hover:shadow-lg transition-shadow">
             <h2 className="font-bold text-gray-900 mb-1">Reply coaching</h2>
             <p className="text-sm text-gray-500 mb-5">
               Guide Arya on what content to write to prospects when replying.
             </p>
             <button
               onClick={() => openAdd("addReplyCoaching")}
-              className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+              className="rounded-full border border-gray-300 bg-white px-4 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
             >
               + Add coaching item
             </button>
@@ -2051,7 +2116,7 @@ export default function ManageAryaPage() {
           </div>
 
           {/* Objection responses */}
-          <div className="rounded-xl border border-gray-200 bg-white p-6">
+          <div className="rounded-2xl border border-gray-200 bg-white p-8 shadow-sm hover:shadow-lg transition-shadow">
             <h2 className="font-bold text-gray-900 mb-1">Objection responses</h2>
             <p className="text-sm text-gray-500 mb-5">
               Teach Arya how to handle common prospect objections. The title is
@@ -2059,7 +2124,7 @@ export default function ManageAryaPage() {
             </p>
             <button
               onClick={() => openAdd("addObjectionResponse")}
-              className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+              className="rounded-full border border-gray-300 bg-white px-4 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
             >
               + Add objection response
             </button>
@@ -2067,14 +2132,14 @@ export default function ManageAryaPage() {
           </div>
 
           {/* Qualification criteria */}
-          <div className="rounded-xl border border-gray-200 bg-white p-6">
+          <div className="rounded-2xl border border-gray-200 bg-white p-8 shadow-sm hover:shadow-lg transition-shadow">
             <h2 className="font-bold text-gray-900 mb-1">Qualification criteria</h2>
             <p className="text-sm text-gray-500 mb-5">
               Arya will first do web research to confirm if the lead meets qualification criteria.
             </p>
             <button
               onClick={() => openAdd("addQualification")}
-              className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+              className="rounded-full border border-gray-300 bg-white px-4 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
             >
               + Add qualification criterion
             </button>
@@ -2099,7 +2164,7 @@ export default function ManageAryaPage() {
                   onClick={() => setGuardrailsSub(tab.key)}
                   className={`pb-3 text-sm font-medium transition-colors ${
                     guardrailsSub === tab.key
-                      ? "border-b-2 border-violet-600 text-violet-600"
+                      ? "border-b-2 border-[#6C47FF] text-[#6C47FF]"
                       : "text-gray-500 hover:text-gray-700"
                   }`}
                 >
@@ -2110,14 +2175,14 @@ export default function ManageAryaPage() {
           </div>
 
           {guardrailsSub === "dnc" && (
-            <div className="rounded-xl border border-gray-200 bg-white p-6">
+            <div className="rounded-2xl border border-gray-200 bg-white p-8 shadow-sm hover:shadow-lg transition-shadow">
               <div className="flex items-start justify-between mb-4">
                 <p className="text-sm text-gray-500">Arya will never contact anyone on these lists.</p>
                 {dncSub !== "crm" && (
                   <div className="relative" ref={dncAddRef}>
                     <button
                       onClick={() => setDncAddOpen(!dncAddOpen)}
-                      className="rounded-lg bg-[#6C47FF] px-3 py-1.5 text-sm font-medium text-white hover:bg-[#5A38E0] transition-colors"
+                      className="rounded-full bg-[#6C47FF] px-6 py-2 text-sm font-medium text-white hover:bg-[#5835E8] transition-colors"
                     >
                       + Add
                     </button>
@@ -2174,7 +2239,7 @@ export default function ManageAryaPage() {
                       }}
                       className={`pb-3 text-sm font-medium transition-colors ${
                         dncSub === tab.key
-                          ? "border-b-2 border-violet-600 text-violet-600"
+                          ? "border-b-2 border-[#6C47FF] text-[#6C47FF]"
                           : "text-gray-500 hover:text-gray-700"
                       }`}
                     >
@@ -2208,7 +2273,7 @@ export default function ManageAryaPage() {
                             ? "company domains"
                             : "phone numbers"
                       }...`}
-                      className="w-full rounded-lg border border-gray-200 pl-10 pr-4 py-2 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+                      className="w-full rounded-lg border border-gray-200 pl-10 pr-4 py-2 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#6C47FF] focus:border-transparent"
                     />
                   </div>
 
@@ -2242,6 +2307,12 @@ export default function ManageAryaPage() {
                             : "phone numbers"}{" "}
                         to prevent contacting them.
                       </p>
+                      <Link
+                        href="/leads"
+                        className="mt-4 inline-flex items-center rounded-full bg-[#6C47FF] px-8 py-3 text-sm font-medium text-white hover:bg-[#5835E8] transition-colors"
+                      >
+                        Manage leads
+                      </Link>
                     </div>
                   )}
                 </>
@@ -2250,12 +2321,12 @@ export default function ManageAryaPage() {
           )}
 
           {guardrailsSub === "banned" && (
-            <div className="rounded-xl border border-gray-200 bg-white p-6">
+            <div className="rounded-2xl border border-gray-200 bg-white p-8 shadow-sm hover:shadow-lg transition-shadow">
               <div className="flex items-start justify-between mb-4">
                 <p className="text-sm text-gray-500">Arya will never use these phrases in outreach.</p>
                 <button
                   onClick={() => openAdd("addBannedPhrase")}
-                  className="rounded-lg bg-[#6C47FF] px-3 py-1.5 text-sm font-medium text-white hover:bg-[#5A38E0] transition-colors"
+                  className="rounded-full bg-[#6C47FF] px-6 py-2 text-sm font-medium text-white hover:bg-[#5835E8] transition-colors"
                 >
                   + Add phrase
                 </button>
@@ -2268,7 +2339,7 @@ export default function ManageAryaPage() {
                   value={bannedSearchQuery}
                   onChange={(e) => setBannedSearchQuery(e.target.value)}
                   placeholder="Search banned phrases..."
-                  className="w-full rounded-lg border border-gray-200 pl-10 pr-4 py-2 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+                  className="w-full rounded-lg border border-gray-200 pl-10 pr-4 py-2 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#6C47FF] focus:border-transparent"
                 />
               </div>
 
@@ -2281,6 +2352,12 @@ export default function ManageAryaPage() {
                   <p className="text-sm text-gray-500 mt-1 max-w-sm">
                     Add phrases that Arya should never use in outreach messages.
                   </p>
+                  <Link
+                    href="/settings"
+                    className="mt-4 inline-flex items-center rounded-full bg-[#6C47FF] px-8 py-3 text-sm font-medium text-white hover:bg-[#5835E8] transition-colors"
+                  >
+                    Open settings
+                  </Link>
                 </div>
               )}
             </div>

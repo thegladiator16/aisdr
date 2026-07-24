@@ -150,20 +150,26 @@ function getWarnings(tasks: Task[]): Warning[] {
   for (const t of tasks) {
     if (t.agentName === "prospecting" && t.output?.source === "synthesized") {
       out.push({
-        type: "info",
+        type: "warning",
         message: "This run used synthesised demo leads, Hunter.io was not configured at the time.",
+        action: "Connect Hunter",
+        link: "/settings/integrations",
       });
     }
     if (t.agentName === "research" && t.output?.serperConfigured === false) {
       out.push({
-        type: "info",
+        type: "warning",
         message: "This run did not use web research, Serper was not configured at the time.",
+        action: "Connect Serper",
+        link: "/settings/integrations",
       });
     }
     if (t.agentName === "sender" && t.output?.skippedReason === "gmail_not_connected") {
       out.push({
-        type: "info",
+        type: "warning",
         message: "Emails were scheduled but not delivered, Gmail was not connected at the time.",
+        action: "Connect Gmail",
+        link: "/settings",
       });
     }
   }
@@ -660,14 +666,14 @@ export default function AgentsDashboard() {
   }, [selectedRunId, loadDetail]);
 
   return (
-    <div className="mx-auto max-w-7xl p-6 space-y-6">
+    <div className="mx-auto max-w-7xl p-6 space-y-8">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-            <Bot className="h-5 w-5 text-gray-700" />
+          <h1 className="text-3xl font-semibold tracking-tight text-gray-900 flex items-center gap-2">
+            <Bot className="h-7 w-7 text-gray-700" />
             Agents
           </h1>
-          <p className="text-[13px] text-gray-500 mt-0.5">
+          <p className="text-[13px] text-gray-500 mt-1">
             Autonomous multi-agent pipeline
           </p>
         </div>
@@ -675,9 +681,9 @@ export default function AgentsDashboard() {
 
       <AutonomousRunLauncher />
 
-      <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-4 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-6 items-start">
         {/* Runs list */}
-        <div className="rounded-lg border border-gray-200 bg-white overflow-hidden">
+        <div className="rounded-2xl border border-gray-200 bg-white overflow-hidden shadow-sm hover:shadow-lg transition-shadow">
           <div className="px-4 py-2.5 border-b border-gray-100 flex items-center justify-between">
             <h2 className="text-[12px] font-semibold text-gray-700">Runs</h2>
             <span className="text-[11px] text-gray-400 tabular-nums">{runs.length}</span>
@@ -732,7 +738,7 @@ export default function AgentsDashboard() {
         </div>
 
         {/* Detail */}
-        <div className="rounded-lg border border-gray-200 bg-white p-5 min-h-[400px]">
+        <div className="rounded-2xl border border-gray-200 bg-white p-8 min-h-[400px] shadow-sm hover:shadow-lg transition-shadow">
           {!selectedRunId ? (
             <div className="flex flex-col items-center justify-center py-20 text-gray-400 text-[12px]">
               <Bot className="h-8 w-8 text-gray-200 mb-3" />

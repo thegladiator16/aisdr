@@ -4,12 +4,11 @@ import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useUser } from "@clerk/nextjs";
 import { toast } from "sonner";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import {
   Download,
   Minus,
   Plus,
-  ChevronDown,
   X,
   Lock,
   CreditCard,
@@ -376,7 +375,7 @@ function BuyCreditsModal({ onClose }: { onClose: () => void }) {
             <button
               onClick={handlePay}
               disabled={processing || paymentsAvailable === false}
-              className="mt-4 w-full h-12 bg-[#6C47FF] text-white text-sm font-semibold rounded-lg hover:bg-[#5538DD] transition-colors flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+              className="mt-4 w-full h-12 bg-[#6C47FF] text-white text-sm font-semibold rounded-full hover:bg-[#5835E8] transition-colors flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
             >
               {processing ? (
                 <>
@@ -423,6 +422,7 @@ export default function BillingPage() {
   const { user } = useUser();
   const { openCheckout } = useRazorpay();
   const { data: subscription, refresh: refreshSubscription } = useSubscription();
+  const reducedMotion = useReducedMotion();
 
   // Feedback for PayPal redirect flow (?paypal=success|cancelled|error&code=…).
   // paypal-return sets these when the browser lands back on /settings/billing
@@ -684,17 +684,17 @@ export default function BillingPage() {
     ? Math.round((creditsRemaining / subscription.credits) * 100)
     : 100;
   const creditsBarColor =
-    creditsRemainingPct > 50 ? "#6C47FF" : creditsRemainingPct > 20 ? "#F59E0B" : "#EF4444";
+    creditsRemainingPct > 50 ? "#10B981" : creditsRemainingPct > 20 ? "#F59E0B" : "#EF4444";
   const planLabel = subscription ? PLAN_LABELS[subscription.tier] ?? subscription.tier : "-";
   const renewalDate = subscription
     ? formatDate(subscription.isTrialing ? subscription.trialEndsAt : subscription.currentPeriodEnd)
     : "-";
 
   return (
-    <div className="max-w-4xl space-y-6">
+    <div className="max-w-4xl space-y-8">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Billing</h1>
+        <h1 className="text-3xl font-semibold tracking-tight text-gray-900">Billing</h1>
         <p className="text-sm text-gray-500 mt-1">
           Manage your team, their accounts and mailboxes.
         </p>
@@ -728,131 +728,82 @@ export default function BillingPage() {
         </div>
       )}
 
-      {/* Current credit balance */}
-      <div className="bg-white border border-[#E5E7EB] rounded-xl p-6">
-        <div className="flex items-start justify-between mb-4">
-          <h2 className="text-sm font-semibold text-[#111827]">Current credit balance</h2>
+      {/* Current plan — consolidated card (plan name + tier badge, next-charge date, credits meter) */}
+      <div className="bg-white border border-[#E5E7EB] rounded-2xl p-8 shadow-sm">
+        <div className="flex items-start justify-between gap-4 mb-6">
           <div className="flex items-center gap-3">
-            <button
-              onClick={() => setShowCreditsModal(true)}
-              className="px-4 py-2 text-sm font-medium text-[#111827] border border-[#E5E7EB] rounded-lg hover:bg-[#F9FAFB] transition-colors"
-            >
-              Buy extra credits
-            </button>
-            <button
-              onClick={() => setShowPlanModal(true)}
-              className="px-4 py-2 bg-[#6C47FF] text-white text-sm font-medium rounded-lg hover:bg-[#5a3ad4] transition-colors"
-            >
-              Upgrade plan
-            </button>
+            <h2 className="text-lg font-semibold text-[#111827]">{planLabel}</h2>
+            {subscription && (
+              <span className="inline-flex items-center rounded-full bg-[#EEF2FF] text-[#6C47FF] px-2.5 py-0.5 text-[11px] font-medium uppercase tracking-wider">
+                {subscription.tier}
+              </span>
+            )}
           </div>
-        </div>
-        <div className="flex items-end justify-between mb-3">
-          <span className="text-4xl font-bold text-[#111827] tabular-nums">
-            {creditsRemaining.toLocaleString("en-US")}
-          </span>
-          <span className="text-sm text-[#6B7280] tabular-nums">
-            {subscription
-              ? `${subscription.creditsUsed.toLocaleString("en-US")} / ${subscription.credits.toLocaleString("en-US")} used`
-              : "Loading…"}
-          </span>
-        </div>
-        <div className="w-full h-2 bg-[#F3F4F6] rounded-full overflow-hidden">
-          {/* Animate width from 0 → actual on mount using Framer Motion */}
-          <motion.div
-            className="h-full rounded-full"
-            initial={{ width: 0 }}
-            animate={{ width: `${creditsRemainingPct}%` }}
-            transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
-            style={{ backgroundColor: creditsBarColor }}
-          />
-        </div>
-      </div>
-
-      {/* Plan details */}
-      <div className="bg-white border border-gray-200 rounded-xl p-6">
-        <div className="flex items-start justify-between mb-4">
-          <h2 className="text-sm font-semibold text-gray-900">Plan details</h2>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setShowPlanModal(true)}
-              className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-            >
-              Plan options
-              <ChevronDown className="h-3.5 w-3.5" />
-            </button>
-            <button
-              onClick={() => setShowPlanModal(true)}
-              className="px-4 py-2 bg-[#6C47FF] text-white text-sm font-medium rounded-lg hover:bg-[#5a3ad4] transition-colors"
-            >
-              Upgrade plan
-            </button>
-          </div>
-        </div>
-        <table className="w-full">
-          <thead>
-            <tr className="border-b border-gray-200">
-              <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider pb-2">
-                Current plan
-              </th>
-              <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider pb-2">
-                Renewal date
-              </th>
-              <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider pb-2">
-                Monthly credits
-              </th>
-              <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider pb-2">
-                Monthly credit cost
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td className="py-3 text-sm text-gray-700">{planLabel}</td>
-              <td className="py-3 text-sm text-gray-700">{renewalDate}</td>
-              <td className="py-3 text-sm text-gray-700">
-                {subscription ? `${subscription.credits.toLocaleString("en-US")} / mo` : "-"}
-              </td>
-              <td className="py-3 text-sm text-gray-700">
-                {subscription ? (
-                  (() => {
+          <div className="text-right">
+            <p className="text-xs font-medium uppercase tracking-wider text-gray-500">Next charge</p>
+            <p className="mt-0.5 text-sm text-[#111827] tabular-nums">
+              {subscription && (subscription.monthlyCostPaise ?? 0) > 0
+                ? (() => {
                     const inrWhole = (subscription.monthlyCostPaise ?? 0) / 100;
-                    if (inrWhole === 0) return "Free";
                     const primary =
                       currencyPref === "USD"
                         ? formatCurrencyMoney(inrToUsdDisplay(inrWhole), "USD")
                         : formatINR(inrWhole);
-                    const secondary =
-                      currencyPref === "USD"
-                        ? formatINR(inrWhole)
-                        : formatCurrencyMoney(inrToUsdDisplay(inrWhole), "USD");
-                    return (
-                      <span className="inline-flex flex-col leading-tight">
-                        <span>{primary} / mo</span>
-                        <span className="text-[11px] text-gray-400">
-                          ≈ {secondary} / mo · {currencyPref === "USD" ? "PayPal (via Razorpay)" : "Razorpay"}
-                        </span>
-                      </span>
-                    );
+                    return `${primary} on ${renewalDate}`;
                   })()
-                ) : (
-                  "-"
-                )}
-              </td>
-            </tr>
-          </tbody>
-        </table>
+                : renewalDate}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3 mb-8">
+          <button
+            onClick={() => setShowCreditsModal(true)}
+            className="rounded-full border border-gray-300 px-6 py-2.5 text-sm font-medium text-[#111827] hover:bg-[#F9FAFB] transition-colors"
+          >
+            Buy extra credits
+          </button>
+          <button
+            onClick={() => setShowPlanModal(true)}
+            className="rounded-full bg-[#6C47FF] text-white text-sm font-medium px-6 py-2.5 hover:bg-[#5835E8] transition-colors"
+          >
+            Upgrade plan
+          </button>
+        </div>
+
+        <div>
+          <div className="flex items-end justify-between mb-3">
+            <span className="text-4xl font-semibold text-[#111827] tabular-nums">
+              {creditsRemaining.toLocaleString("en-US")}
+            </span>
+            <span className="text-sm text-[#6B7280] tabular-nums">
+              {subscription
+                ? `${subscription.creditsUsed.toLocaleString("en-US")} / ${subscription.credits.toLocaleString("en-US")} credits used`
+                : "Loading…"}
+            </span>
+          </div>
+          <div className="w-full h-2 bg-[#F3F4F6] rounded-full overflow-hidden">
+            {/* Animate width from 0 → actual on mount using Framer Motion */}
+            <motion.div
+              className="h-full rounded-full"
+              initial={reducedMotion ? false : { width: 0 }}
+              animate={{ width: `${creditsRemainingPct}%` }}
+              transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+              style={{ backgroundColor: creditsBarColor }}
+            />
+          </div>
+        </div>
       </div>
 
       {/* Payment method */}
-      <div className="bg-white border border-[#E5E7EB] rounded-xl p-6">
+      <div className="bg-white border border-[#E5E7EB] rounded-2xl p-8 shadow-sm hover:shadow-lg transition-shadow">
         <div className="flex items-start justify-between mb-4">
           <h2 className="text-sm font-semibold text-[#111827]">Payment method</h2>
           <button
             onClick={() => setShowPlanModal(true)}
-            className="px-3 py-1.5 text-xs font-medium text-[#6C47FF] border border-[#E5E7EB] rounded-lg hover:bg-[#F9FAFB] transition-colors"
+            className="rounded-full bg-[#6C47FF] text-white text-xs font-medium px-5 py-2 hover:bg-[#5835E8] transition-colors"
           >
-            Update payment method
+            Update card
           </button>
         </div>
         {transactions && transactions.length > 0 ? (
@@ -878,7 +829,7 @@ export default function BillingPage() {
       </div>
 
       {/* Other costs */}
-      <div className="bg-white border border-gray-200 rounded-xl p-6">
+      <div className="bg-white border border-gray-200 rounded-2xl p-8 shadow-sm hover:shadow-lg transition-shadow">
         <h2 className="text-sm font-semibold text-gray-900 mb-4">Other costs</h2>
         <table className="w-full">
           <thead>
@@ -969,7 +920,7 @@ export default function BillingPage() {
       </div>
 
       {/* Payment details */}
-      <div className="bg-white border border-gray-200 rounded-xl p-6">
+      <div className="bg-white border border-gray-200 rounded-2xl p-8 shadow-sm hover:shadow-lg transition-shadow">
         <div className="flex items-start justify-between mb-4">
           <h2 className="text-sm font-semibold text-gray-900">Payment details</h2>
           <button
@@ -1074,7 +1025,7 @@ export default function BillingPage() {
       </div>
 
       {/* Transaction history */}
-      <div className="bg-white border border-gray-200 rounded-xl p-6">
+      <div className="bg-white border border-gray-200 rounded-2xl p-8 shadow-sm hover:shadow-lg transition-shadow">
         <div className="flex items-start justify-between mb-4">
           <h2 className="text-sm font-semibold text-gray-900">Transaction history</h2>
           <button
@@ -1149,7 +1100,7 @@ export default function BillingPage() {
       {subscription &&
         ["starter", "growth", "scale"].includes(subscription.tier) &&
         subscription.status === "active" && (
-          <div className="bg-red-50 border border-red-200 rounded-xl p-6">
+          <div className="bg-red-50 border border-red-200 rounded-2xl p-8 shadow-sm hover:shadow-lg transition-shadow">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <h2 className="text-sm font-semibold text-red-800">

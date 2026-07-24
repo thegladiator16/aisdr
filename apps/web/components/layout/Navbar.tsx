@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import Link from 'next/link'
 import { ArrowRight, Zap, Users, Mail, Calendar, Building2, Rocket, Globe } from 'lucide-react'
 import { AryaAvatar } from '@/components/arya/AryaAvatar'
@@ -73,6 +73,7 @@ const CUSTOMER_STORIES = [
 
 export function Navbar() {
   const [openDropdown, setOpenDropdown] = useState<string | null>(null)
+  const [scrolled, setScrolled] = useState(false)
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const handleEnter = useCallback((menu: string) => {
@@ -89,9 +90,16 @@ export function Navbar() {
     }, 150)
   }, [])
 
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 20)
+    onScroll()
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [])
+
   return (
-    <nav className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-200">
-      <div className="mx-auto max-w-6xl flex items-center justify-between px-6 py-3">
+    <nav className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-200 transition-all duration-200">
+      <div className={`mx-auto max-w-6xl flex items-center justify-between px-6 transition-all duration-200 ${scrolled ? 'py-2' : 'py-4'}`}>
         <Link href="/" className="flex items-center gap-2.5">
           <AryaAvatar size="sm" />
           <span className="font-bold text-gray-900 text-lg">AI SDR</span>
@@ -209,9 +217,9 @@ export function Navbar() {
           </Link>
           <Link
             href="/sign-up"
-            className="rounded-lg bg-[#6C47FF] px-4 py-2 text-sm font-medium text-white hover:bg-[#5A38E0] transition-colors"
+            className="rounded-full bg-[#6C47FF] px-5 py-2 text-sm font-medium text-white hover:bg-[#5835E8] transition-colors"
           >
-            Start free trial <ArrowRight className="inline h-3 w-3 ml-1" />
+            Start free <ArrowRight className="inline h-3 w-3 ml-1" />
           </Link>
         </div>
       </div>

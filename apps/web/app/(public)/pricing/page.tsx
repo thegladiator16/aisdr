@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import Link from 'next/link'
-import { motion, AnimatePresence } from 'framer-motion'
-import { Check, X, Zap, Star, Quote, ChevronDown } from 'lucide-react'
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
+import { Check, X, Zap, Star, Quote, ChevronDown, ArrowRight } from 'lucide-react'
 import { useUser } from '@clerk/nextjs'
 import { toast } from 'sonner'
 import { AryaAvatar } from "@/components/arya/AryaAvatar"
@@ -260,17 +260,20 @@ const TESTIMONIALS = [
 
 const TRUSTED_LOGOS = ['Zepto', 'CRED', 'Groww', 'PhonePe', 'Razorpay', 'Meesho']
 
+const EASE = [0.16, 1, 0.3, 1] as const
+
 const fadeUp = {
   hidden: { opacity: 0, y: 20 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.22, 1, 0.36, 1] } },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: EASE } },
 }
 
 const stagger = {
   hidden: {},
-  visible: { transition: { staggerChildren: 0.09 } },
+  visible: { transition: { staggerChildren: 0.08 } },
 }
 
 export default function PricingPage() {
+  const reduce = useReducedMotion()
   const { user } = useUser()
   // Default to yearly — 20% cheaper, and annual is the common commercial
   // path we want to nudge visitors toward.
@@ -283,6 +286,7 @@ export default function PricingPage() {
   // decides their default.
   const [currencyLocked, setCurrencyLocked] = useState(false)
   const [showComparison, setShowComparison] = useState(false)
+  const [openFaq, setOpenFaq] = useState<number | null>(null)
 
   const clerkPhones = useMemo(() => {
     const list: string[] = []
@@ -326,8 +330,13 @@ export default function PricingPage() {
     writeStoredCurrency(next)
   }
 
+  // Main pricing grid renders only these three tiers; Free Trial and
+  // Enterprise are surfaced separately (eyebrow CTA and sales strip).
+  const mainPlans = PLANS.filter((p) => ['starter', 'growth', 'scale'].includes(p.id))
+  const enterprisePlan = PLANS.find((p) => p.id === 'enterprise')
+
   return (
-    <div className="min-h-screen bg-[#FAFAFA]">
+    <div className="min-h-screen bg-white">
       {/* Navbar */}
       <nav className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-gray-200">
         <div className="mx-auto max-w-6xl flex items-center justify-between px-6 py-3">
@@ -341,7 +350,7 @@ export default function PricingPage() {
             </Link>
             <Link
               href="/sign-up"
-              className="rounded-lg bg-[#6C47FF] px-4 py-2 text-sm font-medium text-white hover:bg-[#5538DD] transition-colors"
+              className="rounded-full bg-[#6C47FF] px-5 py-2 text-sm font-medium text-white hover:bg-[#5835E8] transition-colors"
             >
               Start free trial
             </Link>
@@ -351,24 +360,24 @@ export default function PricingPage() {
 
       {/* Hero */}
       <motion.section
-        initial={{ opacity: 0, y: 24 }}
+        initial={reduce ? false : { opacity: 0, y: 24 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-        className="mx-auto max-w-5xl px-6 pt-16 pb-8 text-center"
+        transition={{ duration: 0.6, ease: EASE }}
+        className="mx-auto max-w-5xl px-6 pt-24 pb-8 text-center"
       >
-        <div className="inline-flex items-center gap-2 bg-violet-50 text-violet-700 text-xs font-semibold px-3 py-1.5 rounded-full mb-4">
+        <div className="inline-flex items-center gap-2 bg-[#EEF2FF] text-[#6C47FF] text-xs font-medium px-3 py-1.5 rounded-full mb-6 uppercase tracking-wider">
           <Zap className="h-3 w-3" />
           14-day free trial, no credit card required
         </div>
-        <h1 className="text-4xl sm:text-5xl font-bold text-[#111827] mb-4 tracking-tight">
+        <h1 className="text-5xl md:text-7xl font-semibold tracking-tight text-gray-900 mb-6">
           Simple pricing that scales with your pipeline
         </h1>
-        <p className="text-lg text-[#6B7280] max-w-2xl mx-auto">
+        <p className="text-base text-gray-600 max-w-2xl mx-auto">
           No contracts. Cancel anytime. GST-compliant invoices included.
         </p>
 
         {/* Currency + billing toggles */}
-        <div className="flex flex-col items-center gap-3 mt-8">
+        <div className="flex flex-col items-center gap-4 mt-10">
           {/* Currency segmented control — hidden entirely when geo-locked */}
           {!currencyLocked && (
             <div className="inline-flex items-center rounded-full border border-gray-200 bg-white p-1 shadow-sm relative">
@@ -405,185 +414,268 @@ export default function PricingPage() {
             </div>
           )}
           {currencyLocked && (
-            <p className="text-[11px] text-violet-600 font-medium">
+            <p className="text-[11px] text-[#6C47FF] font-medium">
               {currency === 'INR'
                 ? '🇮🇳 Prices shown in INR for payments from India.'
                 : '🌍 Prices shown in USD for international payments.'}
             </p>
           )}
 
-          {/* Billing cycle */}
-          <div className="flex items-center justify-center gap-2">
+          {/* Billing cycle — sliding pill with shared layoutId */}
+          <div className="inline-flex items-center rounded-full border border-gray-200 bg-white p-1 shadow-sm relative">
             <button
               onClick={() => setBilling('monthly')}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                billing === 'monthly' ? 'bg-gray-900 text-white' : 'text-gray-600 hover:bg-gray-100'
-              }`}
+              className="relative px-5 py-1.5 rounded-full text-sm font-medium transition-colors"
+              aria-pressed={billing === 'monthly'}
             >
-              Monthly
+              {billing === 'monthly' && (
+                <motion.div
+                  layoutId="billing-pill"
+                  transition={{ type: 'spring', stiffness: 500, damping: 32 }}
+                  className="absolute inset-0 rounded-full bg-[#6C47FF]"
+                  aria-hidden
+                />
+              )}
+              <span className={`relative z-10 ${billing === 'monthly' ? 'text-white' : 'text-gray-600'}`}>
+                Monthly
+              </span>
             </button>
             <button
               onClick={() => setBilling('yearly')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                billing === 'yearly' ? 'bg-gray-900 text-white' : 'text-gray-600 hover:bg-gray-100'
-              }`}
+              className="relative px-5 py-1.5 rounded-full text-sm font-medium transition-colors flex items-center gap-2"
+              aria-pressed={billing === 'yearly'}
             >
-              Annual
-              <AnimatePresence mode="wait">
-                <motion.span
-                  key={billing}
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.8 }}
-                  transition={{ duration: 0.2 }}
-                  className="bg-emerald-100 text-emerald-700 text-xs px-2 py-0.5 rounded-full font-semibold"
-                >
-                  Save 20%
-                </motion.span>
-              </AnimatePresence>
+              {billing === 'yearly' && (
+                <motion.div
+                  layoutId="billing-pill"
+                  transition={{ type: 'spring', stiffness: 500, damping: 32 }}
+                  className="absolute inset-0 rounded-full bg-[#6C47FF]"
+                  aria-hidden
+                />
+              )}
+              <span className={`relative z-10 ${billing === 'yearly' ? 'text-white' : 'text-gray-600'}`}>
+                Annual
+              </span>
+              <span
+                className={`relative z-10 text-[10px] px-2 py-0.5 rounded-full font-semibold tabular-nums ${
+                  billing === 'yearly' ? 'bg-white/20 text-white' : 'bg-emerald-100 text-emerald-700'
+                }`}
+              >
+                Save 20%
+              </span>
             </button>
           </div>
         </div>
       </motion.section>
 
       {/* Plan cards */}
-      <section className="mx-auto max-w-6xl px-6 pb-16">
+      <section className="mx-auto max-w-6xl px-6 pb-24">
+        {/* Eyebrow CTA — replaces the standalone Free Trial card */}
+        <motion.div
+          initial={reduce ? false : { opacity: 0, y: 12 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.2 }}
+          transition={{ duration: 0.4, ease: EASE }}
+          className="text-center mb-10"
+        >
+          <Link
+            href="/sign-up"
+            className="inline-flex items-center gap-2 text-sm font-medium text-[#6C47FF] hover:text-[#5835E8] transition-colors"
+          >
+            <Zap className="h-4 w-4" />
+            Start with 14-day free trial, no card required
+            <ArrowRight className="h-4 w-4" />
+          </Link>
+        </motion.div>
+
         <motion.div
           variants={stagger}
           initial="hidden"
           animate="visible"
-          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4"
+          className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch"
         >
-          {PLANS.map((plan) => (
-            <motion.div
-              key={plan.id}
-              variants={fadeUp}
-              whileHover={{ scale: 1.015, y: -6, transition: { duration: 0.2 } }}
-              className={`relative bg-white rounded-2xl p-5 flex flex-col border-2 cursor-pointer ${
-                plan.highlight
-                  ? 'border-[#6C47FF] shadow-lg shadow-violet-100'
-                  : plan.id === 'scale'
-                  ? 'border-emerald-300 shadow-md shadow-emerald-50'
-                  : 'border-gray-200 shadow-sm hover:shadow-md'
-              }`}
-              style={{ willChange: 'transform' }}
-            >
-              {(plan.highlight || plan.badge) && (
-                <div className="absolute -top-3.5 left-1/2 -translate-x-1/2">
-                  <span className={`text-white text-xs font-bold px-4 py-1.5 rounded-full whitespace-nowrap ${
-                    plan.id === 'scale' ? 'bg-emerald-600' : 'bg-[#6C47FF]'
-                  }`}>
-                    {plan.badge ?? 'Most popular'}
-                  </span>
-                </div>
-              )}
-
-              <div className="mb-4">
-                <h3 className="text-lg font-bold text-gray-900">{plan.name}</h3>
-                <p className="text-xs text-gray-500 mt-1">{plan.description}</p>
-              </div>
-
-              <div className="mb-4">
-                {plan.monthly == null ? (
-                  <p className="text-3xl font-bold text-gray-900">Custom</p>
-                ) : plan.monthly === 0 ? (
-                  <div>
-                    <p className="text-3xl font-bold text-gray-900">Free</p>
-                    <p className="text-xs text-gray-400 mt-0.5">14 days</p>
-                  </div>
-                ) : (
-                  <div>
-                    <AnimatePresence mode="wait">
-                      <motion.p
-                        key={billing + plan.id + currency}
-                        initial={{ opacity: 0, y: -8 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: 8 }}
-                        transition={{ duration: 0.2 }}
-                        className="text-3xl font-bold text-[#111827] tabular-nums"
-                      >
-                        {displayPrice(billing === 'monthly' ? plan.monthly : plan.yearly!, currency)}
-                        <span className="text-base font-normal text-gray-400">/mo</span>
-                      </motion.p>
-                    </AnimatePresence>
-                    {/* Secondary "≈ other currency" reference so users can double-
-                        check the FX conversion at a glance. */}
-                    <p className="text-[11px] text-gray-400 mt-0.5">
-                      ≈ {displayPrice(
-                        billing === 'monthly' ? plan.monthly : plan.yearly!,
-                        currency === 'USD' ? 'INR' : 'USD',
-                      )}/month
-                    </p>
-                    {billing === 'yearly' && (
-                      <motion.p
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        className="text-xs text-emerald-600 font-medium mt-1"
-                      >
-                        {displayPrice(plan.monthly - plan.yearly!, currency)} saved / month
-                      </motion.p>
-                    )}
+          {mainPlans.map((plan) => {
+            const isDark = plan.id === 'scale'
+            const isHighlighted = plan.highlight
+            return (
+              <motion.div
+                key={plan.id}
+                variants={fadeUp}
+                whileHover={reduce ? undefined : { y: -6, transition: { duration: 0.2 } }}
+                className={`relative rounded-2xl p-8 flex flex-col border transition-shadow ${
+                  isHighlighted
+                    ? 'bg-white ring-2 ring-[#6C47FF] lg:scale-105 z-10 shadow-lg border-transparent'
+                    : isDark
+                    ? 'bg-gray-900 text-white border-gray-900 shadow-sm hover:shadow-lg'
+                    : 'bg-white border-gray-200 shadow-sm hover:shadow-lg'
+                }`}
+                style={{ willChange: 'transform' }}
+              >
+                {(isHighlighted || plan.badge) && (
+                  <div className="absolute -top-3.5 left-1/2 -translate-x-1/2">
+                    <span
+                      className={`text-xs font-medium uppercase tracking-wider px-4 py-1.5 rounded-full whitespace-nowrap ${
+                        isDark
+                          ? 'bg-white text-gray-900'
+                          : 'bg-[#6C47FF] text-white'
+                      }`}
+                    >
+                      {plan.badge ?? 'Most popular'}
+                    </span>
                   </div>
                 )}
-                <p className="text-xs font-semibold text-violet-600 mt-2">{plan.creditLabel}</p>
-                <p className="text-xs text-gray-400">{plan.leadsLabel}</p>
-              </div>
 
-              <Link
-                href={plan.ctaHref}
-                className={`block w-full text-center py-2.5 rounded-xl text-sm font-semibold transition-colors mb-5 ${
-                  plan.highlight
-                    ? 'bg-[#6C47FF] text-white hover:bg-[#5538DD]'
-                    : plan.id === 'scale'
-                    ? 'bg-emerald-600 text-white hover:bg-emerald-700'
-                    : plan.id === 'enterprise'
-                    ? 'bg-gray-900 text-white hover:bg-gray-800'
-                    : 'border-2 border-gray-200 text-gray-700 hover:border-[#6C47FF] hover:text-[#6C47FF]'
-                }`}
-              >
-                {plan.cta}
-              </Link>
+                <div className="mb-5">
+                  <h3 className={`text-xl font-semibold tracking-tight ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                    {plan.name}
+                  </h3>
+                  <p className={`text-sm mt-1 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                    {plan.description}
+                  </p>
+                </div>
 
-              {/* Feature checkmarks — stagger reveal */}
-              <ul className="space-y-2 flex-1">
-                {COMPARISON_ROWS.filter((r) => r.isBool).map((row, ri) => {
-                  const val = plan.features[row.key]
-                  return (
-                    <motion.li
-                      key={row.key}
-                      initial={{ opacity: 0, x: -8 }}
-                      whileInView={{ opacity: 1, x: 0 }}
-                      viewport={{ once: true }}
-                      transition={{ duration: 0.3, delay: ri * 0.07 }}
-                      className="flex items-center gap-2 text-xs text-gray-600"
-                    >
-                      {val ? (
-                        <Check className="h-3.5 w-3.5 text-violet-500 shrink-0" />
-                      ) : (
-                        <X className="h-3.5 w-3.5 text-gray-300 shrink-0" />
+                <div className="mb-6">
+                  {plan.monthly == null ? (
+                    <p className={`text-4xl font-semibold tracking-tight tabular-nums ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                      Custom
+                    </p>
+                  ) : plan.monthly === 0 ? (
+                    <div>
+                      <p className={`text-4xl font-semibold tracking-tight tabular-nums ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                        Free
+                      </p>
+                      <p className={`text-xs mt-1 ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>14 days</p>
+                    </div>
+                  ) : (
+                    <div>
+                      <AnimatePresence mode="wait">
+                        <motion.p
+                          key={billing + plan.id + currency}
+                          initial={reduce ? false : { opacity: 0, y: -8 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={reduce ? undefined : { opacity: 0, y: 8 }}
+                          transition={{ duration: 0.15 }}
+                          className={`text-4xl font-semibold tracking-tight tabular-nums ${isDark ? 'text-white' : 'text-gray-900'}`}
+                        >
+                          {displayPrice(billing === 'monthly' ? plan.monthly : plan.yearly!, currency)}
+                          <span className={`text-base font-normal ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>/mo</span>
+                        </motion.p>
+                      </AnimatePresence>
+                      {/* Secondary "≈ other currency" reference so users can double-
+                          check the FX conversion at a glance. */}
+                      <p className={`text-xs mt-1 tabular-nums ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
+                        ≈ {displayPrice(
+                          billing === 'monthly' ? plan.monthly : plan.yearly!,
+                          currency === 'USD' ? 'INR' : 'USD',
+                        )}/month
+                      </p>
+                      {billing === 'yearly' && (
+                        <motion.p
+                          initial={reduce ? false : { opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          className={`text-xs font-medium mt-1 tabular-nums ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}
+                        >
+                          {displayPrice(plan.monthly - plan.yearly!, currency)} saved / month
+                        </motion.p>
                       )}
-                      {row.label}
-                    </motion.li>
-                  )
-                })}
-              </ul>
-            </motion.div>
-          ))}
+                    </div>
+                  )}
+                  <p className={`text-xs font-medium mt-3 uppercase tracking-wider ${isDark ? 'text-violet-300' : 'text-[#6C47FF]'}`}>
+                    {plan.creditLabel}
+                  </p>
+                  <p className={`text-xs mt-1 ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>{plan.leadsLabel}</p>
+                </div>
+
+                <Link
+                  href={plan.ctaHref}
+                  className={`block w-full text-center px-8 py-3 rounded-full text-sm font-medium transition-colors mb-6 ${
+                    isHighlighted
+                      ? 'bg-[#6C47FF] text-white hover:bg-[#5835E8]'
+                      : isDark
+                      ? 'bg-white text-gray-900 hover:bg-gray-100'
+                      : 'border border-gray-300 text-gray-900 hover:border-[#6C47FF] hover:text-[#6C47FF]'
+                  }`}
+                >
+                  {plan.cta}
+                </Link>
+
+                {isDark && (
+                  <Link
+                    href="mailto:sales@aryasdr.in?subject=Scale%20plan%20inquiry"
+                    className="block w-full text-center text-xs font-medium text-gray-400 hover:text-white transition-colors -mt-3 mb-6"
+                  >
+                    Talk to sales →
+                  </Link>
+                )}
+
+                {/* Feature checkmarks — stagger reveal */}
+                <ul className="space-y-3 flex-1">
+                  {COMPARISON_ROWS.filter((r) => r.isBool).map((row, ri) => {
+                    const val = plan.features[row.key]
+                    return (
+                      <motion.li
+                        key={row.key}
+                        initial={reduce ? false : { opacity: 0, x: -8 }}
+                        whileInView={{ opacity: 1, x: 0 }}
+                        viewport={{ once: true, amount: 0.2 }}
+                        transition={{ duration: 0.3, delay: ri * 0.08, ease: EASE }}
+                        className={`flex items-center gap-2 text-sm ${isDark ? 'text-gray-300' : 'text-gray-600'}`}
+                      >
+                        {val ? (
+                          <Check className={`h-4 w-4 shrink-0 ${isDark ? 'text-violet-300' : 'text-[#6C47FF]'}`} />
+                        ) : (
+                          <X className={`h-4 w-4 shrink-0 ${isDark ? 'text-gray-600' : 'text-gray-300'}`} />
+                        )}
+                        {row.label}
+                      </motion.li>
+                    )
+                  })}
+                </ul>
+              </motion.div>
+            )
+          })}
         </motion.div>
+
+        {/* Enterprise strip — replaces standalone Enterprise card */}
+        {enterprisePlan && (
+          <motion.div
+            initial={reduce ? false : { opacity: 0, y: 12 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, amount: 0.2 }}
+            transition={{ duration: 0.4, ease: EASE }}
+            className="mt-10 rounded-2xl border border-gray-200 bg-[#F9FAFB] p-8 flex flex-col md:flex-row items-center justify-between gap-4"
+          >
+            <div className="text-center md:text-left">
+              <p className="text-xs font-medium uppercase tracking-wider text-gray-500">
+                Need more?
+              </p>
+              <p className="text-base font-medium text-gray-900 mt-1">
+                Custom volume, SSO/SAML, dedicated CSM, and custom contracts for larger teams.
+              </p>
+            </div>
+            <Link
+              href={enterprisePlan.ctaHref}
+              className="inline-flex items-center gap-2 rounded-full border border-gray-300 px-8 py-3 text-sm font-medium text-gray-900 hover:border-[#6C47FF] hover:text-[#6C47FF] transition-colors whitespace-nowrap"
+            >
+              Talk to sales
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </motion.div>
+        )}
       </section>
 
       {/* Credit costs callout */}
-      <section className="bg-white border-y border-gray-200 py-14">
+      <section className="bg-[#F9FAFB] border-y border-gray-200 py-24">
         <div className="mx-auto max-w-3xl px-6">
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={reduce ? false : { opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5 }}
-            className="text-center mb-8"
+            viewport={{ once: true, amount: 0.2 }}
+            transition={{ duration: 0.5, ease: EASE }}
+            className="text-center mb-10"
           >
-            <h2 className="text-2xl font-bold text-gray-900">How credits work</h2>
-            <p className="text-gray-500 mt-2 text-sm">
+            <h2 className="text-4xl md:text-5xl font-semibold tracking-tight text-gray-900">How credits work</h2>
+            <p className="text-base text-gray-600 mt-3">
               Credits are consumed per action. Unused credits carry over month-to-month.
             </p>
           </motion.div>
@@ -591,45 +683,45 @@ export default function PricingPage() {
             variants={stagger}
             initial="hidden"
             whileInView="visible"
-            viewport={{ once: true }}
-            className="grid grid-cols-2 sm:grid-cols-4 gap-3"
+            viewport={{ once: true, amount: 0.2 }}
+            className="grid grid-cols-2 sm:grid-cols-4 gap-4"
           >
             {CREDIT_COSTS.map((c) => (
               <motion.div
                 key={c.action}
                 variants={fadeUp}
-                whileHover={{ scale: 1.03, y: -3, transition: { duration: 0.2 } }}
-                className="rounded-xl border border-gray-200 bg-[#FAFAFA] p-4 text-center cursor-default"
+                whileHover={reduce ? undefined : { y: -3, transition: { duration: 0.2 } }}
+                className="rounded-2xl border border-gray-200 bg-white p-6 text-center cursor-default hover:shadow-lg transition-shadow"
                 style={{ willChange: 'transform' }}
               >
                 <div className="text-3xl mb-3">{c.icon}</div>
-                <p className="text-2xl font-bold text-[#6C47FF]">{c.credits}</p>
-                <p className="text-xs font-semibold text-gray-400 mt-0.5">credits</p>
-                <p className="text-sm font-medium text-gray-700 mt-2">{c.action}</p>
+                <p className="text-2xl font-semibold text-[#6C47FF] tabular-nums">{c.credits}</p>
+                <p className="text-xs font-medium text-gray-500 mt-0.5 uppercase tracking-wider">credits</p>
+                <p className="text-sm font-medium text-gray-900 mt-3">{c.action}</p>
               </motion.div>
             ))}
           </motion.div>
-          <p className="text-center text-xs text-gray-400 mt-6">
+          <p className="text-center text-xs text-gray-500 mt-8">
             A Starter plan (3,000 credits) can prospect ~200 leads and send ~120 personalised emails per month.
           </p>
         </div>
       </section>
 
       {/* Feature comparison table */}
-      <section className="mx-auto max-w-6xl px-6 py-16">
+      <section className="mx-auto max-w-6xl px-6 py-24">
         <motion.h2
-          initial={{ opacity: 0, y: 20 }}
+          initial={reduce ? false : { opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.5 }}
-          className="text-2xl font-bold text-gray-900 text-center mb-3"
+          viewport={{ once: true, amount: 0.2 }}
+          transition={{ duration: 0.5, ease: EASE }}
+          className="text-4xl md:text-5xl font-semibold tracking-tight text-gray-900 text-center mb-4"
         >
           Full feature comparison
         </motion.h2>
         <div className="flex justify-center mb-8">
           <button
             onClick={() => setShowComparison((v) => !v)}
-            className="inline-flex items-center gap-1.5 text-sm font-medium text-[#6C47FF] hover:text-[#5538DD] transition-colors"
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-[#6C47FF] hover:text-[#5835E8] transition-colors"
             aria-expanded={showComparison}
           >
             {showComparison ? 'Hide full comparison' : 'Show full comparison'}
@@ -645,19 +737,19 @@ export default function PricingPage() {
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: 'auto' }}
               exit={{ opacity: 0, height: 0 }}
-              transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
-              className="overflow-x-auto rounded-xl border border-gray-200 bg-white"
+              transition={{ duration: 0.35, ease: EASE }}
+              className="overflow-x-auto rounded-2xl border border-gray-200 bg-white"
             >
               <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-gray-100">
-                <th className="text-left px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider w-48">
+              <tr className="border-b border-gray-200">
+                <th className="text-left px-5 py-4 text-xs font-medium text-gray-500 uppercase tracking-wider w-48">
                   Feature
                 </th>
                 {PLANS.map((p) => (
                   <th
                     key={p.id}
-                    className={`text-center px-4 py-3.5 text-sm font-bold ${
+                    className={`text-center px-4 py-4 text-sm font-semibold ${
                       p.highlight ? 'text-[#6C47FF]' : 'text-gray-900'
                     }`}
                   >
@@ -668,7 +760,7 @@ export default function PricingPage() {
             </thead>
             <tbody>
               {COMPARISON_ROWS.map((row, idx) => (
-                <tr key={row.key} className={idx % 2 === 0 ? 'bg-gray-50/50' : ''}>
+                <tr key={row.key} className={idx % 2 === 0 ? 'bg-[#F9FAFB]' : ''}>
                   <td className="px-5 py-3 text-xs font-medium text-gray-600">
                     {row.label}
                   </td>
@@ -678,12 +770,12 @@ export default function PricingPage() {
                       <td key={plan.id} className="text-center px-4 py-3">
                         {row.isBool ? (
                           val ? (
-                            <Check className="h-4 w-4 text-violet-500 mx-auto" />
+                            <Check className="h-4 w-4 text-[#6C47FF] mx-auto" />
                           ) : (
                             <X className="h-4 w-4 text-gray-300 mx-auto" />
                           )
                         ) : (
-                          <span className="text-xs text-gray-700">{String(val)}</span>
+                          <span className="text-xs text-gray-700 tabular-nums">{String(val)}</span>
                         )}
                       </td>
                     )
@@ -698,82 +790,82 @@ export default function PricingPage() {
       </section>
 
       {/* Cost comparison — Why AryaSDR over Artisan? */}
-      <section className="bg-gradient-to-br from-violet-50 to-pink-50 border-y border-gray-100 py-14">
+      <section className="bg-[#F9FAFB] border-y border-gray-200 py-24">
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={reduce ? false : { opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.5 }}
-          className="mx-auto max-w-3xl px-6 text-center mb-8"
+          viewport={{ once: true, amount: 0.2 }}
+          transition={{ duration: 0.5, ease: EASE }}
+          className="mx-auto max-w-3xl px-6 text-center mb-10"
         >
-          <h2 className="text-2xl font-bold text-gray-900">Why AryaSDR over Artisan?</h2>
-          <p className="text-gray-500 text-sm mt-2">
+          <h2 className="text-4xl md:text-5xl font-semibold tracking-tight text-gray-900">Why AryaSDR over Artisan?</h2>
+          <p className="text-base text-gray-600 mt-3">
             Same AI SDR capabilities. A fraction of the cost.
           </p>
         </motion.div>
         <motion.div
-          initial={{ opacity: 0, y: 24 }}
+          initial={reduce ? false : { opacity: 0, y: 24 }}
           whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.6 }}
-          className="mx-auto max-w-2xl grid grid-cols-3 gap-4 px-6"
+          viewport={{ once: true, amount: 0.2 }}
+          transition={{ duration: 0.6, ease: EASE }}
+          className="mx-auto max-w-3xl grid grid-cols-1 sm:grid-cols-3 gap-4 px-6"
         >
-          <div className="bg-white border-2 border-red-300 rounded-2xl p-5 text-center shadow-sm">
-            <p className="text-xs text-red-400 font-semibold mb-2">Human SDR</p>
-            <p className="text-2xl font-bold text-red-500">{displayPrice(80000, currency)}</p>
-            <p className="text-xs text-gray-400 mt-1">/month</p>
+          <div className="bg-white border border-gray-200 rounded-2xl p-8 text-center shadow-sm">
+            <p className="text-xs text-gray-500 font-medium mb-2 uppercase tracking-wider">Human SDR</p>
+            <p className="text-3xl font-semibold text-gray-900 tabular-nums">{displayPrice(80000, currency)}</p>
+            <p className="text-xs text-gray-500 mt-1">/month</p>
           </div>
-          <div className="bg-white border-2 border-orange-300 rounded-2xl p-5 text-center shadow-sm">
-            <p className="text-xs text-orange-500 font-semibold mb-2">Artisan</p>
-            <p className="text-2xl font-bold text-orange-500">{displayPrice(51000, currency)}</p>
-            <p className="text-xs text-gray-400 mt-1">/month (starts at)</p>
+          <div className="bg-white border border-gray-200 rounded-2xl p-8 text-center shadow-sm">
+            <p className="text-xs text-gray-500 font-medium mb-2 uppercase tracking-wider">Artisan</p>
+            <p className="text-3xl font-semibold text-gray-900 tabular-nums">{displayPrice(51000, currency)}</p>
+            <p className="text-xs text-gray-500 mt-1">/month (starts at)</p>
           </div>
-          <div className="bg-white border-2 border-[#6C47FF] rounded-2xl p-5 text-center shadow-sm">
-            <p className="text-xs text-[#6C47FF] font-semibold mb-2">AryaSDR Scale</p>
-            <p className="text-2xl font-bold text-[#6C47FF]">{displayPrice(24999, currency)}</p>
-            <p className="text-xs text-gray-400 mt-1">/month</p>
-            <p className="text-xs text-emerald-600 font-bold mt-2">
+          <div className="bg-white border rounded-2xl p-8 text-center ring-2 ring-[#6C47FF] shadow-lg">
+            <p className="text-xs text-[#6C47FF] font-medium mb-2 uppercase tracking-wider">AryaSDR Scale</p>
+            <p className="text-3xl font-semibold text-[#6C47FF] tabular-nums">{displayPrice(24999, currency)}</p>
+            <p className="text-xs text-gray-500 mt-1">/month</p>
+            <p className="text-xs text-emerald-600 font-semibold mt-3 tabular-nums">
               Save {displayPrice(26000, currency)}/mo vs Artisan
             </p>
           </div>
         </motion.div>
 
-        <p className="mx-auto max-w-3xl px-6 pt-8 text-center text-xs text-gray-400">
+        <p className="mx-auto max-w-3xl px-6 pt-8 text-center text-xs text-gray-500">
           * International payments via PayPal. Indian payments via Razorpay (UPI / Cards / NetBanking / Wallets).
         </p>
       </section>
 
       {/* ROI Calculator */}
-      <section className="mx-auto max-w-3xl px-6 py-16">
+      <section className="mx-auto max-w-3xl px-6 py-24">
         <motion.div
-          initial={{ opacity: 0, y: 24 }}
+          initial={reduce ? false : { opacity: 0, y: 24 }}
           whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.5 }}
+          viewport={{ once: true, amount: 0.2 }}
+          transition={{ duration: 0.5, ease: EASE }}
         >
           <ROICalculator />
         </motion.div>
       </section>
 
       {/* Social proof */}
-      <section className="bg-white border-y border-gray-200 py-16">
+      <section className="bg-[#F9FAFB] border-y border-gray-200 py-24">
         <div className="mx-auto max-w-6xl px-6">
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={reduce ? false : { opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5 }}
-            className="text-center mb-10"
+            viewport={{ once: true, amount: 0.2 }}
+            transition={{ duration: 0.5, ease: EASE }}
+            className="text-center mb-12"
           >
-            <div className="inline-flex items-center gap-2 text-xs font-semibold text-[#6B7280] mb-3">
+            <div className="inline-flex items-center gap-2 text-xs font-medium text-gray-500 mb-4 uppercase tracking-wider">
               <div className="flex">
                 {[0, 1, 2, 3, 4].map((i) => (
                   <Star key={i} className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
                 ))}
               </div>
-              <span>4.9 / 5 on G2 &middot; Trusted by 500+ B2B founders</span>
+              <span className="tabular-nums">4.9 / 5 on G2 &middot; Trusted by 500+ B2B founders</span>
             </div>
-            <h2 className="text-3xl font-bold text-[#111827]">Loved by growing outbound teams</h2>
+            <h2 className="text-4xl md:text-5xl font-semibold tracking-tight text-gray-900">Loved by growing outbound teams</h2>
           </motion.div>
 
           {/* Testimonials */}
@@ -781,26 +873,26 @@ export default function PricingPage() {
             variants={stagger}
             initial="hidden"
             whileInView="visible"
-            viewport={{ once: true }}
-            className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-12"
+            viewport={{ once: true, amount: 0.2 }}
+            className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12"
           >
             {TESTIMONIALS.map((t) => (
               <motion.div
                 key={t.name}
                 variants={fadeUp}
-                className="bg-[#F9FAFB] border border-[#E5E7EB] rounded-2xl p-6 flex flex-col"
+                className="bg-white border border-gray-200 rounded-2xl p-8 flex flex-col shadow-sm hover:shadow-lg transition-shadow"
               >
-                <Quote className="h-5 w-5 text-[#6C47FF] mb-3" />
-                <p className="text-sm text-[#111827] leading-relaxed flex-1">
+                <Quote className="h-5 w-5 text-[#6C47FF] mb-4" />
+                <p className="text-sm text-gray-900 leading-relaxed flex-1">
                   &ldquo;{t.quote}&rdquo;
                 </p>
-                <div className="mt-5 flex items-center gap-3">
-                  <div className="h-9 w-9 rounded-full bg-gradient-to-br from-violet-500 to-pink-500 text-white text-xs font-bold flex items-center justify-center">
+                <div className="mt-6 flex items-center gap-3">
+                  <div className="h-9 w-9 rounded-full bg-gradient-to-br from-violet-500 to-pink-500 text-white text-xs font-semibold flex items-center justify-center">
                     {t.initials}
                   </div>
                   <div>
-                    <p className="text-sm font-semibold text-[#111827]">{t.name}</p>
-                    <p className="text-xs text-[#6B7280]">{t.role}</p>
+                    <p className="text-sm font-semibold text-gray-900">{t.name}</p>
+                    <p className="text-xs text-gray-500">{t.role}</p>
                   </div>
                 </div>
               </motion.div>
@@ -809,16 +901,16 @@ export default function PricingPage() {
 
           {/* Logo strip */}
           <motion.div
-            initial={{ opacity: 0 }}
+            initial={reduce ? false : { opacity: 0 }}
             whileInView={{ opacity: 1 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6, delay: 0.2 }}
+            viewport={{ once: true, amount: 0.2 }}
+            transition={{ duration: 0.6, delay: 0.2, ease: EASE }}
             className="flex items-center justify-center flex-wrap gap-x-10 gap-y-4 opacity-60"
           >
             {TRUSTED_LOGOS.map((name) => (
               <span
                 key={name}
-                className="text-sm sm:text-base font-bold text-[#6B7280] tracking-wide uppercase"
+                className="text-sm sm:text-base font-semibold text-gray-500 tracking-wide uppercase"
               >
                 {name}
               </span>
@@ -828,13 +920,13 @@ export default function PricingPage() {
       </section>
 
       {/* FAQ */}
-      <section className="mx-auto max-w-3xl px-6 py-16">
+      <section className="mx-auto max-w-3xl px-6 py-24">
         <motion.h2
-          initial={{ opacity: 0, y: 20 }}
+          initial={reduce ? false : { opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.5 }}
-          className="text-2xl font-bold text-center mb-10 text-gray-900"
+          viewport={{ once: true, amount: 0.2 }}
+          transition={{ duration: 0.5, ease: EASE }}
+          className="text-4xl md:text-5xl font-semibold tracking-tight text-center mb-12 text-gray-900"
         >
           Frequently asked questions
         </motion.h2>
@@ -842,40 +934,70 @@ export default function PricingPage() {
           variants={stagger}
           initial="hidden"
           whileInView="visible"
-          viewport={{ once: true, margin: "-40px" }}
+          viewport={{ once: true, amount: 0.2 }}
           className="space-y-3"
         >
-          {FAQ.map(({ q, a }) => (
-            <motion.details key={q} variants={fadeUp} className="rounded-xl border border-gray-200 bg-white p-5 group">
-              <summary className="font-medium text-gray-900 cursor-pointer list-none flex items-center justify-between text-sm">
-                {q}
-                <span className="text-gray-400 group-open:rotate-45 transition-transform text-xl leading-none ml-3">
-                  +
-                </span>
-              </summary>
-              <p className="text-sm text-gray-500 mt-3 leading-relaxed">{a}</p>
-            </motion.details>
-          ))}
+          {FAQ.map(({ q, a }, i) => {
+            const isOpen = openFaq === i
+            return (
+              <motion.div
+                key={q}
+                variants={fadeUp}
+                className="rounded-2xl border border-gray-200 bg-white overflow-hidden"
+              >
+                <button
+                  type="button"
+                  onClick={() => setOpenFaq(isOpen ? null : i)}
+                  className="w-full flex items-center justify-between text-left p-8 text-sm font-medium text-gray-900"
+                  aria-expanded={isOpen}
+                >
+                  <span>{q}</span>
+                  <span
+                    className={`text-gray-500 text-xl leading-none ml-3 transition-transform duration-300 ${
+                      isOpen ? 'rotate-45' : ''
+                    }`}
+                    aria-hidden
+                  >
+                    +
+                  </span>
+                </button>
+                <AnimatePresence initial={false}>
+                  {isOpen && (
+                    <motion.div
+                      key="content"
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.3, ease: EASE }}
+                      className="overflow-hidden"
+                    >
+                      <p className="text-sm text-gray-600 leading-relaxed px-8 pb-8">{a}</p>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </motion.div>
+            )
+          })}
         </motion.div>
       </section>
 
       {/* CTA footer banner */}
       <motion.section
-        initial={{ opacity: 0 }}
+        initial={reduce ? false : { opacity: 0 }}
         whileInView={{ opacity: 1 }}
-        viewport={{ once: true }}
-        transition={{ duration: 0.6 }}
-        className="bg-[#6C47FF] py-14 text-center text-white"
+        viewport={{ once: true, amount: 0.2 }}
+        transition={{ duration: 0.6, ease: EASE }}
+        className="bg-gradient-to-br from-violet-50 via-white to-pink-50 py-24 text-center"
       >
-        <h2 className="text-3xl sm:text-4xl font-bold mb-3 tracking-tight">
+        <h2 className="text-4xl md:text-5xl font-semibold text-gray-900 mb-4 tracking-tight">
           Ready to put your outbound on autopilot?
         </h2>
-        <p className="text-violet-200 text-sm mb-6">
+        <p className="text-base text-gray-600 mb-8">
           14-day free trial &middot; No credit card required &middot; Cancel anytime
         </p>
         <Link
           href="/sign-up"
-          className="inline-block bg-white text-[#6C47FF] font-bold px-8 py-3 rounded-xl hover:bg-violet-50 transition-colors animate-cta-glow"
+          className="inline-block rounded-full bg-[#6C47FF] text-white font-medium px-8 py-3 hover:bg-[#5835E8] transition-colors"
         >
           Start your free trial →
         </Link>
@@ -888,8 +1010,8 @@ export default function PricingPage() {
             <AryaAvatar size="sm" />
             <span className="text-sm font-semibold text-gray-900">AryaSDR</span>
           </Link>
-          <p className="text-xs text-gray-400">&copy; 2026 AryaSDR. GDPR &amp; India DPDPA compliant.</p>
-          <div className="flex gap-4 text-xs text-gray-400">
+          <p className="text-xs text-gray-500">&copy; 2026 AryaSDR. GDPR &amp; India DPDPA compliant.</p>
+          <div className="flex gap-4 text-xs text-gray-500">
             <Link href="/privacy" className="hover:text-gray-900 transition-colors">Privacy</Link>
             <Link href="/terms" className="hover:text-gray-900 transition-colors">Terms</Link>
           </div>

@@ -93,14 +93,14 @@ function NavItem({
         className={cn(
           "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
           active
-            ? "bg-violet-50 text-violet-700 font-medium"
+            ? "bg-[#6C47FF]/10 text-[#6C47FF] font-medium border-l-2 border-[#6C47FF]"
             : "text-gray-700 hover:bg-gray-50"
         )}
       >
         <Icon
           className={cn(
             "h-4 w-4 shrink-0",
-            active ? "text-violet-600" : "text-gray-500"
+            active ? "text-[#6C47FF]" : "text-gray-500"
           )}
         />
         <AnimatePresence initial={false}>
@@ -115,7 +115,7 @@ function NavItem({
             >
               <span className="flex-1">{label}</span>
               {badge && (
-                <span className="ml-auto h-2 w-2 rounded-full bg-violet-600 shrink-0" />
+                <span className="ml-auto h-2 w-2 rounded-full bg-[#6C47FF] shrink-0" />
               )}
             </motion.span>
           )}
@@ -248,7 +248,7 @@ export function Sidebar({ onChatOpen }: SidebarProps) {
   const creditsBarPct =
     creditsUsed > 0 ? Math.min(creditsRemainingPct, 92) : creditsRemainingPct;
   const creditsBarColor =
-    creditsRemainingRatio > 0.5 ? "bg-violet-500" : creditsRemainingRatio > 0.2 ? "bg-amber-400" : "bg-red-500";
+    creditsRemainingRatio > 0.5 ? "bg-[#6C47FF]" : creditsRemainingRatio > 0.2 ? "bg-amber-400" : "bg-red-500";
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -280,28 +280,19 @@ export function Sidebar({ onChatOpen }: SidebarProps) {
       {/* Header — fixed height so collapse/expand doesn't jog the nav below */}
       <div className={cn(
         "flex h-14 items-center px-3 border-b border-gray-100 shrink-0",
-        collapsed ? "justify-center" : "justify-between"
+        collapsed ? "justify-center" : "justify-start"
       )}>
-        {!collapsed && (
+        {collapsed ? (
+          <AryaAvatar size="sm" />
+        ) : (
           <div className="flex items-center gap-2">
             <AryaAvatar size="sm" />
             <span className="font-bold text-gray-900 text-sm">AryaSDR</span>
-            <span className="text-[10px] font-semibold text-violet-600 bg-violet-50 px-1.5 py-0.5 rounded">
+            <span className="text-[10px] font-semibold text-[#6C47FF] bg-[#6C47FF]/10 px-1.5 py-0.5 rounded">
               BETA
             </span>
           </div>
         )}
-        <button
-          onClick={() => setCollapsed(!collapsed)}
-          className="p-1 text-gray-400 hover:text-gray-600 rounded"
-          title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-        >
-          {collapsed ? (
-            <PanelLeftOpen className="h-4 w-4" />
-          ) : (
-            <PanelLeftClose className="h-4 w-4" />
-          )}
-        </button>
       </div>
 
       {/* Navigation */}
@@ -351,7 +342,7 @@ export function Sidebar({ onChatOpen }: SidebarProps) {
               transition={{ duration: 0.2, ease: "easeOut" }}
               onClick={() => setShowCreditsModal(true)}
               title={`${creditsUsed.toLocaleString()} of ${credits.toLocaleString()} used`}
-              className="w-full rounded-lg px-3 py-2 hover:bg-violet-50 cursor-pointer transition-colors overflow-hidden"
+              className="w-full rounded-lg px-3 py-2 hover:bg-[#6C47FF]/10 cursor-pointer transition-colors overflow-hidden"
             >
               <div className="flex items-center justify-between text-sm">
                 <span className="text-gray-500">Credits</span>
@@ -372,6 +363,22 @@ export function Sidebar({ onChatOpen }: SidebarProps) {
             </motion.button>
           )}
         </AnimatePresence>
+
+        {/* Collapse / Expand toggle — moved here from the header */}
+        <SidebarTooltip label={collapsed ? "Expand sidebar" : "Collapse sidebar"} show={collapsed}>
+          <button
+            onClick={() => setCollapsed(!collapsed)}
+            className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+            title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          >
+            {collapsed ? (
+              <PanelLeftOpen className="h-4 w-4 text-gray-500 shrink-0" />
+            ) : (
+              <PanelLeftClose className="h-4 w-4 text-gray-500 shrink-0" />
+            )}
+            {!collapsed && <span>Collapse sidebar</span>}
+          </button>
+        </SidebarTooltip>
 
         {/* Notifications bell — polls /api/notifications every 30s */}
         <SidebarTooltip label="Notifications" show={collapsed}>
@@ -418,7 +425,7 @@ export function Sidebar({ onChatOpen }: SidebarProps) {
               onClick={() => setUserMenuOpen(!userMenuOpen)}
               className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-gray-50 transition-colors"
             >
-              <div className="h-7 w-7 rounded-full bg-violet-100 flex items-center justify-center shrink-0 text-xs font-semibold text-violet-700">
+              <div className="h-7 w-7 rounded-full bg-[#6C47FF]/10 flex items-center justify-center shrink-0 text-xs font-semibold text-[#6C47FF]">
                 {displayName.slice(0, 2).toUpperCase()}
               </div>
               {!collapsed && (

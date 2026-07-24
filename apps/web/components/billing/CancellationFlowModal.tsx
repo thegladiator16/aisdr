@@ -221,7 +221,7 @@ export default function CancellationFlowModal({
                   <button
                     disabled={!reason}
                     onClick={() => setStep(2)}
-                    className="rounded-lg px-4 py-2 text-sm font-medium text-white disabled:opacity-40"
+                    className="rounded-full px-6 py-2 text-sm font-medium text-white disabled:opacity-40"
                     style={{ backgroundColor: COLORS.accent }}
                   >
                     Continue
@@ -255,7 +255,7 @@ export default function CancellationFlowModal({
                         </button>
                         <button
                           onClick={offer.onPrimary}
-                          className="rounded-lg px-4 py-2 text-sm font-medium text-white"
+                          className="rounded-full px-6 py-2 text-sm font-medium text-white"
                           style={{ backgroundColor: COLORS.accent }}
                         >
                           {offer.primaryLabel}
@@ -308,7 +308,7 @@ export default function CancellationFlowModal({
                   <button
                     disabled={submitting}
                     onClick={handleConfirmCancel}
-                    className="rounded-lg px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
+                    className="rounded-full px-6 py-2 text-sm font-medium text-white disabled:opacity-60"
                     style={{ backgroundColor: COLORS.error }}
                   >
                     {submitting ? "Cancelling..." : "Yes, cancel"}
