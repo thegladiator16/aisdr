@@ -183,6 +183,7 @@ export default function LeadsPage() {
 
   /* ---------- form / import state ---------- */
   const [showForm, setShowForm] = useState(false);
+  const [showEmptyForm, setShowEmptyForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -540,6 +541,7 @@ export default function LeadsPage() {
       notifyCreditsUpdated();
       toast.success("Lead added");
       setShowForm(false);
+      setShowEmptyForm(false);
       setFirstName("");
       setLastName("");
       setEmail("");
@@ -1478,12 +1480,12 @@ export default function LeadsPage() {
           {error}
         </div>
       ) : !loading && leads.length === 0 ? (
-        showForm ? (
+        showEmptyForm ? (
           <div className="rounded-xl border border-border bg-white p-6">
             <div className="flex items-center justify-between mb-5">
               <h3 className="text-lg font-semibold text-gray-900">Add lead manually</h3>
               <button
-                onClick={() => setShowForm(false)}
+                onClick={() => setShowEmptyForm(false)}
                 className="rounded-lg p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
               >
                 <X className="h-4 w-4" />
@@ -1552,7 +1554,7 @@ export default function LeadsPage() {
         ) : (
           <LeadsEmptyState
             onImport={() => fileInputRef.current?.click()}
-            onAdd={() => setShowForm(true)}
+            onAdd={() => setShowEmptyForm(true)}
           />
         )
       ) : (
