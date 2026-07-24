@@ -1478,10 +1478,83 @@ export default function LeadsPage() {
           {error}
         </div>
       ) : !loading && leads.length === 0 ? (
-        <LeadsEmptyState
-          onImport={() => fileInputRef.current?.click()}
-          onAdd={() => setShowForm(true)}
-        />
+        showForm ? (
+          <div className="rounded-xl border border-border bg-white p-6">
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="text-lg font-semibold text-gray-900">Add lead manually</h3>
+              <button
+                onClick={() => setShowForm(false)}
+                className="rounded-lg p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <form
+              onSubmit={handleCreate}
+              className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3"
+            >
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">First Name</label>
+                <input
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                  placeholder="John"
+                  className="mt-1 w-full rounded-lg border border-border bg-[#FAFAFA] px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-[#6C47FF]/30 focus:border-[#6C47FF]"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">Last Name</label>
+                <input
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                  placeholder="Doe"
+                  className="mt-1 w-full rounded-lg border border-border bg-[#FAFAFA] px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-[#6C47FF]/30 focus:border-[#6C47FF]"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">Email</label>
+                <input
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="john@company.com"
+                  className="mt-1 w-full rounded-lg border border-border bg-[#FAFAFA] px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-[#6C47FF]/30 focus:border-[#6C47FF]"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">Company</label>
+                <input
+                  value={companyName}
+                  onChange={(e) => setCompanyName(e.target.value)}
+                  placeholder="Acme Inc"
+                  className="mt-1 w-full rounded-lg border border-border bg-[#FAFAFA] px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-[#6C47FF]/30 focus:border-[#6C47FF]"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">Job Title</label>
+                <input
+                  value={jobTitle}
+                  onChange={(e) => setJobTitle(e.target.value)}
+                  placeholder="CTO"
+                  className="mt-1 w-full rounded-lg border border-border bg-[#FAFAFA] px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-[#6C47FF]/30 focus:border-[#6C47FF]"
+                />
+              </div>
+              <div className="flex items-end gap-2">
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="inline-flex items-center gap-2 rounded-full bg-[#6C47FF] px-5 py-2 text-sm font-medium text-white hover:bg-[#5835E8] transition-colors disabled:opacity-50"
+                >
+                  {submitting ? "Adding..." : "Add Lead"}
+                </button>
+              </div>
+            </form>
+          </div>
+        ) : (
+          <LeadsEmptyState
+            onImport={() => fileInputRef.current?.click()}
+            onAdd={() => setShowForm(true)}
+          />
+        )
       ) : (
         <div className="rounded-xl border border-border bg-white overflow-hidden">
           <table className="w-full text-sm">
