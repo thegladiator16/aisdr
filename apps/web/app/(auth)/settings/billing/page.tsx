@@ -15,8 +15,16 @@ import {
   Smartphone,
   Loader2,
 } from "lucide-react";
-import { ChangePlanModal } from "@/components/billing/ChangePlanModal";
-import CancellationFlowModal from "@/components/billing/CancellationFlowModal";
+import dynamic from "next/dynamic";
+
+const ChangePlanModal = dynamic(
+  () => import("@/components/billing/ChangePlanModal").then((m) => m.ChangePlanModal),
+  { ssr: false }
+);
+const CancellationFlowModal = dynamic(
+  () => import("@/components/billing/CancellationFlowModal"),
+  { ssr: false }
+);
 import { CardBrandLogo, type CardBrand } from "@/components/brand/CardBrandLogo";
 import { useRazorpay } from "@/hooks/useRazorpay";
 import { useSubscription } from "@/lib/hooks/useSubscription";

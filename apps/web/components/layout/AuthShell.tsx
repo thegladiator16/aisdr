@@ -1,15 +1,28 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
+import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
 import { Sidebar } from "@/components/layout/sidebar";
-import { ChatWithArya } from "@/components/ChatWithArya";
-import { AryaChatWidget } from "@/components/arya/AryaChatWidget";
-import { WelcomeModal } from "@/components/WelcomeModal";
 import { X } from "lucide-react";
-import Link from "next/link";
-import { ChangePlanModal } from "@/components/billing/ChangePlanModal";
 import { useSubscription } from "@/lib/hooks/useSubscription";
+
+const ChatWithArya = dynamic(
+  () => import("@/components/ChatWithArya").then((m) => m.ChatWithArya),
+  { ssr: false }
+);
+const AryaChatWidget = dynamic(
+  () => import("@/components/arya/AryaChatWidget").then((m) => m.AryaChatWidget),
+  { ssr: false }
+);
+const WelcomeModal = dynamic(
+  () => import("@/components/WelcomeModal").then((m) => m.WelcomeModal),
+  { ssr: false }
+);
+const ChangePlanModal = dynamic(
+  () => import("@/components/billing/ChangePlanModal").then((m) => m.ChangePlanModal),
+  { ssr: false }
+);
 
 function UpgradeBanner({
   daysLeft,
@@ -61,7 +74,6 @@ export function AuthShell({ children }: { children: React.ReactNode }) {
   const [showPlanModal, setShowPlanModal] = useState(false);
   const { data: subscription } = useSubscription();
 
-  // Hide the banner entirely for paid tiers (anything not trial/free).
   const tier = subscription?.tier;
   const isTrialing = subscription?.isTrialing ?? false;
   const daysLeft = subscription?.daysLeft ?? null;
@@ -97,30 +109,27 @@ export function AuthShell({ children }: { children: React.ReactNode }) {
       )}
       <div className="flex flex-1 overflow-hidden">
         <Sidebar onChatOpen={() => setChatOpen(true)} />
-        {/* Settings routes own their own two-column scroll layout (sticky
-            sub-nav on the left, independently-scrolling pane on the right).
-            The shell hands them a full-height, non-scrolling container so
-            they can manage overflow themselves. Every other route keeps the
-            classic centered-with-padding scroll pane. */}
         {pathname.startsWith("/settings") ? (
           <main className="flex-1 overflow-hidden">
-            <div key={pathname} className="h-full animate-in fade-in slide-in-from-top-1 duration-150">
-              {children}
-            </div>
+            <Suspense>
+              <div key={pathname} className="h-full animate-in fade-in slide-in-from-top-1 duration-150">
+                {children}
+              </div>
+            </Suspense>
           </main>
         ) : (
           <main className="flex-1 overflow-y-auto">
-            <div key={pathname} className="mx-auto max-w-7xl p-6 animate-in fade-in slide-in-from-top-1 duration-150">
-              {children}
-            </div>
+            <Suspense>
+              <div key={pathname} className="mx-auto max-w-7xl p-6 animate-in fade-in slide-in-from-top-1 duration-150">
+                {children}
+              </div>
+            </Suspense>
           </main>
         )}
         {chatOpen && <ChatWithArya onClose={() => setChatOpen(false)} />}
       </div>
       {showPlanModal && <ChangePlanModal onClose={() => setShowPlanModal(false)} />}
       {showWelcome && <WelcomeModal onClose={dismissWelcome} />}
-      {/* Floating chat launcher — hidden when the inline sidebar panel is open
-          so the two Arya surfaces don't overlap visually. */}
       <AryaChatWidget visible={!chatOpen} />
     </div>
   );

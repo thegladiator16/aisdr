@@ -23,7 +23,17 @@ const cspDirectives = [
 const nextConfig = {
   typescript: { ignoreBuildErrors: true },
   eslint: { ignoreDuringBuilds: true },
-  serverExternalPackages: ["postgres", "ioredis"],
+  serverExternalPackages: ["postgres", "ioredis", "googleapis", "bullmq", "imap"],
+  experimental: {
+    optimizePackageImports: [
+      "lucide-react",
+      "framer-motion",
+      "recharts",
+      "date-fns",
+      "@clerk/nextjs",
+      "sonner",
+    ],
+  },
   images: {
     // Restrict to known image CDNs to prevent SSRF via Next.js image optimization.
     // Add new patterns here rather than using the open '**' wildcard.

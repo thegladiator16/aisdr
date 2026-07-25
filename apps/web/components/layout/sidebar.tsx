@@ -32,11 +32,19 @@ import {
   Brain,
 } from "lucide-react";
 import { useUser, useClerk } from "@clerk/nextjs";
+import dynamic from "next/dynamic";
 import { AryaAvatar } from "@/components/arya/AryaAvatar";
-import { ChangePlanModal } from "@/components/billing/ChangePlanModal";
-import { CreditsModal } from "@/components/billing/CreditsModal";
 import { useSubscription } from "@/lib/hooks/useSubscription";
 import { NotificationsBell } from "@/components/notifications/NotificationsBell";
+
+const ChangePlanModal = dynamic(
+  () => import("@/components/billing/ChangePlanModal").then((m) => m.ChangePlanModal),
+  { ssr: false }
+);
+const CreditsModal = dynamic(
+  () => import("@/components/billing/CreditsModal").then((m) => m.CreditsModal),
+  { ssr: false }
+);
 
 const MANAGE_ITEMS = [
   { href: "/dashboard/manage", label: "Manage Arya", icon: Sparkles },

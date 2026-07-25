@@ -31,8 +31,16 @@ import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { Spinner } from "@/components/ui/spinner";
 import { useSubscription } from "@/lib/hooks/useSubscription";
-import { ChangePlanModal } from "@/components/billing/ChangePlanModal";
-import { UpgradeGateModal } from "@/components/billing/UpgradeGateModal";
+import dynamic from "next/dynamic";
+
+const ChangePlanModal = dynamic(
+  () => import("@/components/billing/ChangePlanModal").then((m) => m.ChangePlanModal),
+  { ssr: false }
+);
+const UpgradeGateModal = dynamic(
+  () => import("@/components/billing/UpgradeGateModal").then((m) => m.UpgradeGateModal),
+  { ssr: false }
+);
 import { canRunCampaigns } from "@/lib/plan-features";
 
 /* ---------- types ---------- */

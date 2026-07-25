@@ -21,6 +21,7 @@ import {
   SlidersHorizontal,
   Download,
 } from "lucide-react";
+import dynamic from "next/dynamic";
 import {
   ResponsiveContainer,
   LineChart,
@@ -31,7 +32,11 @@ import {
   Tooltip,
   Legend,
 } from "recharts";
-import { ChangePlanModal } from "@/components/billing/ChangePlanModal";
+
+const ChangePlanModal = dynamic(
+  () => import("@/components/billing/ChangePlanModal").then((m) => m.ChangePlanModal),
+  { ssr: false }
+);
 import { useSubscription } from "@/lib/hooks/useSubscription";
 
 type Tab = "overview" | "messaging" | "deliverability" | "dialer" | "credits";
