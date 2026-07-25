@@ -1,18 +1,21 @@
 import { getCurrentUser } from "@/lib/auth";
 import { getUserIntegrations } from "@/lib/db/queries";
-import { CheckCircle2, AlertCircle, Clock, KeyRound } from "lucide-react";
-import Link from "next/link";
-import { BrandLogo, type BrandLogoName } from "@/components/brand/BrandLogo";
+import { CheckCircle2, AlertCircle } from "lucide-react";
 import GmailSmtpForm from "@/components/integrations/GmailSmtpForm";
 import GoogleCalendarForm from "@/components/integrations/GoogleCalendarForm";
 import SlackWebhookForm from "@/components/integrations/SlackWebhookForm";
+import TwilioForm from "@/components/integrations/TwilioForm";
+import ApiKeyIntegrationForm from "@/components/integrations/ApiKeyIntegrationForm";
+import type { BrandLogoName } from "@/components/brand/BrandLogo";
 
 const CRM_INTEGRATIONS: {
   type: string;
   label: string;
   description: string;
-  brand?: BrandLogoName;
-  envKey: string;
+  brand: BrandLogoName;
+  placeholder?: string;
+  helpUrl?: string;
+  helpLabel?: string;
 }[] = [
   {
     type: "linkedin_unipile",
@@ -20,21 +23,27 @@ const CRM_INTEGRATIONS: {
     description:
       "Send LinkedIn messages and connection requests via Unipile API.",
     brand: "linkedin",
-    envKey: "UNIPILE_API_KEY",
+    placeholder: "Paste your Unipile API key",
+    helpUrl: "https://docs.unipile.com/",
+    helpLabel: "Unipile docs",
   },
   {
     type: "hubspot",
     label: "HubSpot CRM",
     description: "Sync contacts, deals, and engagement data with HubSpot.",
     brand: "hubspot",
-    envKey: "HUBSPOT_API_KEY",
+    placeholder: "Paste your HubSpot private app token",
+    helpUrl: "https://developers.hubspot.com/docs/api/private-apps",
+    helpLabel: "HubSpot private apps guide",
   },
   {
     type: "salesforce",
     label: "Salesforce CRM",
     description: "Push leads and sync pipeline data with Salesforce.",
     brand: "salesforce",
-    envKey: "SALESFORCE_API_KEY",
+    placeholder: "Paste your Salesforce API token",
+    helpUrl: "https://help.salesforce.com/s/articleView?id=sf.user_security_token.htm",
+    helpLabel: "Salesforce token guide",
   },
   {
     type: "apollo",
@@ -42,24 +51,9 @@ const CRM_INTEGRATIONS: {
     description:
       "Enrich leads and find verified contact information with Apollo.",
     brand: "apollo",
-    envKey: "APOLLO_API_KEY",
-  },
-];
-
-const COMMS_INTEGRATIONS: {
-  type: string;
-  label: string;
-  description: string;
-  brand?: BrandLogoName;
-  envKey: string;
-}[] = [
-  {
-    type: "twilio",
-    label: "Twilio",
-    description:
-      "Send WhatsApp messages, SMS, and make voice calls via Twilio APIs.",
-    brand: "twilio",
-    envKey: "TWILIO_ACCOUNT_SID",
+    placeholder: "Paste your Apollo API key",
+    helpUrl: "https://apolloio.github.io/apollo-api-docs/",
+    helpLabel: "Apollo API docs",
   },
 ];
 
@@ -95,6 +89,9 @@ export default async function SettingsIntegrationsPage({
 
   const slackIntegration = userIntegrations.find((i) => i.type === "slack");
   const slackConnected = !!(slackIntegration?.webhookUrl);
+
+  const twilioIntegration = userIntegrations.find((i) => i.type === "twilio");
+  const twilioConnected = !!(twilioIntegration?.accessToken);
 
   return (
     <div className="max-w-3xl space-y-8">
@@ -147,65 +144,10 @@ export default async function SettingsIntegrationsPage({
           Communications
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {COMMS_INTEGRATIONS.map(({ type, label, description, brand, envKey }) => {
-            const isConnected = connectedTypes.has(type);
-            const envConfigured = process.env[envKey];
-            return (
-              <div
-                key={type}
-                className="bg-white border border-gray-200 rounded-xl p-6 flex flex-col gap-4 h-full"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="rounded-lg bg-gray-50 p-2 flex items-center justify-center">
-                    <BrandLogo brand={brand!} className="h-8 w-8" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="text-sm font-semibold text-gray-900">
-                        {label}
-                      </h3>
-                      {isConnected ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-2 py-0.5 text-xs text-green-700">
-                          <CheckCircle2 className="h-3 w-3" />
-                          Connected
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-500">
-                          Not connected
-                        </span>
-                      )}
-                    </div>
-                    {!envConfigured && !isConnected && (
-                      <p className="text-xs text-gray-400 mt-0.5 flex items-center gap-1">
-                        <KeyRound className="h-3 w-3" />
-                        Requires {envKey}
-                      </p>
-                    )}
-                  </div>
-                </div>
-                <p className="text-xs text-gray-500">{description}</p>
-                <div className="flex flex-wrap gap-1.5">
-                  <span className="inline-flex items-center rounded-md bg-green-50 px-2 py-0.5 text-xs text-green-700 border border-green-200">
-                    WhatsApp
-                  </span>
-                  <span className="inline-flex items-center rounded-md bg-blue-50 px-2 py-0.5 text-xs text-blue-700 border border-blue-200">
-                    SMS
-                  </span>
-                  <span className="inline-flex items-center rounded-md bg-violet-50 px-2 py-0.5 text-xs text-violet-700 border border-violet-200">
-                    Voice
-                  </span>
-                </div>
-                {!isConnected && (
-                  <Link
-                    href={`/settings/api-keys?setup=${type}`}
-                    className="mt-auto inline-flex items-center justify-center rounded-lg bg-[#6C47FF] px-4 py-2 text-sm font-medium text-white hover:bg-[#5a3ad4] active:scale-[0.98] transition-all duration-150"
-                  >
-                    Connect {label}
-                  </Link>
-                )}
-              </div>
-            );
-          })}
+          <TwilioForm
+            initialConnected={twilioConnected}
+            initialAccountSid={twilioIntegration?.accountEmail ?? undefined}
+          />
 
           <SlackWebhookForm
             initialConnected={slackConnected}
@@ -220,54 +162,19 @@ export default async function SettingsIntegrationsPage({
           CRM &amp; Sales Intelligence
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {CRM_INTEGRATIONS.map(({ type, label, description, brand, envKey }) => {
-            const isConnected = connectedTypes.has(type);
-            const envConfigured = process.env[envKey];
-            return (
-              <div
-                key={type}
-                className="bg-white border border-gray-200 rounded-xl p-6 flex flex-col gap-4 h-full"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="rounded-lg bg-gray-50 p-2 flex items-center justify-center">
-                    <BrandLogo brand={brand!} className="h-8 w-8" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="text-sm font-semibold text-gray-900">
-                        {label}
-                      </h3>
-                      {isConnected ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-2 py-0.5 text-xs text-green-700">
-                          <CheckCircle2 className="h-3 w-3" />
-                          Connected
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-500">
-                          Not connected
-                        </span>
-                      )}
-                    </div>
-                    {!envConfigured && !isConnected && (
-                      <p className="text-xs text-gray-400 mt-0.5 flex items-center gap-1">
-                        <KeyRound className="h-3 w-3" />
-                        Requires {envKey}
-                      </p>
-                    )}
-                  </div>
-                </div>
-                <p className="text-xs text-gray-500">{description}</p>
-                {!isConnected && (
-                  <Link
-                    href={`/settings/api-keys?setup=${type}`}
-                    className="mt-auto inline-flex items-center justify-center rounded-lg bg-[#6C47FF] px-4 py-2 text-sm font-medium text-white hover:bg-[#5a3ad4] active:scale-[0.98] transition-all duration-150"
-                  >
-                    Connect {label.split(" (")[0]}
-                  </Link>
-                )}
-              </div>
-            );
-          })}
+          {CRM_INTEGRATIONS.map((crm) => (
+            <ApiKeyIntegrationForm
+              key={crm.type}
+              type={crm.type}
+              label={crm.label}
+              description={crm.description}
+              brand={crm.brand}
+              initialConnected={connectedTypes.has(crm.type)}
+              placeholder={crm.placeholder}
+              helpUrl={crm.helpUrl}
+              helpLabel={crm.helpLabel}
+            />
+          ))}
         </div>
       </div>
     </div>
