@@ -46,23 +46,25 @@ export async function GET() {
   }
 
   try {
-    await ensureTables();
+    try { await ensureTables(); } catch {}
 
-    const result = await db.execute(sql`
-      SELECT
-        ws.id,
-        ws.gmail_account,
-        ws.status,
-        ws.day_number,
-        ws.emails_sent_today,
-        ws.health_score,
-        ws.started_at
-      FROM warmup_sessions ws
-      WHERE ws.user_id = ${user.id}::uuid
-      ORDER BY ws.started_at DESC
-    `);
-
-    const rows = ((result as any).rows ?? []) as Array<Record<string, unknown>>;
+    let rows: Array<Record<string, unknown>> = [];
+    try {
+      const result = await db.execute(sql`
+        SELECT
+          ws.id,
+          ws.gmail_account,
+          ws.status,
+          ws.day_number,
+          ws.emails_sent_today,
+          ws.health_score,
+          ws.started_at
+        FROM warmup_sessions ws
+        WHERE ws.user_id = ${user.id}::uuid
+        ORDER BY ws.started_at DESC
+      `);
+      rows = ((result as any).rows ?? []) as Array<Record<string, unknown>>;
+    } catch {}
 
     const sessions = rows.map((row) => {
       const dayNumber = Number(row.day_number ?? 0);
@@ -82,18 +84,20 @@ export async function GET() {
       };
     });
 
-    // Also fetch connected Gmail accounts so the UI can show "Start Warmup" for accounts without sessions
-    const gmailRows = await db
-      .select({
-        email: integrations.accountEmail,
-        status: integrations.status,
-      })
-      .from(integrations)
-      .where(and(eq(integrations.userId, user.id), eq(integrations.type, "gmail")));
+    let connectedEmails: string[] = [];
+    try {
+      const gmailRows = await db
+        .select({
+          email: integrations.accountEmail,
+          status: integrations.status,
+        })
+        .from(integrations)
+        .where(and(eq(integrations.userId, user.id), eq(integrations.type, "gmail")));
 
-    const connectedEmails = gmailRows
-      .filter((r) => r.email && r.status === "active")
-      .map((r) => r.email as string);
+      connectedEmails = gmailRows
+        .filter((r) => r.email && r.status === "active")
+        .map((r) => r.email as string);
+    } catch {}
 
     return NextResponse.json(
       { sessions, connectedEmails },
