@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import Link from 'next/link'
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
-import { Check, X, Zap, Quote, ChevronDown, ArrowRight } from 'lucide-react'
+import { Check, X, Zap, ChevronDown, ArrowRight } from 'lucide-react'
 import { useUser } from '@clerk/nextjs'
 import { toast } from 'sonner'
 import { AryaAvatar } from "@/components/arya/AryaAvatar"
@@ -229,32 +229,6 @@ const FAQ = [
   {
     q: 'Do you offer refunds?',
     a: 'Yes. If AryaSDR does not work as promised in the first 14 days of a paid plan, email support@aryasdr.in for a full refund, no questions asked.',
-  },
-]
-
-// Realistic-looking social proof — placeholder companies, but wording is
-// specific enough to feel real and ROI-oriented.
-const TESTIMONIALS = [
-  {
-    quote:
-      'Replaced our entire outbound team with AryaSDR. 12 qualified meetings a month at less than what one SDR used to cost us.',
-    name: 'Rahul Sharma',
-    role: 'CEO, FinStack',
-    initials: 'RS',
-  },
-  {
-    quote:
-      'Cost per qualified meeting dropped from ₹8,000 to under ₹700. Paid for itself in the first week.',
-    name: 'Priya Mehta',
-    role: 'Head of Growth, SellSmart',
-    initials: 'PM',
-  },
-  {
-    quote:
-      'We ran 3 SDR tools before this. Arya is the only one that handled Hinglish outreach and actually booked meetings.',
-    name: 'Vikram Iyer',
-    role: 'Founder, LaunchLoop',
-    initials: 'VI',
   },
 ]
 
@@ -843,53 +817,6 @@ export default function PricingPage() {
         >
           <ROICalculator />
         </motion.div>
-      </section>
-
-      {/* Social proof */}
-      <section className="bg-[#F9FAFB] border-y border-gray-200 py-24">
-        <div className="mx-auto max-w-6xl px-6">
-          <motion.div
-            initial={reduce ? false : { opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, amount: 0.2 }}
-            transition={{ duration: 0.5, ease: EASE }}
-            className="text-center mb-12"
-          >
-            <h2 className="text-4xl md:text-5xl font-semibold tracking-tight text-gray-900">What our users say</h2>
-          </motion.div>
-
-          {/* Testimonials */}
-          <motion.div
-            variants={stagger}
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true, amount: 0.2 }}
-            className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12"
-          >
-            {TESTIMONIALS.map((t) => (
-              <motion.div
-                key={t.name}
-                variants={fadeUp}
-                className="bg-white border border-gray-200 rounded-2xl p-8 flex flex-col shadow-sm hover:shadow-lg transition-shadow"
-              >
-                <Quote className="h-5 w-5 text-[#6C47FF] mb-4" />
-                <p className="text-sm text-gray-900 leading-relaxed flex-1">
-                  &ldquo;{t.quote}&rdquo;
-                </p>
-                <div className="mt-6 flex items-center gap-3">
-                  <div className="h-9 w-9 rounded-full bg-gradient-to-br from-violet-500 to-pink-500 text-white text-xs font-semibold flex items-center justify-center">
-                    {t.initials}
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-gray-900">{t.name}</p>
-                    <p className="text-xs text-gray-500">{t.role}</p>
-                  </div>
-                </div>
-              </motion.div>
-            ))}
-          </motion.div>
-
-        </div>
       </section>
 
       {/* FAQ */}

@@ -4,7 +4,6 @@ import Image from "next/image";
 import { motion, useReducedMotion } from "framer-motion";
 import { Sparkles, Zap, TrendingUp } from "lucide-react";
 
-const COMPANIES = ["Zepto", "CRED", "Groww", "PhonePe", "Razorpay", "Meesho"];
 const EASE = [0.22, 1, 0.36, 1] as const;
 
 const CHIPS = [
@@ -164,23 +163,10 @@ export function AuthBrandPanel() {
             initial={reduce ? false : { opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, ease: EASE, delay: 0.4 }}
-            className="space-y-3"
           >
             <p className="text-sm text-white/80 drop-shadow-[0_1px_8px_rgba(0,0,0,0.5)]">
-              Trusted by 500+ B2B founders across India
+              AI-powered outbound for B2B teams
             </p>
-            <div className="mask-fade-x relative h-5 overflow-hidden">
-              <div className="animate-marquee flex gap-10 whitespace-nowrap">
-                {[...COMPANIES, ...COMPANIES].map((co, i) => (
-                  <span
-                    key={`${co}-${i}`}
-                    className="text-xs font-semibold uppercase tracking-wider text-white/75"
-                  >
-                    {co}
-                  </span>
-                ))}
-              </div>
-            </div>
           </motion.div>
         </div>
       </div>

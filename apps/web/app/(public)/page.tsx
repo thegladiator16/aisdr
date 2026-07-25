@@ -4,7 +4,7 @@ import { useRef, useState, useEffect } from "react"
 import Link from "next/link"
 import { LazyMotion, m, useInView, useSpring, useMotionValueEvent, useReducedMotion } from "framer-motion"
 import {
-  CheckCircle2, ArrowRight, Mail, MessageCircle, Star, Users, Target, Sparkles,
+  CheckCircle2, ArrowRight, Mail, MessageCircle, Users, Target, Sparkles,
   Linkedin, MessageSquare, Phone, Volume2, Calendar, BarChart3, Database, PenLine,
   Zap, Twitter, Youtube, Send,
 } from "lucide-react"
@@ -38,27 +38,6 @@ const STEPS = [
     title: "She handles replies and books meetings",
     desc: "Arya reads every reply, classifies intent (interested / not now / unsubscribe), drafts the right response, and schedules meetings in your calendar.",
     checks: ["Intent classification", "Auto-draft replies", "Calendar booking", "Follow-up management"],
-  },
-]
-
-const TESTIMONIALS = [
-  {
-    quote: "Booked 12 demos in the first week without lifting a finger.",
-    name: "Priya Sharma",
-    role: "CEO, FinStack",
-    initials: "PS",
-  },
-  {
-    quote: "Replaced our entire SDR team. Saving ₹3L/month.",
-    name: "Rohan Mehta",
-    role: "Founder, LeadStream",
-    initials: "RM",
-  },
-  {
-    quote: "The multi-agent approach is genuinely different from other tools.",
-    name: "Vikram Iyer",
-    role: "VP Sales, PayStack",
-    initials: "VI",
   },
 ]
 
@@ -628,53 +607,6 @@ export default function LandingPage() {
             </m.div>
           </m.div>
         </section>
-
-        {/* Testimonials */}
-        <section id="testimonials" className="bg-[#F9FAFB] border-y border-gray-200 py-24">
-          <div className="mx-auto max-w-6xl px-6">
-            <m.h2
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5, ease: EASE }}
-              className="text-4xl md:text-5xl font-semibold tracking-tight text-center text-gray-900"
-            >
-              What our users say
-            </m.h2>
-            <m.div
-              variants={staggerGrid}
-              initial="hidden"
-              whileInView="visible"
-              viewport={{ once: true, margin: "-60px" }}
-              className="grid md:grid-cols-3 gap-6 mt-12"
-            >
-              {TESTIMONIALS.map(({ quote, name, role, initials }) => (
-                <m.div
-                  key={name}
-                  variants={fadeUp}
-                  className="rounded-2xl bg-white border border-gray-200 p-8 shadow-sm hover:shadow-lg transition-shadow"
-                >
-                  <div className="flex gap-1 mb-4">
-                    {[...Array(5)].map((_, i) => (
-                      <Star key={i} className="h-4 w-4 fill-amber-400 text-amber-400" />
-                    ))}
-                  </div>
-                  <p className="text-gray-700 italic leading-relaxed">&ldquo;{quote}&rdquo;</p>
-                  <div className="flex items-center gap-3 mt-6 pt-4 border-t border-gray-100">
-                    <div className="h-10 w-10 rounded-full bg-[#6C47FF] flex items-center justify-center text-sm font-bold text-white">
-                      {initials}
-                    </div>
-                    <div>
-                      <p className="font-medium text-gray-900 text-sm">{name}</p>
-                      <p className="text-xs text-gray-500">{role}</p>
-                    </div>
-                  </div>
-                </m.div>
-              ))}
-            </m.div>
-          </div>
-        </section>
-
 
         {/* Pricing */}
         <section id="pricing" className="mx-auto max-w-6xl px-6 py-24">
