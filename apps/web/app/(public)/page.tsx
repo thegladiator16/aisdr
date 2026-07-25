@@ -122,9 +122,6 @@ const FEATURE_CHIPS = [
   "Local Business Data", "Dialer (soon)",
 ]
 
-const PRESS = ["YourStory", "Inc42", "Economic Times", "Entrackr", "StartupStories"]
-
-const CUSTOMER_LOGOS = ["Groww", "PhonePe", "Razorpay", "Meesho", "Zepto", "CRED"]
 
 const FAQ = [
   { q: "How does the free trial work?", a: "Sign up and get 10,000 credits for 14 days with all features unlocked. No credit card needed. Explore the full platform, prospecting, email, multi-agent runs, and upgrade when you're ready." },
@@ -300,23 +297,6 @@ export default function LandingPage() {
           </m.div>
         </section>
 
-        {/* Customer logo wall — infinite marquee */}
-        <section className="py-16 border-y border-gray-200 overflow-hidden bg-white">
-          <div className="mx-auto max-w-4xl px-6 text-center mb-8">
-            <p className="text-sm text-gray-400 uppercase tracking-wider">
-              Trusted by 500+ B2B founders
-            </p>
-          </div>
-          <div className="relative overflow-hidden">
-            <div className="flex animate-marquee gap-16 w-max">
-              {[...CUSTOMER_LOGOS, ...CUSTOMER_LOGOS, ...CUSTOMER_LOGOS].map((name, i) => (
-                <span key={i} className="text-xl font-semibold text-gray-400 shrink-0 grayscale">
-                  {name}
-                </span>
-              ))}
-            </div>
-          </div>
-        </section>
 
         {/* Product-proof stats */}
         <section className="bg-[#F9FAFB] border-b border-gray-200 py-24" ref={statsRef}>
@@ -659,7 +639,7 @@ export default function LandingPage() {
               transition={{ duration: 0.5, ease: EASE }}
               className="text-4xl md:text-5xl font-semibold tracking-tight text-center text-gray-900"
             >
-              Trusted by 500+ B2B founders
+              What our users say
             </m.h2>
             <m.div
               variants={staggerGrid}
@@ -695,21 +675,6 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* Press — infinite marquee */}
-        <section className="py-16 border-b border-gray-200 overflow-hidden">
-          <div className="mx-auto max-w-4xl px-6 text-center mb-6">
-            <p className="text-xs font-medium uppercase tracking-wider text-gray-500">As seen in</p>
-          </div>
-          <div className="relative overflow-hidden">
-            <div className="flex animate-marquee gap-16 w-max">
-              {[...PRESS, ...PRESS].map((name, i) => (
-                <span key={i} className="text-lg font-semibold text-gray-300 shrink-0">
-                  {name}
-                </span>
-              ))}
-            </div>
-          </div>
-        </section>
 
         {/* Pricing */}
         <section id="pricing" className="mx-auto max-w-6xl px-6 py-24">
