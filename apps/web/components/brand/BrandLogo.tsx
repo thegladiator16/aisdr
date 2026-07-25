@@ -9,7 +9,9 @@ export type BrandLogoName =
   | "linkedin"
   | "whatsapp"
   | "apollo"
-  | "twilio";
+  | "twilio"
+  | "outlook"
+  | "imap";
 
 type BrandLogoProps = {
   brand: BrandLogoName;
@@ -180,6 +182,29 @@ export function BrandLogo({ brand, className, title }: BrandLogoProps) {
         </svg>
       );
 
+    case "outlook":
+      return (
+        <svg {...common}>
+          <title>{title ?? "Outlook"}</title>
+          <path fill="#0078D4" d="M24 7.387v10.478c0 .574-.467 1.04-1.04 1.04H9.245a1.04 1.04 0 0 1-1.04-1.04V7.387c0-.574.466-1.04 1.04-1.04H22.96c.573 0 1.04.466 1.04 1.04Z" />
+          <path fill="#0078D4" d="m24 7.68-7.879 5.128L8.205 7.68v-.293c0-.574.466-1.04 1.04-1.04H22.96c.573 0 1.04.466 1.04 1.04V7.68Z" />
+          <path fill="#28A8EA" d="M24 7.68 16.121 12.808 8.205 7.68h15.795Z" />
+          <path fill="#0364B8" d="M8.205 7.68v10.185c0 .574.466 1.04 1.04 1.04H22.96c.573 0 1.04-.466 1.04-1.04V7.68L16.121 12.808 8.205 7.68Z" opacity="0.5" />
+          <path fill="#0078D4" d="M14.205 5.347H1.04A1.04 1.04 0 0 0 0 6.387v11.226c0 .574.467 1.04 1.04 1.04h13.165a1.04 1.04 0 0 0 1.04-1.04V6.387a1.04 1.04 0 0 0-1.04-1.04Z" />
+          <path fill="#FFFFFF" d="M7.623 9.205c-2.553 0-4.123 1.794-4.123 4.013 0 2.264 1.607 3.93 4.08 3.93 2.578 0 4.166-1.707 4.166-4.057 0-2.178-1.524-3.886-4.123-3.886Zm-.043 6.356c-1.255 0-2.026-1.076-2.026-2.386 0-1.324.753-2.394 2.026-2.394 1.299 0 2.069 1.106 2.069 2.344 0 1.367-.788 2.436-2.069 2.436Z" />
+        </svg>
+      );
+
+    case "imap":
+      return (
+        <svg {...common}>
+          <title>{title ?? "IMAP"}</title>
+          <rect x="2" y="4" width="20" height="16" rx="3" fill="#6B7280" />
+          <path d="M4 7l8 5 8-5" stroke="#FFFFFF" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M4 17l5-4M20 17l-5-4" stroke="#FFFFFF" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      );
+
     default:
       return null;
   }
@@ -195,6 +220,8 @@ const BRAND_LABEL: Record<BrandLogoName, string> = {
   whatsapp: "WhatsApp",
   apollo: "Apollo.io",
   twilio: "Twilio",
+  outlook: "Outlook",
+  imap: "IMAP",
 };
 
 export default BrandLogo;

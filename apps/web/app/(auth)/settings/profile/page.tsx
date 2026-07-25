@@ -18,32 +18,81 @@ import {
   FileSignature,
 } from "lucide-react";
 import SignatureEditor from "@/components/signature/SignatureEditor";
+import { BrandLogo } from "@/components/brand/BrandLogo";
 
 /* ------------------------------------------------------------------ */
 /*  Connect Mailbox Modal                                              */
 /* ------------------------------------------------------------------ */
-function ConnectMailboxModal({ onClose }: { onClose: () => void }) {
+
+const PROVIDER_DEFAULTS: Record<string, { host: string; port: number; hint: string }> = {
+  gmail: { host: "smtp.gmail.com", port: 587, hint: "Use a 16-digit App Password from myaccount.google.com/apppasswords" },
+  outlook: { host: "smtp.office365.com", port: 587, hint: "Use your Outlook / Microsoft 365 password, or an App Password if 2FA is on" },
+  other: { host: "", port: 587, hint: "Enter your mail server's SMTP host and port" },
+};
+
+function ConnectMailboxModal({ onClose, onConnected }: { onClose: () => void; onConnected?: () => void }) {
+  const [step, setStep] = useState<"pick" | "form">("pick");
   const [provider, setProvider] = useState<string | null>(null);
   const [connecting, setConnecting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [name, setName] = useState("");
+  const [smtpHost, setSmtpHost] = useState("");
+  const [smtpPort, setSmtpPort] = useState(587);
 
   const providers = [
-    { id: "gmail", label: "Gmail", color: "bg-red-500" },
-    { id: "outlook", label: "Outlook", color: "bg-blue-500" },
-    { id: "other", label: "Other IMAP", color: "bg-gray-500" },
+    { id: "gmail", label: "Gmail", brand: "gmail" as const },
+    { id: "outlook", label: "Outlook", brand: "outlook" as const },
+    { id: "other", label: "Other IMAP", brand: "imap" as const },
   ];
 
-  const handleConnect = () => {
+  const handlePickNext = () => {
     if (!provider) return;
-    if (provider === "gmail") {
-      window.location.href = "/api/v1/integrations/gmail";
+    const defaults = PROVIDER_DEFAULTS[provider];
+    if (defaults) {
+      setSmtpHost(defaults.host);
+      setSmtpPort(defaults.port);
+    }
+    setStep("form");
+  };
+
+  const handleConnect = async () => {
+    if (!email.trim() || !password.trim()) {
+      setError("Email and password are required");
       return;
     }
     setConnecting(true);
-    setTimeout(() => {
-      toast.success("IMAP / Outlook support coming soon. Use Gmail for now.");
+    setError(null);
+    try {
+      const res = await fetch("/api/v1/integrations/gmail", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: email.trim(),
+          password: password.trim(),
+          name: name.trim() || undefined,
+          smtp_host: smtpHost.trim() || undefined,
+          smtp_port: smtpPort || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? "Connection failed");
+        return;
+      }
+      toast.success(`Mailbox connected: ${email.trim()}`);
+      onConnected?.();
+      onClose();
+    } catch {
+      setError("Connection failed. Please try again.");
+    } finally {
       setConnecting(false);
-    }, 500);
+    }
   };
+
+  const hint = provider ? PROVIDER_DEFAULTS[provider]?.hint : "";
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-md">
@@ -54,39 +103,129 @@ function ConnectMailboxModal({ onClose }: { onClose: () => void }) {
             <X className="h-5 w-5" />
           </button>
         </div>
-        <div className="p-6 space-y-4">
-          <p className="text-sm text-gray-600">Select your email provider to connect your mailbox.</p>
-          <div className="space-y-2">
-            {providers.map((p) => (
-              <button
-                key={p.id}
-                onClick={() => setProvider(p.id)}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg border text-left transition-colors ${
-                  provider === p.id
-                    ? "border-[#6C47FF] bg-violet-50"
-                    : "border-gray-200 hover:bg-gray-50"
-                }`}
-              >
-                <div className={`h-8 w-8 ${p.color} rounded-full flex items-center justify-center text-white font-bold text-sm`}>
-                  {p.label[0]}
-                </div>
-                <span className="text-sm font-medium text-gray-700">{p.label}</span>
+
+        {step === "pick" ? (
+          <div className="p-6 space-y-4">
+            <p className="text-sm text-gray-600">Select your email provider to connect your mailbox.</p>
+            <div className="space-y-2">
+              {providers.map((p) => (
+                <button
+                  key={p.id}
+                  onClick={() => setProvider(p.id)}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg border text-left transition-colors ${
+                    provider === p.id
+                      ? "border-[#6C47FF] bg-violet-50"
+                      : "border-gray-200 hover:bg-gray-50"
+                  }`}
+                >
+                  <div className="h-8 w-8 flex items-center justify-center">
+                    <BrandLogo brand={p.brand} className="h-8 w-8" />
+                  </div>
+                  <span className="text-sm font-medium text-gray-700">{p.label}</span>
+                </button>
+              ))}
+            </div>
+            <div className="flex justify-end gap-3 pt-2">
+              <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50">
+                Cancel
               </button>
-            ))}
+              <button
+                onClick={handlePickNext}
+                disabled={!provider}
+                className="px-4 py-2 bg-[#6C47FF] text-white text-sm font-medium rounded-lg hover:bg-[#5a3ad4] transition-colors disabled:opacity-50"
+              >
+                Next
+              </button>
+            </div>
           </div>
-          <div className="flex justify-end gap-3 pt-2">
-            <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50">
-              Cancel
-            </button>
+        ) : (
+          <div className="p-6 space-y-4">
             <button
-              onClick={handleConnect}
-              disabled={!provider || connecting}
-              className="px-4 py-2 bg-[#6C47FF] text-white text-sm font-medium rounded-lg hover:bg-[#5a3ad4] transition-colors disabled:opacity-50"
+              onClick={() => { setStep("pick"); setError(null); }}
+              className="text-xs text-gray-500 hover:text-gray-700 flex items-center gap-1"
             >
-              {connecting ? "Connecting..." : "Connect"}
+              &larr; Back to provider selection
             </button>
+
+            {hint && (
+              <p className="text-xs text-gray-500 bg-gray-50 rounded-lg px-3 py-2">{hint}</p>
+            )}
+
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs font-medium text-gray-600">Email address</label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => { setEmail(e.target.value); setError(null); }}
+                  placeholder={provider === "outlook" ? "you@outlook.com" : provider === "gmail" ? "you@gmail.com" : "you@example.com"}
+                  className="mt-1 w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-gray-600">
+                  {provider === "gmail" ? "App Password (16 digits)" : "Password"}
+                </label>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => { setPassword(e.target.value); setError(null); }}
+                  placeholder={provider === "gmail" ? "xxxx xxxx xxxx xxxx" : "Your email password"}
+                  className="mt-1 w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-gray-600">Display name (optional)</label>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Your Name"
+                  className="mt-1 w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+                />
+              </div>
+
+              {provider === "other" && (
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="col-span-2">
+                    <label className="text-xs font-medium text-gray-600">SMTP host</label>
+                    <input
+                      type="text"
+                      value={smtpHost}
+                      onChange={(e) => setSmtpHost(e.target.value)}
+                      placeholder="smtp.example.com"
+                      className="mt-1 w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-gray-600">Port</label>
+                    <input
+                      type="number"
+                      value={smtpPort}
+                      onChange={(e) => setSmtpPort(Number(e.target.value))}
+                      className="mt-1 w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {error && <p className="text-xs text-red-600">{error}</p>}
+            </div>
+
+            <div className="flex justify-end gap-3 pt-2">
+              <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50">
+                Cancel
+              </button>
+              <button
+                onClick={handleConnect}
+                disabled={connecting || !email.trim() || !password.trim()}
+                className="px-4 py-2 bg-[#6C47FF] text-white text-sm font-medium rounded-lg hover:bg-[#5a3ad4] transition-colors disabled:opacity-50"
+              >
+                {connecting ? "Connecting..." : "Connect"}
+              </button>
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );

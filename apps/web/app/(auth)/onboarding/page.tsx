@@ -171,7 +171,7 @@ export default function OnboardingPage() {
 
   const handleConnectGmail = () => {
     if (typeof window !== "undefined") {
-      window.location.href = "/api/v1/integrations/gmail";
+      window.location.href = "/settings/integrations";
     }
   };
 

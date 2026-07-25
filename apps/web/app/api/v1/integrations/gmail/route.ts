@@ -35,13 +35,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (password.replace(/\s/g, "").length !== 16) {
-      return NextResponse.json(
-        { error: "App Password must be exactly 16 characters (spaces removed)" },
-        { status: 400 }
-      );
-    }
-
     const host = body.smtp_host || "smtp.gmail.com";
     const port = body.smtp_port || 587;
     const cleanPassword = password.replace(/\s/g, "");
