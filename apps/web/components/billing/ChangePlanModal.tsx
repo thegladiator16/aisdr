@@ -38,7 +38,7 @@ const PLANS = [
     badge: "bg-violet-600",
     desc: "For B2B founders running outbound",
     monthly: 6999,
-    yearly: 5833,
+    yearly: 5599,
     credits: "3,000 credits/mo",
     replies: "100 leads in database",
     includes: "Everything in Free, plus:",
@@ -59,7 +59,7 @@ const PLANS = [
     badgeLabel: "Most Popular",
     desc: "For teams scaling with full AI automation",
     monthly: 12999,
-    yearly: 10833,
+    yearly: 10399,
     credits: "8,000 credits/mo",
     replies: "500 leads in database",
     includes: "Everything in Starter, plus:",
@@ -81,7 +81,7 @@ const PLANS = [
     badgeLabel: "Best Value vs Artisan",
     desc: "Full power at a fraction of Artisan's $600+/mo",
     monthly: 24999,
-    yearly: 20833,
+    yearly: 19999,
     credits: "20,000 credits/mo",
     replies: "2,000 leads in database",
     includes: "Everything in Growth, plus:",
@@ -348,7 +348,7 @@ export function ChangePlanModal({ onClose }: { onClose: () => void }) {
               >
                 Yearly
                 <span className="bg-violet-100 text-violet-700 text-xs px-2 py-0.5 rounded-full">
-                  Save 10%
+                  Save 20%
                 </span>
               </button>
             </div>

@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import Link from 'next/link'
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
-import { Check, X, Zap, Star, Quote, ChevronDown, ArrowRight } from 'lucide-react'
+import { Check, X, Zap, Quote, ChevronDown, ArrowRight } from 'lucide-react'
 import { useUser } from '@clerk/nextjs'
 import { toast } from 'sonner'
 import { AryaAvatar } from "@/components/arya/AryaAvatar"
@@ -257,8 +257,6 @@ const TESTIMONIALS = [
     initials: 'VI',
   },
 ]
-
-const TRUSTED_LOGOS = ['Zepto', 'CRED', 'Groww', 'PhonePe', 'Razorpay', 'Meesho']
 
 const EASE = [0.16, 1, 0.3, 1] as const
 
@@ -857,15 +855,7 @@ export default function PricingPage() {
             transition={{ duration: 0.5, ease: EASE }}
             className="text-center mb-12"
           >
-            <div className="inline-flex items-center gap-2 text-xs font-medium text-gray-500 mb-4 uppercase tracking-wider">
-              <div className="flex">
-                {[0, 1, 2, 3, 4].map((i) => (
-                  <Star key={i} className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
-                ))}
-              </div>
-              <span className="tabular-nums">4.9 / 5 on G2 &middot; Trusted by 500+ B2B founders</span>
-            </div>
-            <h2 className="text-4xl md:text-5xl font-semibold tracking-tight text-gray-900">Loved by growing outbound teams</h2>
+            <h2 className="text-4xl md:text-5xl font-semibold tracking-tight text-gray-900">What our users say</h2>
           </motion.div>
 
           {/* Testimonials */}
@@ -899,23 +889,6 @@ export default function PricingPage() {
             ))}
           </motion.div>
 
-          {/* Logo strip */}
-          <motion.div
-            initial={reduce ? false : { opacity: 0 }}
-            whileInView={{ opacity: 1 }}
-            viewport={{ once: true, amount: 0.2 }}
-            transition={{ duration: 0.6, delay: 0.2, ease: EASE }}
-            className="flex items-center justify-center flex-wrap gap-x-10 gap-y-4 opacity-60"
-          >
-            {TRUSTED_LOGOS.map((name) => (
-              <span
-                key={name}
-                className="text-sm sm:text-base font-semibold text-gray-500 tracking-wide uppercase"
-              >
-                {name}
-              </span>
-            ))}
-          </motion.div>
         </div>
       </section>
 
